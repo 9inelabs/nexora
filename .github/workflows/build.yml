@@ -73,15 +73,25 @@ jobs:
           Copy-Item docs/TESTING-PHASES-3-8.md out/TESTING-PHASES-3-8.md
           Copy-Item docs/OPERATOR-GUIDE.md out/OPERATOR-GUIDE.md
           # The files the Live Output PC offers to the other PCs (Settings > Updates).
-          New-Item -ItemType Directory -Force out/NEXORA-Update | Out-Null
-          Copy-Item Releases/releases.win.json out/NEXORA-Update/
-          Copy-Item Releases/*-full.nupkg out/NEXORA-Update/
+          New-Item -ItemType Directory -Force update/NEXORA-Update | Out-Null
+          Copy-Item Releases/releases.win.json update/NEXORA-Update/
+          Copy-Item Releases/*-full.nupkg update/NEXORA-Update/
+          Get-ChildItem out, update -Recurse | Select-Object FullName, Length
 
       - name: Upload the installer
         uses: actions/upload-artifact@v4
         with:
           name: NEXORA-Setup-${{ steps.version.outputs.value }}
-          path: out/*
+          path: |
+            out/NEXORA-Setup.exe
+            out/*.md
+          retention-days: 30
+
+      - name: Upload the LAN update files
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXORA-Update-${{ steps.version.outputs.value }}
+          path: update/*
           retention-days: 30
 
       - name: Publish a test release
