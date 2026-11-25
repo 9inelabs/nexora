@@ -16,6 +16,19 @@ public sealed class LiveState
 
     public long Version { get; private set; }
 
+    /// <summary>Service mode, rehearsal mode and the booth message.</summary>
+    public LiveModes Modes { get; private set; } = new();
+
+    public void SetModes(LiveModes modes)
+    {
+        if (modes == Modes) return;
+        Modes = modes;
+        Touch();
+    }
+
+    /// <summary>The pc id used for sources the Live Output operator owns (media, a direct camera).</summary>
+    public const string LiveOutputPc = "live-output";
+
     public IReadOnlyList<ScreenInfo> Screens => _screens;
 
     public sealed class SourceState
@@ -200,7 +213,7 @@ public sealed class LiveState
     {
         var f = _frames.GetValueOrDefault(screenId) ?? new FrameState();
         return new ScreenFrame(screenId, f.Master,
-            f.Items.OrderBy(i => i.Layer).ThenBy(i => i.Sequence).ToList());
+            f.Items.OrderBy(i => i.Layer).ThenBy(i => i.Sequence).ToList(), Modes.Booth, Modes.Rehearsal);
     }
 
     public LiveSnapshot Snapshot(IReadOnlyList<ClientInfo> clients) => new(
@@ -212,7 +225,8 @@ public sealed class LiveState
             .ToList(),
         _screens.Select(s => Frame(s.Id)).ToList(),
         clients,
-        Version);
+        Version,
+        Modes);
 
     // ---------- Persistence ----------
 
@@ -221,13 +235,14 @@ public sealed class LiveState
 
     public sealed record SavedFrame(string ScreenId, MasterMode Master, List<LayerItem> Items);
 
-    public sealed record Saved(List<SavedSource> Sources, List<SavedFrame> Frames, long Sequence);
+    public sealed record Saved(List<SavedSource> Sources, List<SavedFrame> Frames, long Sequence, LiveModes? Modes = null);
 
     public Saved Export() => new(
         _sources.Values.Select(s => new SavedSource(s.Key, s.PcId, s.PcName, s.Section, s.UserName, s.Current,
             new Dictionary<string, RouteState>(s.Routes))).ToList(),
         _frames.Select(kv => new SavedFrame(kv.Key, kv.Value.Master, kv.Value.Items.ToList())).ToList(),
-        _sequence);
+        _sequence,
+        Modes);
 
     /// <summary>Restores routing and on-screen content after a restart. Every source starts offline.</summary>
     public void Import(Saved saved)
@@ -248,7 +263,51 @@ public sealed class LiveState
             frame.Items.AddRange(f.Items);
         }
         _sequence = saved.Sequence;
+        // Rehearsal mode never survives a restart: a fresh start always reaches the screens.
+        Modes = (saved.Modes ?? new LiveModes()) with { Rehearsal = false };
         Touch();
+    }
+
+    // ---------- Time ----------
+
+    /// <summary>Something the clock asks the server to do (a countdown reached zero).</summary>
+    public sealed record ClockAction(string SourceKey, ZeroAction Action);
+
+    /// <summary>
+    /// Runs every second on the Live Output PC: lower thirds hide when their time is up, finished videos
+    /// leave the screen (so it returns to what was there before), and countdowns that reach zero report
+    /// their action once.
+    /// </summary>
+    public IReadOnlyList<ClockAction> Tick(DateTime utcNow)
+    {
+        var actions = new List<ClockAction>();
+        foreach (var src in _sources.Values.ToList())
+        {
+            var c = src.Current;
+            if (c is null) continue;
+            if (c.LowerThird is { } lt && lt.Expired(utcNow)) SetContent(src.Key, null);
+            else if (c.Media is { } m && m.Finished(utcNow)) SetContent(src.Key, null);
+            else if (c.Countdown is { Running: true, AtZero: not ZeroAction.None } cd && cd.Remaining(utcNow) <= 0 && !_firedZero.Contains(src.Key + cd.EndsUtc))
+            {
+                _firedZero.Add(src.Key + cd.EndsUtc);
+                actions.Add(new ClockAction(src.Key, cd.AtZero));
+            }
+        }
+        // Items taken as snapshots (not following a source) expire the same way.
+        foreach (var f in _frames.Values)
+        {
+            var removed = f.Items.RemoveAll(i => !i.Follows && (i.Content.LowerThird?.Expired(utcNow) == true || i.Content.Media?.Finished(utcNow) == true));
+            if (removed > 0) Touch();
+        }
+        return actions;
+    }
+
+    private readonly HashSet<string> _firedZero = [];
+
+    /// <summary>Removes one source's content from every screen (pins stay), for example the announcement loop at a countdown's zero.</summary>
+    public void ClearSourceEverywhere(SectionKind section)
+    {
+        foreach (var src in _sources.Values.Where(s => s.Section == section)) SetContent(src.Key, null);
     }
 
     // ---------- Internals ----------

@@ -28,6 +28,25 @@ namespace Nexora.Core.Protocol;
 [JsonDerivedType(typeof(SaveScriptureSettings), "saveScripture")]
 [JsonDerivedType(typeof(RemoveBible), "removeBible")]
 [JsonDerivedType(typeof(Ping), "ping")]
+[JsonDerivedType(typeof(SaveSongs), "saveSongs")]
+[JsonDerivedType(typeof(DeleteSongs), "deleteSongs")]
+[JsonDerivedType(typeof(SaveSongList), "saveSongList")]
+[JsonDerivedType(typeof(LogSongUse), "logSongUse")]
+[JsonDerivedType(typeof(SaveTheme), "saveTheme2")]
+[JsonDerivedType(typeof(DeleteTheme), "deleteTheme2")]
+[JsonDerivedType(typeof(SaveLyricsSettings), "saveLyrics")]
+[JsonDerivedType(typeof(SaveAnnouncements), "saveAnnouncements")]
+[JsonDerivedType(typeof(SavePeople), "savePeople")]
+[JsonDerivedType(typeof(SaveCountdownPresets), "saveCountdowns")]
+[JsonDerivedType(typeof(SaveStage), "saveStage")]
+[JsonDerivedType(typeof(SetModes), "setModes")]
+[JsonDerivedType(typeof(MediaCommand), "media")]
+[JsonDerivedType(typeof(CameraCommand), "camera")]
+[JsonDerivedType(typeof(EngineCommand), "engineCommand")]
+[JsonDerivedType(typeof(EngineStatusMessage), "engineStatus")]
+[JsonDerivedType(typeof(SaveBroadcastSettings), "saveBroadcast")]
+[JsonDerivedType(typeof(EngineSettings), "engineSettings")]
+[JsonDerivedType(typeof(SongsChanged), "songsChanged")]
 // server -> client
 [JsonDerivedType(typeof(Welcome), "welcome")]
 [JsonDerivedType(typeof(Rejected), "rejected")]
@@ -85,6 +104,62 @@ public sealed record RemoveBible(string Abbrev) : Message;
 
 public sealed record Ping(long SentTicks) : Message;
 
+// ---------- Phase 3 onwards ----------
+
+/// <summary>Create or update songs (one from the editor, or many from an import).</summary>
+public sealed record SaveSongs(IReadOnlyList<Song> Songs) : Message;
+
+public sealed record DeleteSongs(IReadOnlyList<string> Ids) : Message;
+
+/// <summary>The song list for a day, shared with every Lyrics terminal.</summary>
+public sealed record SaveSongList(SongList List) : Message;
+
+/// <summary>A song went on screen: logged once per song per day for the CCLI report.</summary>
+public sealed record LogSongUse(string SongId) : Message;
+
+public enum ThemeKind { Scripture, Lyrics, Announcements }
+
+public sealed record SaveTheme(ThemeKind Kind, ScriptureTheme Theme) : Message;
+
+public sealed record DeleteTheme(ThemeKind Kind, string ThemeId) : Message;
+
+public sealed record SaveLyricsSettings(LyricsSettings Settings) : Message;
+
+public sealed record SaveAnnouncements(IReadOnlyList<AnnouncementSlide> Slides) : Message;
+
+/// <summary>The people list for lower thirds, and who is ministering today.</summary>
+public sealed record SavePeople(IReadOnlyList<Person> People, IReadOnlyList<string> Today, LowerThirdDefaults Defaults) : Message;
+
+public sealed record SaveCountdownPresets(IReadOnlyList<CountdownPreset> Presets) : Message;
+
+/// <summary>The Stage Monitor zones and the pastor's points for the day.</summary>
+public sealed record SaveStage(StageLayout Layout, IReadOnlyList<string> SermonPoints) : Message;
+
+/// <summary>Service mode, rehearsal mode and the booth message (Live Output operator).</summary>
+public sealed record SetModes(LiveModes Modes) : Message;
+
+/// <summary>The Live Output operator plays, pauses or stops a video or picture. Null stops it.</summary>
+public sealed record MediaCommand(MediaPlay? Play) : Message;
+
+/// <summary>The Live Output operator puts a camera straight on the camera layer. Null clears it.</summary>
+public sealed record CameraCommand(CameraFeed? Feed) : Message;
+
+public enum EngineAction { StartRecording, StopRecording, StartStream, StopStream }
+
+/// <summary>Live Output control screen → output engine, through the server.</summary>
+public sealed record EngineCommand(EngineAction Action, string? ServiceName = null) : Message;
+
+/// <summary>Output engine → server: recording, streaming and health.</summary>
+public sealed record EngineStatusMessage(EngineStatus Status) : Message;
+
+public sealed record SaveBroadcastSettings(BroadcastSettings Settings) : Message;
+
+/// <summary>Server → output engine only: where to record and where to stream.</summary>
+public sealed record EngineSettings(BroadcastSettings Settings, StageLayout Stage) : Message;
+
+/// <summary>Server → every PC: songs were saved or removed. Version lets a PC notice it missed one.</summary>
+public sealed record SongsChanged(IReadOnlyList<Song> Saved, IReadOnlyList<string> Deleted, long Version) : Message;
+
 // ---------- server -> client ----------
 
 public sealed record Welcome(string ServerId, string ServerName, string ServerVersion, string ConnectionId) : Message;
@@ -110,7 +185,22 @@ public sealed record LibraryInfo(
     IReadOnlyList<ScriptureTheme> Themes,
     ScriptureSettings Scripture,
     IReadOnlyList<LibraryFile> Bibles,
-    IReadOnlyList<LibraryFile> Media) : Message;
+    IReadOnlyList<LibraryFile> Media,
+    IReadOnlyList<ScriptureTheme>? LyricThemes = null,
+    LyricsSettings? Lyrics = null,
+    long SongsVersion = 0,
+    SongList? SongList = null,
+    IReadOnlyList<ScriptureTheme>? AnnouncementThemes = null,
+    IReadOnlyList<AnnouncementSlide>? Announcements = null,
+    IReadOnlyList<Person>? People = null,
+    IReadOnlyList<string>? TodayPeople = null,
+    LowerThirdDefaults? LowerThirds = null,
+    IReadOnlyList<CountdownPreset>? CountdownPresets = null,
+    StageLayout? Stage = null,
+    IReadOnlyList<string>? SermonPoints = null,
+    /// <summary>The NEXORA version the Live Output PC offers to every PC.</summary>
+    string? OfferedVersion = null,
+    bool StreamingConfigured = false) : Message;
 
 public static class Wire
 {

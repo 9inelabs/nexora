@@ -29,13 +29,19 @@ public sealed class LiveServerOptions
     public string? BiblesDir { get; init; }
     /// <summary>Master copies of uploaded media (backgrounds), served to every PC.</summary>
     public string? MediaDir { get; init; }
+    /// <summary>Where the nightly backups go (the last 30 are kept). Null turns them off.</summary>
+    public string? BackupsDir { get; init; }
+    /// <summary>NEXORA update packages the Live Output PC offers to every PC on the network.</summary>
+    public string? UpdatesDir { get; init; }
+    /// <summary>The Live Output PC's own settings file, included in backups so a terminal can take over.</summary>
+    public string? ConfigFile { get; init; }
 }
 
 /// <summary>
 /// The server built into the Live Output PC. Terminals connect over the church LAN;
 /// commands are applied one at a time, in the order they arrive.
 /// </summary>
-public sealed class LiveServer : IAsyncDisposable
+public sealed partial class LiveServer : IAsyncDisposable
 {
     private readonly LibraryStore _store;
     private readonly LiveServerOptions _options;
@@ -83,7 +89,7 @@ public sealed class LiveServer : IAsyncDisposable
 
     public LiveSnapshot Snapshot()
     {
-        lock (_gate) return _live.Snapshot(Clients());
+        lock (_gate) return Snap();
     }
 
     public async Task StartAsync()
@@ -120,6 +126,7 @@ public sealed class LiveServer : IAsyncDisposable
                 _options.DiscoveryPort);
         }
         _log.Write("Live Output server started on port " + Port);
+        StartClock();
     }
 
     // ---------- HTTP / WebSocket ----------
@@ -142,6 +149,8 @@ public sealed class LiveServer : IAsyncDisposable
             }
             return;
         }
+
+        if (await HandleMoreHttpAsync(ctx)) return;
 
         if (ctx.Request.Path.StartsWithSegments(Wire.LibraryPath, out var rest))
         {
@@ -212,6 +221,12 @@ public sealed class LiveServer : IAsyncDisposable
             await ctx.Response.WriteAsync("Your role cannot add files to the library.");
             return;
         }
+        if (kind == "bibles" && _live.Modes.ServiceMode)
+        {
+            ctx.Response.StatusCode = 409;
+            await ctx.Response.WriteAsync("Service mode is on. Add translations after the service.");
+            return;
+        }
         if (ctx.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
             limit.MaxRequestBodySize = 200L * 1024 * 1024;
 
@@ -273,7 +288,11 @@ public sealed class LiveServer : IAsyncDisposable
         if (_options.MediaDir is { } md && Directory.Exists(md))
             foreach (var f in Directory.GetFiles(md).Where(f => !Path.GetFileName(f).StartsWith('.')))
                 media.Add(new LibraryFile(Path.GetFileName(f), Path.GetFileNameWithoutExtension(f), new FileInfo(f).Length, Path.GetFileName(f)));
-        var lib = new LibraryInfo(_store.ScriptureThemes, _store.ScriptureSettings, bibles, media);
+        var lib = new LibraryInfo(_store.ScriptureThemes, _store.ScriptureSettings, bibles, media,
+            _store.Themes(ThemeKind.Lyrics), _store.LyricsSettings, _store.SongsVersion, _store.SongList,
+            _store.Themes(ThemeKind.Announcements), _store.Announcements, _store.People, _store.TodayPeople,
+            _store.LowerThirdDefaults, _store.CountdownPresets, _store.StageLayout, _store.SermonPoints,
+            OfferedVersion(), !string.IsNullOrWhiteSpace(_store.Broadcast.StreamUrl));
         _libraryCache = lib;
         return lib;
     }
@@ -376,6 +395,7 @@ public sealed class LiveServer : IAsyncDisposable
             case DeleteScriptureTheme dt: OnDeleteTheme(s, dt); break;
             case SaveScriptureSettings ssx: OnSaveScriptureSettings(s, ssx); break;
             case RemoveBible rb: OnRemoveBible(s, rb); break;
+            default: HandleMore(s, msg); break;
         }
     }
 
@@ -394,7 +414,8 @@ public sealed class LiveServer : IAsyncDisposable
         s.Send(Library());
         if (h.Kind == ClientKind.OutputEngine)
         {
-            lock (_gate) s.Send(new SnapshotMessage(_live.Snapshot(Clients())));
+            lock (_gate) s.Send(new SnapshotMessage(Snap()));
+            s.Send(new EngineSettings(_store.Broadcast, _store.StageLayout));
         }
         _log.Write($"{h.Kind} {h.PcName} connected from {s.Address}");
         BroadcastSnapshot();
@@ -500,6 +521,8 @@ public sealed class LiveServer : IAsyncDisposable
             _live.SetContent(Sections.SourceKey(s.Hello!.PcId, c.Section), Sanitize(c.Content));
             Persist();
         }
+        if (c.Content.Lyrics is { SongId.Length: > 0 } ly && _store.Song(ly.SongId) is { } song && _store.LogSongUse(song, DateTime.Now.ToString("yyyy-MM-dd")))
+            _log.Write($"Song used: {song.Title} (CCLI {song.Ccli})");
         BroadcastSnapshot();
     }
 
@@ -526,6 +549,12 @@ public sealed class LiveServer : IAsyncDisposable
             var src = _live.Source(r.SourceKey);
             var screen = _live.Screen(r.ScreenId);
             if (src is null || (screen is null && r.Action != RouteAction.Forget)) return;
+            if (r.Action is RouteAction.Pin or RouteAction.Take && _sourceOwner.TryGetValue(r.SourceKey, out var ownerId)
+                && _sessions.TryGetValue(ownerId, out var owner) && Outdated(owner))
+            {
+                s.Send(new Notice($"{owner.Hello!.PcName} runs an older NEXORA ({owner.Hello.AppVersion}). Update it from Settings → This PC before it goes live.", true));
+                return;
+            }
             switch (r.Action)
             {
                 case RouteAction.Pin: _live.Pin(r.SourceKey, r.ScreenId); break;
@@ -565,6 +594,7 @@ public sealed class LiveServer : IAsyncDisposable
     private void OnSaveUser(Session s, SaveUser su)
     {
         if (!s.User!.IsAdmin) { s.Send(new Notice("Only an admin can change users.", true)); return; }
+        if (Blocked(s)) return;
         var u = su.User;
         if (string.IsNullOrWhiteSpace(u.Name)) { s.Send(new Notice("Please type a name.", true)); return; }
         if (su.Pin is not null && !PinHasher.IsValidPin(su.Pin)) { s.Send(new Notice("A PIN is exactly 4 digits.", true)); return; }
@@ -584,7 +614,7 @@ public sealed class LiveServer : IAsyncDisposable
 
     private void OnDeleteUser(Session s, DeleteUser d)
     {
-        if (!s.User!.IsAdmin) return;
+        if (!s.User!.IsAdmin || Blocked(s)) return;
         var target = _store.User(d.UserId);
         if (target is null) return;
         if (target.Id == s.User.Id) { s.Send(new Notice("You cannot remove yourself while signed in.", true)); return; }
@@ -598,7 +628,7 @@ public sealed class LiveServer : IAsyncDisposable
 
     private void OnSaveBranding(Session s, SaveBranding b)
     {
-        if (!s.User!.IsAdmin) return;
+        if (!s.User!.IsAdmin || Blocked(s)) return;
         if (b.Branding.LogoPngBase64 is { Length: > 3_000_000 })
         {
             s.Send(new Notice("That logo file is too large. Please use one under 2 MB.", true));
@@ -611,7 +641,7 @@ public sealed class LiveServer : IAsyncDisposable
 
     private void OnSaveScreens(Session s, SaveScreens ss)
     {
-        if (!s.User!.IsAdmin) return;
+        if (!s.User!.IsAdmin || Blocked(s)) return;
         var screens = ss.Screens.Where(x => !string.IsNullOrWhiteSpace(x.Id) && !string.IsNullOrWhiteSpace(x.Name))
             .GroupBy(x => x.Id).Select(g => g.First()).ToList();
         if (screens.Count == 0) { s.Send(new Notice("Keep at least one screen.", true)); return; }
@@ -666,7 +696,7 @@ public sealed class LiveServer : IAsyncDisposable
 
     private void OnRemoveBible(Session s, RemoveBible m)
     {
-        if (!s.User!.IsAdmin || _options.BiblesDir is not { } dir) return;
+        if (!s.User!.IsAdmin || _options.BiblesDir is not { } dir || Blocked(s)) return;
         var path = Path.Combine(dir, BibleImport.CleanAbbrev(m.Abbrev) + BibleFile.Extension);
         try
         {
@@ -726,7 +756,7 @@ public sealed class LiveServer : IAsyncDisposable
     private void BroadcastSnapshot()
     {
         LiveSnapshot snap;
-        lock (_gate) snap = _live.Snapshot(Clients());
+        lock (_gate) snap = Snap();
         var json = Wire.Serialize(new SnapshotMessage(snap));
         foreach (var s in _sessions.Values)
             if (s.User is not null || s.Hello?.Kind == ClientKind.OutputEngine)
@@ -740,14 +770,38 @@ public sealed class LiveServer : IAsyncDisposable
         catch (Exception ex) { _log.Write("Could not save live state: " + ex.Message); }
     }
 
-    private static SlideContent Sanitize(SlideContent c) => new(
-        Trim(c.Text, 6000) ?? "", Trim(c.Caption, 200), Trim(c.Label, 120),
-        c.Scripture is { } sc && sc.Columns.Count <= 3 && sc.Columns.All(col => col.Verses.Count <= 200) ? sc : null);
+    private static SlideContent Sanitize(SlideContent c)
+    {
+        var now = DateTime.UtcNow;
+        var countdown = c.Countdown;
+        if (countdown is { Running: true })
+        {
+            // The timer runs on this PC's clock from now on.
+            var ends = countdown.Mode == CountdownMode.ToTime && CountdownShow.NextLocal(countdown.ToTime, DateTime.Now) is { } local
+                ? local.ToUniversalTime()
+                : now.AddSeconds(countdown.RemainingSeconds);
+            countdown = countdown with { EndsUtc = ends };
+        }
+        var lyrics = c.Lyrics is { } ly && ly.Lines.Count <= 40 ? ly with { Lines = ly.Lines.Select(l => Trim(l, 400)!).ToList() } : null;
+        return new SlideContent(
+            Trim(c.Text, 6000) ?? "", Trim(c.Caption, 200), Trim(c.Label, 120),
+            c.Scripture is { } sc && sc.Columns.Count <= 3 && sc.Columns.All(col => col.Verses.Count <= 200) ? sc : null,
+            lyrics,
+            Trim(c.Next, 1000),
+            c.Logo,
+            c.Announcement is { } an && an.Slides.Count <= 200 ? an with { StartUtc = now } : null,
+            c.LowerThird is { } lt ? lt with { StartUtc = now, Name = Trim(lt.Name, 200)!, Title = Trim(lt.Title, 300)! } : null,
+            countdown,
+            c.Points is { } pts && pts.Points.Count <= 100 ? pts : null,
+            null, // media comes only from the Live Output operator
+            c.Camera);
+    }
 
     private static string? Trim(string? s, int max) => s is null ? null : s.Length <= max ? s : s[..max];
 
     public async ValueTask DisposeAsync()
     {
+        _clock?.Dispose();
         if (_announcer is not null) await _announcer.DisposeAsync();
         foreach (var s in _sessions.Values)
         {
