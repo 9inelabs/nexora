@@ -32,6 +32,9 @@ public sealed class AppServices
     /// <summary>UI-thread view of the link, the live picture and the signed-in user.</summary>
     public LiveModel Live { get; } = new();
 
+    /// <summary>This PC's copy of the song library, kept in step with the Live Output PC.</summary>
+    public Nexora.Core.Songs.SongCache Songs { get; } = new(Path.Combine(AppPaths.LocalDir, "songs.json"));
+
     /// <summary>Every Bible translation on this PC.</summary>
     public BibleLibrary Bibles { get; } = new(Path.Combine(AppContext.BaseDirectory, "Bibles"), AppPaths.BiblesDir);
 
@@ -67,7 +70,11 @@ public sealed class AppServices
                 LogsDir = AppPaths.LogsDir,
                 BiblesDir = AppPaths.LibraryBiblesDir,
                 MediaDir = AppPaths.LibraryMediaDir,
+                BackupsDir = AppPaths.BackupsDir,
+                UpdatesDir = AppPaths.UpdatesDir,
+                ConfigFile = AppPaths.ConfigFile,
             });
+            Server.RestoreRequested += path => Dispatcher.UIThread.Post(() => _ = RestoreAsync(path));
             await Server.StartAsync();
             Output ??= new OutputEngineHost();
             Output.Start();
@@ -75,6 +82,7 @@ public sealed class AppServices
 
         Client = new NexoraClient(ResolveUrl, () => new Hello(Config.PairingCode, Config.PcId, Config.PcName, ClientKind.Terminal, Version));
         Live.Attach(Client);
+        Songs.Attach(Client);
         _ = LoadBiblesAsync();
         _sync = new LibrarySync(Client, Bibles, LoadBiblesAsync);
         Client.Start();
@@ -97,6 +105,25 @@ public sealed class AppServices
             Output.Dispose();
             Output = null;
         }
+    }
+
+    /// <summary>An admin uploaded a backup: stop the server, put the backup in place, start again.</summary>
+    public async Task RestoreAsync(string zipPath)
+    {
+        Live.RaiseToast("Restoring the backup. NEXORA restarts in a moment…");
+        await StopAsync(stopOutput: false);
+        try
+        {
+            Backups.Restore(zipPath);
+            ReloadConfig();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Write("Restore failed: " + ex.Message);
+            Live.RaiseToast("The backup could not be restored: " + ex.Message, true);
+        }
+        await StartAsync();
+        Output?.Restart();
     }
 
     private Uri? ResolveUrl()
@@ -225,10 +252,29 @@ public sealed partial class LiveModel : ObservableObject
 
     public IReadOnlyList<ScriptureTheme> ScriptureThemes => Library?.Themes is { Count: > 0 } t ? t : ScriptureTheme.BuiltIn;
     public ScriptureSettings ScriptureSettings => Library?.Scripture ?? ScriptureSettings.Default;
+    public IReadOnlyList<ScriptureTheme> LyricThemes => Library?.LyricThemes is { Count: > 0 } t ? t : SectionThemes.Lyrics;
+    public LyricsSettings LyricsSettings => Library?.Lyrics ?? LyricsSettings.Default;
+    public IReadOnlyList<ScriptureTheme> AnnouncementThemes => Library?.AnnouncementThemes is { Count: > 0 } t ? t : SectionThemes.Announcements;
+    public IReadOnlyList<AnnouncementSlide> Announcements => Library?.Announcements ?? [];
+    public IReadOnlyList<Person> People => Library?.People ?? [];
+    public IReadOnlyList<string> TodayPeople => Library?.TodayPeople ?? [];
+    public LowerThirdDefaults LowerThirdDefaults => Library?.LowerThirds ?? LowerThirdDefaults.Default;
+    public IReadOnlyList<CountdownPreset> CountdownPresets => Library?.CountdownPresets ?? [];
+    public StageLayout StageLayout => Library?.Stage ?? StageLayout.Default;
+    public IReadOnlyList<string> SermonPoints => Library?.SermonPoints ?? [];
+    public SongList SongList => Library?.SongList is { } l && l.Date == SongList.Today ? l : new SongList(SongList.Today, []);
+    public LiveModes Modes => Snapshot.CurrentModes;
+    public EngineStatus Engine => Snapshot.Engine ?? new EngineStatus();
 
     partial void OnLibraryChanged(LibraryInfo? value)
     {
         OnPropertyChanged(nameof(ScriptureThemes));
         OnPropertyChanged(nameof(ScriptureSettings));
+    }
+
+    partial void OnSnapshotChanged(LiveSnapshot value)
+    {
+        OnPropertyChanged(nameof(Modes));
+        OnPropertyChanged(nameof(Engine));
     }
 }

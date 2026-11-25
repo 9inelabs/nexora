@@ -42,4 +42,15 @@ public static class AppPaths
     public static string LibraryMediaDir => Ensure(Path.Combine(Root, "library", "media"));
     /// <summary>Things only this PC needs, such as today's Scripture list.</summary>
     public static string LocalDir => Ensure(Path.Combine(Root, "local"));
+    /// <summary>Videos and pictures in the Live Output PC's media list, copied here so a network drop cannot stop them.</summary>
+    public static string VideosDir => Ensure(Path.Combine(Root, "videos"));
+    /// <summary>Automatic and manual backups.</summary>
+    public static string BackupsDir => Ensure(Path.Combine(Root, "backups"));
+    /// <summary>Update packages the Live Output PC offers to the other PCs.</summary>
+    public static string UpdatesDir => Ensure(Path.Combine(Root, "updates"));
+    /// <summary>A recent copy of the Live Output PC's library, so this PC can take over if that PC fails.</summary>
+    public static string StandbyDir => Ensure(Path.Combine(Root, "standby"));
+    /// <summary>Where recordings go when no folder is chosen.</summary>
+    public static string DefaultRecordingsDir =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos) is { Length: > 0 } v ? v : Root, "NEXORA Recordings");
 }
