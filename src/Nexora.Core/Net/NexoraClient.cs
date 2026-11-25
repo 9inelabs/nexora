@@ -61,6 +61,10 @@ public sealed class NexoraClient : IAsyncDisposable
     public event Action? UserChanged;
     public event Action<Notice>? NoticeReceived;
     public event Action? LatencyChanged;
+    public event Action? LibraryChanged;
+
+    /// <summary>Shared Scripture themes and the list of library files on the Live Output PC.</summary>
+    public LibraryInfo? Library { get; private set; }
 
     public void Start() => _loop ??= Task.Run(RunAsync);
 
@@ -123,6 +127,93 @@ public sealed class NexoraClient : IAsyncDisposable
     public void Reconnect()
     {
         try { _ws?.Abort(); } catch { }
+    }
+
+    // ---------- Library files over HTTP ----------
+
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(5) };
+
+    private Uri? HttpBase()
+    {
+        var u = CurrentUrl;
+        if (u is null) return null;
+        return new UriBuilder(u) { Scheme = "http", Path = Wire.LibraryPath + "/" }.Uri;
+    }
+
+    /// <summary>The Live Output PC's web address (http://host:port/), or null while not connected.</summary>
+    public Uri? ServerHttpRoot => CurrentUrl is { } u ? new UriBuilder(u) { Scheme = "http", Path = "/" }.Uri : null;
+
+    /// <summary>Reads JSON from the Live Output PC (for example "library/songs").</summary>
+    public async Task<T?> GetJsonAsync<T>(string relative, CancellationToken ct = default)
+    {
+        if (ServerHttpRoot is not { } root) return default;
+        using var req = new HttpRequestMessage(HttpMethod.Get, new Uri(root, relative));
+        req.Headers.Add(Wire.CodeHeader, _hello().PairingCode);
+        if (Token is not null) req.Headers.Add(Wire.TokenHeader, Token);
+        using var res = await Http.SendAsync(req, ct);
+        if (!res.IsSuccessStatusCode) return default;
+        await using var stream = await res.Content.ReadAsStreamAsync(ct);
+        return await System.Text.Json.JsonSerializer.DeserializeAsync<T>(stream, Wire.Options, ct);
+    }
+
+    /// <summary>Downloads any path from the Live Output PC (a backup, an update) into a file.</summary>
+    public async Task<bool> DownloadPathAsync(string relative, string targetPath, CancellationToken ct = default)
+    {
+        if (ServerHttpRoot is not { } root) return false;
+        using var req = new HttpRequestMessage(HttpMethod.Get, new Uri(root, relative));
+        req.Headers.Add(Wire.CodeHeader, _hello().PairingCode);
+        if (Token is not null) req.Headers.Add(Wire.TokenHeader, Token);
+        using var res = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        if (!res.IsSuccessStatusCode) return false;
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(targetPath))!);
+        var tmp = targetPath + ".part";
+        await using (var fs = File.Create(tmp)) await res.Content.CopyToAsync(fs, ct);
+        File.Move(tmp, targetPath, overwrite: true);
+        return true;
+    }
+
+    /// <summary>Sends a file to a path on the Live Output PC (for example "restore") with the sign-in token.</summary>
+    public async Task<string> PostFileAsync(string relative, string sourcePath, CancellationToken ct = default)
+    {
+        if (ServerHttpRoot is not { } root || Token is null) throw new InvalidOperationException("Not connected to the Live Output PC.");
+        await using var fs = File.OpenRead(sourcePath);
+        using var req = new HttpRequestMessage(HttpMethod.Post, new Uri(root, relative)) { Content = new StreamContent(fs) };
+        req.Headers.Add(Wire.TokenHeader, Token);
+        using var res = await Http.SendAsync(req, ct);
+        var body = await res.Content.ReadAsStringAsync(ct);
+        if (!res.IsSuccessStatusCode) throw new InvalidOperationException(body.Length > 0 ? body : $"The Live Output PC refused it ({(int)res.StatusCode}).");
+        return body;
+    }
+
+    /// <summary>Fetches a library file ("bibles" or "media") from the Live Output PC into a local file.</summary>
+    public async Task<bool> DownloadAsync(string kind, string name, string targetPath, CancellationToken ct = default)
+    {
+        if (HttpBase() is not { } b) return false;
+        using var req = new HttpRequestMessage(HttpMethod.Get, new Uri(b, $"{kind}/{Uri.EscapeDataString(name)}"));
+        req.Headers.Add(Wire.CodeHeader, _hello().PairingCode);
+        using var res = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        if (!res.IsSuccessStatusCode) return false;
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(targetPath))!);
+        var tmp = targetPath + ".part";
+        await using (var fs = File.Create(tmp)) await res.Content.CopyToAsync(fs, ct);
+        File.Move(tmp, targetPath, overwrite: true);
+        return true;
+    }
+
+    /// <summary>Sends a file to the Live Output PC's library. Returns the name it is stored under.</summary>
+    public async Task<string> UploadAsync(string kind, string name, string sourcePath, CancellationToken ct = default)
+    {
+        if (HttpBase() is not { } b || Token is null) throw new InvalidOperationException("Not connected to the Live Output PC.");
+        await using var fs = File.OpenRead(sourcePath);
+        using var req = new HttpRequestMessage(HttpMethod.Post, new Uri(b, $"{kind}/{Uri.EscapeDataString(name)}"))
+        {
+            Content = new StreamContent(fs),
+        };
+        req.Headers.Add(Wire.TokenHeader, Token);
+        using var res = await Http.SendAsync(req, ct);
+        var body = await res.Content.ReadAsStringAsync(ct);
+        if (!res.IsSuccessStatusCode) throw new InvalidOperationException(body.Length > 0 ? body : $"The Live Output PC refused the file ({(int)res.StatusCode}).");
+        return body.Trim();
     }
 
     // ---------- Connection loop ----------
@@ -224,7 +315,16 @@ public sealed class NexoraClient : IAsyncDisposable
         }
     }
 
+    /// <summary>Every message from the Live Output PC, after the client has handled it (on a background thread).</summary>
+    public event Action<Message>? MessageReceived;
+
     private async Task HandleAsync(Message msg)
+    {
+        await HandleCoreAsync(msg);
+        try { MessageReceived?.Invoke(msg); } catch { }
+    }
+
+    private async Task HandleCoreAsync(Message msg)
     {
         switch (msg)
         {
@@ -275,6 +375,11 @@ public sealed class NexoraClient : IAsyncDisposable
 
             case Notice n:
                 NoticeReceived?.Invoke(n);
+                break;
+
+            case LibraryInfo li:
+                Library = li;
+                LibraryChanged?.Invoke();
                 break;
 
             case Pong p:

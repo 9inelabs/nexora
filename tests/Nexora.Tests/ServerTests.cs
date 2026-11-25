@@ -34,6 +34,8 @@ public sealed class ServerFixture : IAsyncDisposable
     {
         Port = Port, Announce = false, PairingCode = () => Code, ServerName = () => "TEST-LIVE", Version = "test",
         LogsDir = Path.Combine(Dir, "logs"),
+        BiblesDir = Path.Combine(Dir, "library", "bibles"),
+        MediaDir = Path.Combine(Dir, "library", "media"),
     });
 
     public async Task RestartAsync()
@@ -407,7 +409,7 @@ public class SmallTests
         using (var s = new LibraryStore(path))
         {
             s.Branding = Branding.Default with { ChurchName = "Grace Harvest Chapel" };
-            Assert.Equal(2, s.Screens.Count);
+            Assert.Equal(3, s.Screens.Count); // Main Audience Screen, Stage Monitor, Broadcast
             s.Screens = [new ScreenInfo("main", "LED Wall", ScreenKind.Audience, 2, true, 0)];
         }
         using (var s = new LibraryStore(path))

@@ -19,7 +19,8 @@ public sealed partial class ShellViewModel : ViewModelBase
         _main = main;
         _sections = sections;
         foreach (var k in sections)
-            Pages.Add(new RailItem(Icons.ForSection(k), Sections.Get(k).Title, new TestSlideSectionViewModel(k)));
+            Pages.Add(new RailItem(Icons.ForSection(k), Sections.Get(k).Title,
+                PageFor(k)));
         if (liveOutput || (sections.Count == 0 && !settings && Live.User?.MayRunLiveOutput == true))
             Pages.Insert(0, new RailItem("live", "Live Output", new LiveOutputViewModel()));
         if (Live.User?.IsAdmin == true)
@@ -33,6 +34,17 @@ public sealed partial class ShellViewModel : ViewModelBase
         else if (Pages.Count > 0) Select(Pages[0]);
         else if (SettingsItem is not null) Select(SettingsItem);
     }
+
+    private static ViewModelBase PageFor(SectionKind k) => k switch
+    {
+        SectionKind.Scripture => new ScriptureSectionViewModel(),
+        SectionKind.Lyrics => new LyricsSectionViewModel(),
+        SectionKind.Announcements => new AnnouncementsSectionViewModel(),
+        SectionKind.LowerThirds => new LowerThirdsSectionViewModel(),
+        SectionKind.Countdown => new CountdownSectionViewModel(),
+        SectionKind.Camera => new CameraSectionViewModel(),
+        _ => new TestSlideSectionViewModel(k),
+    };
 
     public ObservableCollection<RailItem> Pages { get; } = [];
     public RailItem? SettingsItem { get; }

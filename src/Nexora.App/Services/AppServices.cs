@@ -1,6 +1,7 @@
 using System.Reflection;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Nexora.Core.Bible;
 using Nexora.Core.Config;
 using Nexora.Core.Model;
 using Nexora.Core.Net;
@@ -31,6 +32,18 @@ public sealed class AppServices
     /// <summary>UI-thread view of the link, the live picture and the signed-in user.</summary>
     public LiveModel Live { get; } = new();
 
+    /// <summary>This PC's copy of the song library, kept in step with the Live Output PC.</summary>
+    public Nexora.Core.Songs.SongCache Songs { get; } = new(Path.Combine(AppPaths.LocalDir, "songs.json"));
+
+    /// <summary>Every Bible translation on this PC.</summary>
+    public BibleLibrary Bibles { get; } = new(Path.Combine(AppContext.BaseDirectory, "Bibles"), AppPaths.BiblesDir);
+
+    private Task? _biblesLoading;
+    private LibrarySync? _sync;
+
+    /// <summary>Prepares the bundled translations in the background (a few seconds on first start).</summary>
+    public Task LoadBiblesAsync() => _biblesLoading ??= Task.Run(Bibles.Load);
+
     public bool IsLiveOutputPc => Config.Role == PcRole.LiveOutput;
 
     public void ReloadConfig() => Config = ThisPcConfig.Load();
@@ -55,7 +68,13 @@ public sealed class AppServices
                 ServerName = () => Config.PcName,
                 Version = Version,
                 LogsDir = AppPaths.LogsDir,
+                BiblesDir = AppPaths.LibraryBiblesDir,
+                MediaDir = AppPaths.LibraryMediaDir,
+                BackupsDir = AppPaths.BackupsDir,
+                UpdatesDir = AppPaths.UpdatesDir,
+                ConfigFile = AppPaths.ConfigFile,
             });
+            Server.RestoreRequested += path => Dispatcher.UIThread.Post(() => _ = RestoreAsync(path));
             await Server.StartAsync();
             Output ??= new OutputEngineHost();
             Output.Start();
@@ -63,11 +82,45 @@ public sealed class AppServices
 
         Client = new NexoraClient(ResolveUrl, () => new Hello(Config.PairingCode, Config.PcId, Config.PcName, ClientKind.Terminal, Version));
         Live.Attach(Client);
+        Songs.Attach(Client);
+        _ = LoadBiblesAsync();
+        _sync = new LibrarySync(Client, Bibles, LoadBiblesAsync);
         Client.Start();
+        StartStandby();
+    }
+
+    private CancellationTokenSource? _standby;
+
+    /// <summary>Terminals keep a fresh copy of the Live Output PC's library (every 30 minutes) so they can take over.</summary>
+    private void StartStandby()
+    {
+        _standby?.Cancel();
+        if (Config.Role != PcRole.Terminal || Client is not { } c) return;
+        var cts = _standby = new CancellationTokenSource();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMinutes(2), cts.Token);
+                while (!cts.IsCancellationRequested)
+                {
+                    var age = Backups.StandbyTime is { } t ? DateTime.Now - t : TimeSpan.MaxValue;
+                    // Not during a service: the copy is a few MB and the network is busy then.
+                    if (c.Status == ConnectionStatus.Connected && age > TimeSpan.FromMinutes(29) && !c.Snapshot.CurrentModes.ServiceMode)
+                        await Backups.RefreshStandbyAsync(c);
+                    await Task.Delay(TimeSpan.FromMinutes(5), cts.Token);
+                }
+            }
+            catch (OperationCanceledException) { }
+        });
     }
 
     public async Task StopAsync(bool stopOutput)
     {
+        _standby?.Cancel();
+        _standby = null;
+        _sync?.Dispose();
+        _sync = null;
         Live.Detach();
         if (Client is not null) await Client.DisposeAsync();
         Client = null;
@@ -81,6 +134,25 @@ public sealed class AppServices
             Output.Dispose();
             Output = null;
         }
+    }
+
+    /// <summary>An admin uploaded a backup: stop the server, put the backup in place, start again.</summary>
+    public async Task RestoreAsync(string zipPath)
+    {
+        Live.RaiseToast("Restoring the backup. NEXORA restarts in a moment…");
+        await StopAsync(stopOutput: false);
+        try
+        {
+            Backups.Restore(zipPath);
+            ReloadConfig();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Write("Restore failed: " + ex.Message);
+            Live.RaiseToast("The backup could not be restored: " + ex.Message, true);
+        }
+        await StartAsync();
+        Output?.Restart();
     }
 
     private Uri? ResolveUrl()
@@ -124,8 +196,12 @@ public sealed partial class LiveModel : ObservableObject
     [ObservableProperty] private PublicInfo? _info;
     [ObservableProperty] private LiveSnapshot _snapshot = LiveSnapshot.Empty;
     [ObservableProperty] private UserInfo? _user;
+    [ObservableProperty] private LibraryInfo? _library;
 
     public event Action<Notice>? Notice;
+
+    /// <summary>Shows a short message at the bottom of the window.</summary>
+    public void RaiseToast(string text, bool isError = false) => Notice?.Invoke(new Notice(text, isError));
 
     public NexoraClient? Client => _client;
     public Branding Branding => Info?.Branding ?? Branding.Default;
@@ -164,6 +240,8 @@ public sealed partial class LiveModel : ObservableObject
         c.UserChanged += OnClientUser;
         c.LatencyChanged += OnClientLatency;
         c.NoticeReceived += OnClientNotice;
+        c.LibraryChanged += OnClientLibrary;
+        c.MessageReceived += OnClientMessage;
     }
 
     public void Detach()
@@ -175,6 +253,8 @@ public sealed partial class LiveModel : ObservableObject
         c.UserChanged -= OnClientUser;
         c.LatencyChanged -= OnClientLatency;
         c.NoticeReceived -= OnClientNotice;
+        c.LibraryChanged -= OnClientLibrary;
+        c.MessageReceived -= OnClientMessage;
         _client = null;
         AppServices.OnUi(() =>
         {
@@ -199,4 +279,45 @@ public sealed partial class LiveModel : ObservableObject
     private void OnClientUser() => AppServices.OnUi(() => User = _client?.User);
     private void OnClientLatency() => AppServices.OnUi(() => LatencyMs = _client?.LatencyMs ?? -1);
     private void OnClientNotice(Notice n) => AppServices.OnUi(() => Notice?.Invoke(n));
+    private void OnClientMessage(Message m)
+    {
+        if (m is EngineStatusMessage e) AppServices.OnUi(() => _engineLive = e.Status);
+    }
+
+    private EngineStatus? _engineStatus;
+    private EngineStatus? _engineLive
+    {
+        set { _engineStatus = value; OnPropertyChanged(nameof(Engine)); }
+    }
+
+    private void OnClientLibrary() => AppServices.OnUi(() => Library = _client?.Library);
+
+    public IReadOnlyList<ScriptureTheme> ScriptureThemes => Library?.Themes is { Count: > 0 } t ? t : ScriptureTheme.BuiltIn;
+    public ScriptureSettings ScriptureSettings => Library?.Scripture ?? ScriptureSettings.Default;
+    public IReadOnlyList<ScriptureTheme> LyricThemes => Library?.LyricThemes is { Count: > 0 } t ? t : SectionThemes.Lyrics;
+    public LyricsSettings LyricsSettings => Library?.Lyrics ?? LyricsSettings.Default;
+    public IReadOnlyList<ScriptureTheme> AnnouncementThemes => Library?.AnnouncementThemes is { Count: > 0 } t ? t : SectionThemes.Announcements;
+    public IReadOnlyList<AnnouncementSlide> Announcements => Library?.Announcements ?? [];
+    public IReadOnlyList<Person> People => Library?.People ?? [];
+    public IReadOnlyList<string> TodayPeople => Library?.TodayPeople ?? [];
+    public LowerThirdDefaults LowerThirdDefaults => Library?.LowerThirds ?? LowerThirdDefaults.Default;
+    public IReadOnlyList<CountdownPreset> CountdownPresets => Library?.CountdownPresets ?? [];
+    public StageLayout StageLayout => Library?.Stage ?? StageLayout.Default;
+    public IReadOnlyList<string> SermonPoints => Library?.SermonPoints ?? [];
+    public SongList SongList => Library?.SongList is { } l && l.Date == SongList.Today ? l : new SongList(SongList.Today, []);
+    public LiveModes Modes => Snapshot.CurrentModes;
+    /// <summary>Recording, streaming and health, sent by the output engine every second (outside the snapshot).</summary>
+    public EngineStatus Engine => _engineStatus ?? Snapshot.Engine ?? new EngineStatus();
+
+    partial void OnLibraryChanged(LibraryInfo? value)
+    {
+        OnPropertyChanged(nameof(ScriptureThemes));
+        OnPropertyChanged(nameof(ScriptureSettings));
+    }
+
+    partial void OnSnapshotChanged(LiveSnapshot value)
+    {
+        OnPropertyChanged(nameof(Modes));
+        OnPropertyChanged(nameof(Engine));
+    }
 }

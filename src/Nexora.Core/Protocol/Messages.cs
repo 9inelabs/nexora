@@ -23,7 +23,30 @@ namespace Nexora.Core.Protocol;
 [JsonDerivedType(typeof(DeleteUser), "deleteUser")]
 [JsonDerivedType(typeof(SaveBranding), "saveBranding")]
 [JsonDerivedType(typeof(SaveScreens), "saveScreens")]
+[JsonDerivedType(typeof(SaveScriptureTheme), "saveTheme")]
+[JsonDerivedType(typeof(DeleteScriptureTheme), "deleteTheme")]
+[JsonDerivedType(typeof(SaveScriptureSettings), "saveScripture")]
+[JsonDerivedType(typeof(RemoveBible), "removeBible")]
 [JsonDerivedType(typeof(Ping), "ping")]
+[JsonDerivedType(typeof(SaveSongs), "saveSongs")]
+[JsonDerivedType(typeof(DeleteSongs), "deleteSongs")]
+[JsonDerivedType(typeof(SaveSongList), "saveSongList")]
+[JsonDerivedType(typeof(LogSongUse), "logSongUse")]
+[JsonDerivedType(typeof(SaveTheme), "saveTheme2")]
+[JsonDerivedType(typeof(DeleteTheme), "deleteTheme2")]
+[JsonDerivedType(typeof(SaveLyricsSettings), "saveLyrics")]
+[JsonDerivedType(typeof(SaveAnnouncements), "saveAnnouncements")]
+[JsonDerivedType(typeof(SavePeople), "savePeople")]
+[JsonDerivedType(typeof(SaveCountdownPresets), "saveCountdowns")]
+[JsonDerivedType(typeof(SaveStage), "saveStage")]
+[JsonDerivedType(typeof(SetModes), "setModes")]
+[JsonDerivedType(typeof(MediaCommand), "media")]
+[JsonDerivedType(typeof(CameraCommand), "camera")]
+[JsonDerivedType(typeof(EngineCommand), "engineCommand")]
+[JsonDerivedType(typeof(EngineStatusMessage), "engineStatus")]
+[JsonDerivedType(typeof(SaveBroadcastSettings), "saveBroadcast")]
+[JsonDerivedType(typeof(EngineSettings), "engineSettings")]
+[JsonDerivedType(typeof(SongsChanged), "songsChanged")]
 // server -> client
 [JsonDerivedType(typeof(Welcome), "welcome")]
 [JsonDerivedType(typeof(Rejected), "rejected")]
@@ -32,6 +55,7 @@ namespace Nexora.Core.Protocol;
 [JsonDerivedType(typeof(SnapshotMessage), "snapshot")]
 [JsonDerivedType(typeof(Notice), "notice")]
 [JsonDerivedType(typeof(Pong), "pong")]
+[JsonDerivedType(typeof(LibraryInfo), "library")]
 public abstract record Message;
 
 // ---------- client -> server ----------
@@ -68,7 +92,73 @@ public sealed record SaveBranding(Branding Branding) : Message;
 
 public sealed record SaveScreens(IReadOnlyList<ScreenInfo> Screens) : Message;
 
+/// <summary>Create or update a Scripture theme (admin or Scripture operator).</summary>
+public sealed record SaveScriptureTheme(ScriptureTheme Theme) : Message;
+
+public sealed record DeleteScriptureTheme(string ThemeId) : Message;
+
+public sealed record SaveScriptureSettings(ScriptureSettings Settings) : Message;
+
+/// <summary>Remove an imported translation from every PC (admin).</summary>
+public sealed record RemoveBible(string Abbrev) : Message;
+
 public sealed record Ping(long SentTicks) : Message;
+
+// ---------- Phase 3 onwards ----------
+
+/// <summary>Create or update songs (one from the editor, or many from an import).</summary>
+public sealed record SaveSongs(IReadOnlyList<Song> Songs) : Message;
+
+public sealed record DeleteSongs(IReadOnlyList<string> Ids) : Message;
+
+/// <summary>The song list for a day, shared with every Lyrics terminal.</summary>
+public sealed record SaveSongList(SongList List) : Message;
+
+/// <summary>A song went on screen: logged once per song per day for the CCLI report.</summary>
+public sealed record LogSongUse(string SongId) : Message;
+
+public enum ThemeKind { Scripture, Lyrics, Announcements }
+
+public sealed record SaveTheme(ThemeKind Kind, ScriptureTheme Theme) : Message;
+
+public sealed record DeleteTheme(ThemeKind Kind, string ThemeId) : Message;
+
+public sealed record SaveLyricsSettings(LyricsSettings Settings) : Message;
+
+public sealed record SaveAnnouncements(IReadOnlyList<AnnouncementSlide> Slides) : Message;
+
+/// <summary>The people list for lower thirds, and who is ministering today.</summary>
+public sealed record SavePeople(IReadOnlyList<Person> People, IReadOnlyList<string> Today, LowerThirdDefaults Defaults) : Message;
+
+public sealed record SaveCountdownPresets(IReadOnlyList<CountdownPreset> Presets) : Message;
+
+/// <summary>The Stage Monitor zones and the pastor's points for the day.</summary>
+public sealed record SaveStage(StageLayout Layout, IReadOnlyList<string> SermonPoints) : Message;
+
+/// <summary>Service mode, rehearsal mode and the booth message (Live Output operator).</summary>
+public sealed record SetModes(LiveModes Modes) : Message;
+
+/// <summary>The Live Output operator plays, pauses or stops a video or picture. Null stops it.</summary>
+public sealed record MediaCommand(MediaPlay? Play) : Message;
+
+/// <summary>The Live Output operator puts a camera straight on the camera layer. Null clears it.</summary>
+public sealed record CameraCommand(CameraFeed? Feed) : Message;
+
+public enum EngineAction { StartRecording, StopRecording, StartStream, StopStream }
+
+/// <summary>Live Output control screen → output engine, through the server.</summary>
+public sealed record EngineCommand(EngineAction Action, string? ServiceName = null) : Message;
+
+/// <summary>Output engine → server: recording, streaming and health.</summary>
+public sealed record EngineStatusMessage(EngineStatus Status) : Message;
+
+public sealed record SaveBroadcastSettings(BroadcastSettings Settings) : Message;
+
+/// <summary>Server → output engine only: where to record and where to stream.</summary>
+public sealed record EngineSettings(BroadcastSettings Settings, StageLayout Stage) : Message;
+
+/// <summary>Server → every PC: songs were saved or removed. Version lets a PC notice it missed one.</summary>
+public sealed record SongsChanged(IReadOnlyList<Song> Saved, IReadOnlyList<string> Deleted, long Version) : Message;
 
 // ---------- server -> client ----------
 
@@ -86,6 +176,31 @@ public sealed record SnapshotMessage(LiveSnapshot Snapshot) : Message;
 public sealed record Notice(string Text, bool IsError) : Message;
 
 public sealed record Pong(long SentTicks) : Message;
+
+/// <summary>
+/// The shared library: Scripture themes and settings, plus the imported Bibles and media files
+/// every PC keeps a copy of. Files are fetched over HTTP from <see cref="Wire.LibraryPath"/>.
+/// </summary>
+public sealed record LibraryInfo(
+    IReadOnlyList<ScriptureTheme> Themes,
+    ScriptureSettings Scripture,
+    IReadOnlyList<LibraryFile> Bibles,
+    IReadOnlyList<LibraryFile> Media,
+    IReadOnlyList<ScriptureTheme>? LyricThemes = null,
+    LyricsSettings? Lyrics = null,
+    long SongsVersion = 0,
+    SongList? SongList = null,
+    IReadOnlyList<ScriptureTheme>? AnnouncementThemes = null,
+    IReadOnlyList<AnnouncementSlide>? Announcements = null,
+    IReadOnlyList<Person>? People = null,
+    IReadOnlyList<string>? TodayPeople = null,
+    LowerThirdDefaults? LowerThirds = null,
+    IReadOnlyList<CountdownPreset>? CountdownPresets = null,
+    StageLayout? Stage = null,
+    IReadOnlyList<string>? SermonPoints = null,
+    /// <summary>The NEXORA version the Live Output PC offers to every PC.</summary>
+    string? OfferedVersion = null,
+    bool StreamingConfigured = false) : Message;
 
 public static class Wire
 {
@@ -107,4 +222,8 @@ public static class Wire
     public const int DefaultPort = 7400;
     public const int DiscoveryPort = 7401;
     public const string Path = "/nexora";
+    /// <summary>HTTP: GET /library/{bibles|media}/{name} (header X-Nexora-Code), POST with header X-Nexora-Token to upload.</summary>
+    public const string LibraryPath = "/library";
+    public const string CodeHeader = "X-Nexora-Code";
+    public const string TokenHeader = "X-Nexora-Token";
 }

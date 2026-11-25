@@ -17,7 +17,7 @@ public sealed partial class SectionPickerViewModel : ViewModelBase
         _main = main;
         var user = Live.User;
         var pre = preselect?.ToHashSet() ?? [];
-        foreach (var def in Sections.All)
+        foreach (var def in Sections.Pickable)
         {
             var card = new SectionCard(def, user is not null && Sections.UserMayOpen(user.Roles, def.Kind));
             card.IsSelected = card.IsAllowed && pre.Contains(def.Kind);

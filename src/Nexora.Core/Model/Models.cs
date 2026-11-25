@@ -26,6 +26,8 @@ public enum SectionKind
     Announcements,
     LowerThirds,
     Countdown,
+    /// <summary>Video and pictures played by the Live Output operator (not a terminal section).</summary>
+    Media,
 }
 
 /// <summary>Live Output layers, bottom to top (plan section 11).</summary>
@@ -45,6 +47,8 @@ public enum ScreenKind
     Audience,
     /// <summary>Plain, high-contrast output read from the stage.</summary>
     Stage,
+    /// <summary>The recording and the stream: camera with lyrics and Scripture as lower thirds.</summary>
+    Broadcast,
 }
 
 /// <summary>How a terminal's section feeds one screen.</summary>
@@ -75,7 +79,8 @@ public sealed record SectionDefinition(
     string Description,
     Role Role,
     Layer Layer,
-    bool IsText);
+    bool IsText,
+    bool Pickable = true);
 
 public static class Sections
 {
@@ -86,8 +91,11 @@ public static class Sections
         new(SectionKind.Camera, "Camera Switcher", "Switch the cameras and send the feed over NDI.", Role.Camera, Layer.Camera, false),
         new(SectionKind.Announcements, "Announcements", "Notice slides and loops before and after service.", Role.Announcements, Layer.Overlays, false),
         new(SectionKind.LowerThirds, "Lower Thirds", "Minister names and titles over cameras.", Role.LowerThirds, Layer.Overlays, false),
-        new(SectionKind.Countdown, "Countdown", "Service and segment timers for screens and stage.", Role.Countdown, Layer.Overlays, false),
+        new(SectionKind.Countdown, "Countdown", "Timers, sermon points and the Stage Monitor.", Role.Countdown, Layer.Overlays, false),
+        new(SectionKind.Media, "Media", "Videos and pictures played on Live Output.", Role.LiveOutput, Layer.Media, false, Pickable: false),
     ];
+
+    public static IEnumerable<SectionDefinition> Pickable => All.Where(s => s.Pickable);
 
     public static SectionDefinition Get(SectionKind kind) => All.First(s => s.Kind == kind);
 
@@ -138,8 +146,31 @@ public sealed record ScreenInfo(
     bool OneTextSource,
     int Order);
 
-/// <summary>A piece of content a terminal sends. In Phase 1 this is a test slide.</summary>
-public sealed record SlideContent(string Text, string? Caption = null, string? Label = null);
+/// <summary>
+/// A piece of content a terminal sends. Text and Caption are always filled (the Stage Monitor and
+/// the routing panel use them); Scripture carries the verses and theme for the audience look.
+/// </summary>
+public sealed record SlideContent(
+    string Text,
+    string? Caption = null,
+    string? Label = null,
+    ScriptureSlide? Scripture = null,
+    LyricSlide? Lyrics = null,
+    /// <summary>What comes next (next lyric lines or next verse), for the Stage Monitor.</summary>
+    string? Next = null,
+    /// <summary>The section asks for the church logo in its place (Lyrics' Logo button).</summary>
+    bool Logo = false,
+    AnnouncementShow? Announcement = null,
+    LowerThirdShow? LowerThird = null,
+    CountdownShow? Countdown = null,
+    SermonPoints? Points = null,
+    MediaPlay? Media = null,
+    CameraFeed? Camera = null)
+{
+    /// <summary>True when the content shows nothing (a blanked lyric slide).</summary>
+    public bool IsBlank => Text.Length == 0 && Scripture is null && Lyrics is null && !Logo && Announcement is null &&
+        LowerThird is null && Countdown is null && Points is null && Media is null && Camera is null;
+}
 
 public sealed record LayerItem(
     Layer Layer,
@@ -151,7 +182,38 @@ public sealed record LayerItem(
     bool Follows,
     long Sequence);
 
-public sealed record ScreenFrame(string ScreenId, MasterMode Master, IReadOnlyList<LayerItem> Items);
+public sealed record ScreenFrame(string ScreenId, MasterMode Master, IReadOnlyList<LayerItem> Items, string? Booth = null, bool Rehearsal = false);
+
+/// <summary>Church-wide switches on the Live Output PC.</summary>
+public sealed record LiveModes(
+    /// <summary>Blocks settings changes, imports and updates while a service runs.</summary>
+    bool ServiceMode = false,
+    /// <summary>Everything works, but nothing reaches the audience screens.</summary>
+    bool Rehearsal = false,
+    /// <summary>A short note from the media team on the Stage Monitor ("5 minutes").</summary>
+    string? Booth = null);
+
+/// <summary>What the output engine reports: recording, streaming, health and the devices it can see.</summary>
+public sealed record EngineStatus(
+    bool Recording = false,
+    string? RecordingFile = null,
+    double RecordingSeconds = 0,
+    string? RecordProblem = null,
+    bool Streaming = false,
+    string StreamState = "Off",
+    double StreamKbps = 0,
+    int DroppedFrames = 0,
+    string? StreamProblem = null,
+    double Fps = 0,
+    double CpuPercent = 0,
+    double DiskFreeGb = 0,
+    IReadOnlyList<string>? CameraDevices = null,
+    IReadOnlyList<string>? AudioDevices = null,
+    IReadOnlyList<string>? NdiSources = null,
+    bool NdiAvailable = false,
+    bool VideoAvailable = false,
+    bool FfmpegAvailable = false,
+    string? CameraProblem = null);
 
 public sealed record SourceInfo(
     string Key,
@@ -184,9 +246,13 @@ public sealed record LiveSnapshot(
     IReadOnlyList<SourceInfo> Sources,
     IReadOnlyList<ScreenFrame> Frames,
     IReadOnlyList<ClientInfo> Clients,
-    long Version)
+    long Version,
+    LiveModes? Modes = null,
+    EngineStatus? Engine = null)
 {
     public static LiveSnapshot Empty => new([], [], [], [], 0);
+
+    public LiveModes CurrentModes => Modes ?? new LiveModes();
 
     public ScreenFrame? FrameFor(string screenId) => Frames.FirstOrDefault(f => f.ScreenId == screenId);
 }

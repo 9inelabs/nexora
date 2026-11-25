@@ -30,6 +30,7 @@ public sealed partial class LiveOutputViewModel : ViewModelBase, IKeyHandler
         });
         _clock.Start();
         Sync();
+        InitExtras();
     }
 
     public ObservableCollection<ScreenTab> Screens { get; } = [];
@@ -155,6 +156,8 @@ public sealed partial class LiveOutputViewModel : ViewModelBase, IKeyHandler
     private void OnLive(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(Live.Snapshot)) Sync();
+        if (e.PropertyName is nameof(Live.Library)) OnPropertyChanged(nameof(StreamText));
+        if (e.PropertyName is nameof(Live.Engine)) SyncExtras(fromSnapshot: false);
         if (e.PropertyName is nameof(Live.Info))
         {
             OnPropertyChanged(nameof(Branding));
@@ -229,6 +232,7 @@ public sealed partial class LiveOutputViewModel : ViewModelBase, IKeyHandler
             OtherScreens.Add(new MiniScreen(s, snap.FrameFor(s.Id)));
 
         UpdatePreview();
+        SyncExtras();
     }
 
     private void UpdatePreview()
@@ -253,6 +257,7 @@ public sealed partial class LiveOutputViewModel : ViewModelBase, IKeyHandler
         Live.PropertyChanged -= OnLive;
         if (S.Output is { } o) o.Changed -= OnOutputChanged;
         _clock.Stop();
+        LeaveExtras();
     }
 }
 

@@ -45,6 +45,28 @@
       <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
       <Setter Property="Foreground" Value="{StaticResource Accent}" />
     </Style>
+    <Style Selector="Border.mediarow">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="8" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style Selector="Border.mediarow.on">
+      <Setter Property="BorderBrush" Value="{StaticResource Live}" />
+    </Style>
+    <Style Selector="TextBlock.flabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+    </Style>
+    <Style Selector="TextBlock.lowtime">
+      <Setter Property="Foreground" Value="{StaticResource Live}" />
+    </Style>
+    <Style Selector="TextBlock.warntext">
+      <Setter Property="Foreground" Value="{StaticResource Warn}" />
+    </Style>
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,*" Margin="20,14,20,18">
@@ -194,11 +216,234 @@
 
           <Border Grid.Row="2" Classes="hairline" Margin="0,18" />
 
-          <StackPanel Grid.Row="3" Spacing="8">
-            <TextBlock Classes="h3" Text="Coming in later phases" />
-            <TextBlock Classes="faint" TextWrapping="Wrap"
-                       Text="Video playback, overlays, recording and streaming join this screen in later phases. Phase 1 proves the PCs, the routing and the screens." />
-          </StackPanel>
+          <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Margin="0,0,-8,0" Padding="0,0,8,0">
+          <Grid RowDefinitions="Auto,*">
+            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,12">
+              <Button Classes="tab" Classes.selected="{Binding TabMedia}" Command="{Binding ShowTabCommand}" CommandParameter="0">
+                <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="film" Width="13" Height="13" /><TextBlock Text="Video &amp; pictures" /></StackPanel>
+              </Button>
+              <Button Classes="tab" Classes.selected="{Binding TabCameras}" Command="{Binding ShowTabCommand}" CommandParameter="1">
+                <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="camera" Width="13" Height="13" /><TextBlock Text="Cameras" /></StackPanel>
+              </Button>
+              <Button Classes="tab" Classes.selected="{Binding TabBroadcast}" Command="{Binding ShowTabCommand}" CommandParameter="2">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <c:Icon Kind="broadcast" Width="13" Height="13" /><TextBlock Text="Record &amp; stream" />
+                  <Ellipse Width="7" Height="7" Fill="{StaticResource Live}" VerticalAlignment="Center" IsVisible="{Binding Recording}" />
+                  <Ellipse Width="7" Height="7" Fill="{StaticResource Live}" VerticalAlignment="Center" IsVisible="{Binding Streaming}" />
+                </StackPanel>
+              </Button>
+              <Button Classes="tab" Classes.selected="{Binding TabService}" Command="{Binding ShowTabCommand}" CommandParameter="3">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <c:Icon Kind="shield" Width="13" Height="13" /><TextBlock Text="Service" />
+                  <Border Classes="chip warn" IsVisible="{Binding Rehearsal}"><TextBlock Text="REHEARSAL" /></Border>
+                </StackPanel>
+              </Button>
+            </StackPanel>
+
+            <!-- Video & pictures -->
+            <Grid Grid.Row="1" ColumnDefinitions="*,16,300" IsVisible="{Binding TabMedia}">
+              <Grid RowDefinitions="Auto,*">
+                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                  <TextBlock Classes="faint small" VerticalAlignment="Center" TextWrapping="Wrap"
+                             Text="{Binding AddStatus}" />
+                  <Button Grid.Column="1" x:Name="AddMediaButton" Classes="small" IsEnabled="{Binding !Adding}" IsVisible="{Binding IsLocal}">
+                    <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="plus" Width="12" Height="12" /><TextBlock Text="Add videos or pictures" /></StackPanel>
+                  </Button>
+                </Grid>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MinHeight="120">
+                  <StackPanel>
+                    <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding NoMedia}"
+                               Text="No videos yet. Add the day's videos and pictures here. They are copied onto this PC and checked, so a network drop cannot stop them." />
+                    <ItemsControl ItemsSource="{Binding Media}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MediaItem">
+                          <Border Classes="mediarow" Classes.on="{Binding IsOn}">
+                            <Grid ColumnDefinitions="Auto,12,*,Auto">
+                              <Button Classes="ghost" Padding="0" Command="{Binding $parent[UserControl].((vm:LiveOutputViewModel)DataContext).PickMediaCommand}" CommandParameter="{Binding}">
+                                <Border Width="96" Height="54" CornerRadius="6" ClipToBounds="True" Background="{StaticResource Surface3}">
+                                  <Panel>
+                                    <c:Icon Kind="{Binding Icon}" Width="18" Height="18" Foreground="{StaticResource Text3}" />
+                                    <Image Source="{Binding Thumb}" Stretch="UniformToFill" />
+                                  </Panel>
+                                </Border>
+                              </Button>
+                              <Button Grid.Column="2" Classes="ghost" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                      Command="{Binding $parent[UserControl].((vm:LiveOutputViewModel)DataContext).PickMediaCommand}" CommandParameter="{Binding}">
+                                <StackPanel Spacing="3">
+                                  <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                  <TextBlock Text="{Binding Details}" Classes="faint small mono" />
+                                  <TextBlock Text="{Binding Problem}" Classes="small" Foreground="{StaticResource Warn}" TextWrapping="Wrap" IsVisible="{Binding HasProblem}" />
+                                </StackPanel>
+                              </Button>
+                              <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <Border Classes="chip live" IsVisible="{Binding IsOn}"><TextBlock Text="ON" /></Border>
+                                <Button Classes="ghost small" Padding="6" ToolTip.Tip="Move up" Command="{Binding $parent[UserControl].((vm:LiveOutputViewModel)DataContext).MoveMediaUpCommand}" CommandParameter="{Binding}">
+                                  <c:Icon Kind="arrowup" Width="13" Height="13" />
+                                </Button>
+                                <Button Classes="ghost small" Padding="6" ToolTip.Tip="Remove" Command="{Binding $parent[UserControl].((vm:LiveOutputViewModel)DataContext).RemoveMediaCommand}" CommandParameter="{Binding}">
+                                  <c:Icon Kind="trash" Width="13" Height="13" />
+                                </Button>
+                              </StackPanel>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </ScrollViewer>
+              </Grid>
+
+              <StackPanel Grid.Column="2" Spacing="10">
+                <Border Classes="well" Padding="12">
+                  <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding MediaTitle}" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding TimeLeft}" Classes="mono" FontSize="18" FontWeight="Bold"
+                                 Foreground="{StaticResource Text1}" Classes.lowtime="{Binding TimeLow}" />
+                    </Grid>
+                    <ProgressBar Value="{Binding MediaProgress}" Minimum="0" Maximum="100" Height="4" MinHeight="4" IsVisible="{Binding MediaOn}" />
+                    <TextBlock Text="{Binding MediaState}" Classes="faint small" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+                <TextBlock Classes="faint small" Text="{Binding SelectedMedia.Title, StringFormat='Picked: {0}', FallbackValue='Pick a file on the left'}" TextTrimming="CharacterEllipsis" />
+                <UniformGrid Columns="3">
+                  <Button Classes="small" Margin="0,0,4,6" HorizontalAlignment="Stretch" Command="{Binding CueCommand}" ToolTip.Tip="Hold the first frame, silent, ready to play">
+                    <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center"><c:Icon Kind="eye" Width="12" Height="12" /><TextBlock Text="Cue" /></StackPanel>
+                  </Button>
+                  <Button Classes="small onair" Margin="2,0,2,6" HorizontalAlignment="Stretch" Command="{Binding PlayCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center"><c:Icon Kind="play" Width="12" Height="12" /><TextBlock Text="Play" /></StackPanel>
+                  </Button>
+                  <Button Classes="small" Margin="4,0,0,6" HorizontalAlignment="Stretch" Command="{Binding PauseCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center"><c:Icon Kind="pause" Width="12" Height="12" /><TextBlock Text="Pause" /></StackPanel>
+                  </Button>
+                  <Button Classes="small" Margin="0,0,4,0" HorizontalAlignment="Stretch" Command="{Binding RestartCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center"><c:Icon Kind="restart" Width="12" Height="12" /><TextBlock Text="Restart" /></StackPanel>
+                  </Button>
+                  <Button Classes="small takedown" Margin="2,0,2,0" HorizontalAlignment="Stretch" Command="{Binding StopMediaCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center"><c:Icon Kind="stop" Width="12" Height="12" /><TextBlock Text="Stop" /></StackPanel>
+                  </Button>
+                </UniformGrid>
+                <Grid ColumnDefinitions="Auto,10,*" RowDefinitions="Auto,6,Auto,6,Auto,6,Auto">
+                  <TextBlock Classes="flabel" Text="Volume" VerticalAlignment="Center" />
+                  <Slider Grid.Column="2" Minimum="0" Maximum="100" Value="{Binding Volume}" />
+                  <TextBlock Grid.Row="2" Classes="flabel" Text="Fade in / out (ms)" VerticalAlignment="Center" />
+                  <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                    <ComboBox ItemsSource="{x:Static vm:LiveOutputViewModel.FadeChoices}" SelectedItem="{Binding FadeInMs}" Width="100" ToolTip.Tip="Fade in" />
+                    <ComboBox ItemsSource="{x:Static vm:LiveOutputViewModel.FadeChoices}" SelectedItem="{Binding FadeOutMs}" Width="100" ToolTip.Tip="Fade out" />
+                  </StackPanel>
+                  <TextBlock Grid.Row="4" Classes="flabel" Text="Sound to" VerticalAlignment="Center" />
+                  <ComboBox Grid.Row="4" Grid.Column="2" ItemsSource="{Binding AudioOutputs}" SelectedItem="{Binding AudioOutput}" HorizontalAlignment="Stretch" />
+                  <StackPanel Grid.Row="6" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="16">
+                    <CheckBox Content="Loop" IsChecked="{Binding MediaLoop}" />
+                    <CheckBox Content="Show words over video" IsChecked="{Binding ShowTextOverVideo}"
+                              ToolTip.Tip="Scripture and lyrics are held back while a video plays unless this is ticked" />
+                  </StackPanel>
+                </Grid>
+                <TextBlock Classes="faint small" TextWrapping="Wrap"
+                           Text="When a video ends, the screen goes back to what was showing before. Scripture and lyrics wait behind the video unless you tick Show words over video." />
+              </StackPanel>
+            </Grid>
+
+            <!-- Cameras -->
+            <StackPanel Grid.Row="1" Spacing="10" IsVisible="{Binding TabCameras}">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Classes="flabel" Text="On the camera layer:" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding CameraNow}" FontWeight="Bold" />
+                </StackPanel>
+                <Button Grid.Column="1" Classes="small" Content="Take camera off" Command="{Binding ClearCameraCommand}" />
+              </Grid>
+              <TextBlock Classes="faint small" TextWrapping="Wrap" Text="{Binding CameraHelp}" />
+              <ItemsControl ItemsSource="{Binding CameraPicks}">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:CameraPick">
+                    <Button Classes="quick" Width="180" Margin="0,0,8,8" Command="{Binding $parent[UserControl].((vm:LiveOutputViewModel)DataContext).TakeCameraCommand}" CommandParameter="{Binding}">
+                      <StackPanel Spacing="4" HorizontalAlignment="Center">
+                        <c:Icon Kind="{Binding Icon}" Width="17" Height="17" HorizontalAlignment="Center" />
+                        <TextBlock Text="{Binding Label}" FontSize="12" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="160" />
+                        <TextBlock Text="{Binding KindText}" Classes="faint small" HorizontalAlignment="Center" />
+                      </StackPanel>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <!-- Record & stream -->
+            <StackPanel Grid.Row="1" Spacing="12" IsVisible="{Binding TabBroadcast}">
+              <Grid ColumnDefinitions="Auto,10,*">
+                <TextBlock Classes="flabel" Text="Service name" VerticalAlignment="Center" />
+                <TextBox Grid.Column="2" Text="{Binding ServiceName}" MaxWidth="360" HorizontalAlignment="Left" Width="360" />
+              </Grid>
+              <Grid ColumnDefinitions="*,14,*">
+                <Border Classes="well" Padding="12">
+                  <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <Ellipse Width="9" Height="9" Fill="{StaticResource Live}" IsVisible="{Binding Recording}" VerticalAlignment="Center" />
+                      <TextBlock Classes="h3" Text="Recording" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding RecordText}" Classes="small muted" Classes.warntext="{Binding !RecordOk}" TextWrapping="Wrap" />
+                    <Button Classes="small" Classes.takedown="{Binding Recording}" HorizontalAlignment="Left" Command="{Binding ToggleRecordCommand}">
+                      <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="record" Width="12" Height="12" /><TextBlock Text="{Binding RecordLabel}" /></StackPanel>
+                    </Button>
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Classes="well" Padding="12">
+                  <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <Ellipse Width="9" Height="9" Fill="{StaticResource Live}" IsVisible="{Binding Streaming}" VerticalAlignment="Center" />
+                      <TextBlock Classes="h3" Text="Streaming" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding StreamText}" Classes="small muted" Classes.warntext="{Binding !StreamOk}" TextWrapping="Wrap" />
+                    <Button Classes="small" Classes.takedown="{Binding Streaming}" HorizontalAlignment="Left" Command="{Binding ToggleStreamCommand}">
+                      <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="broadcast" Width="12" Height="12" /><TextBlock Text="{Binding StreamLabel}" /></StackPanel>
+                    </Button>
+                  </StackPanel>
+                </Border>
+              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Border Classes="chip ok" Classes.bad="{Binding !FpsOk}"><StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding FpsText}" /></StackPanel></Border>
+                <Border Classes="chip ok" Classes.bad="{Binding !CpuOk}"><StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding CpuText}" /></StackPanel></Border>
+                <Border Classes="chip ok" Classes.bad="{Binding !DiskOk}"><StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding DiskText}" /></StackPanel></Border>
+              </StackPanel>
+              <TextBlock Classes="faint small" TextWrapping="Wrap"
+                         Text="The recording and stream carry the Broadcast screen. Folder, sound device, quality and the stream address are in Settings › Recording &amp; streaming." />
+            </StackPanel>
+
+            <!-- Service -->
+            <StackPanel Grid.Row="1" Spacing="12" IsVisible="{Binding TabService}">
+              <Grid ColumnDefinitions="*,14,*">
+                <Border Classes="well" Padding="12">
+                  <StackPanel Spacing="8">
+                    <TextBlock Classes="h3" Text="Service mode" />
+                    <TextBlock Text="{Binding ServiceModeText}" Classes="muted small" TextWrapping="Wrap" />
+                    <ToggleSwitch IsChecked="{Binding ServiceMode, Mode=OneWay}" Command="{Binding ToggleServiceModeCommand}" OnContent="On" OffContent="Off" />
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Classes="well" Padding="12">
+                  <StackPanel Spacing="8">
+                    <TextBlock Classes="h3" Text="Rehearsal mode" />
+                    <TextBlock Text="{Binding RehearsalText}" Classes="muted small" TextWrapping="Wrap" />
+                    <ToggleSwitch IsChecked="{Binding Rehearsal, Mode=OneWay}" Command="{Binding ToggleRehearsalCommand}" OnContent="On" OffContent="Off" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+              <TextBlock Classes="flabel" Text="Message to the stage (shows on the Stage Monitor)" />
+              <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+                <TextBox Text="{Binding BoothText}" Watermark="e.g. Wrap up in 5 minutes" MaxLength="200" />
+                <Button Grid.Column="2" Classes="small primary" Content="Send" Command="{Binding SendBoothCommand}" />
+                <Button Grid.Column="4" Classes="small" Content="Clear" Command="{Binding ClearBoothCommand}" />
+              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Classes="small" Content="5 minutes" Command="{Binding BoothCommand}" CommandParameter="5 minutes" />
+                <Button Classes="small" Content="Wrap up" Command="{Binding BoothCommand}" CommandParameter="Please wrap up" />
+                <Button Classes="small" Content="Louder please" Command="{Binding BoothCommand}" CommandParameter="Mic is low, a little louder" />
+                <Button Classes="small" Content="Next song" Command="{Binding BoothCommand}" CommandParameter="Next song is ready" />
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+          </ScrollViewer>
         </Grid>
       </Border>
 

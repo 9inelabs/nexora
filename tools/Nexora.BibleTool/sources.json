@@ -1,0 +1,29 @@
+[
+  { "file": "scrollmapper-KJV.json.gz", "abbrev": "KJV", "name": "King James Version" },
+  { "file": "Bible_English_NKJV.zip", "abbrev": "NKJV", "name": "New King James Version" },
+  { "file": "Bible_English_AKJV_Strong.zip", "abbrev": "AKJV", "name": "American King James Version" },
+  { "file": "Bible_English_ESV.zip", "abbrev": "ESV", "name": "English Standard Version" },
+  {
+    "file": "Bible_English_NLT.zip", "abbrev": "NLT", "name": "New Living Translation",
+    "joins": [
+      "Num 1:21", "Num 1:23", "Num 1:25", "Num 1:27", "Num 1:29", "Num 1:31", "Num 1:33", "Num 1:35", "Num 1:37",
+      "Num 1:39", "Num 1:41", "Num 1:43", "Num 2:4", "Num 2:6", "Num 2:8", "Num 2:11", "Num 2:13", "Num 2:15",
+      "Num 2:19", "Num 2:21", "Num 2:23", "Num 2:26", "Num 2:28", "Num 2:30"
+    ],
+    "fixes": {
+      "2 Sam 19:41": "But all the men of Israel complained to the king, \"The men of Judah stole the king and didn't give us the honor of helping take you, your household, and all your men across the Jordan.\""
+    }
+  },
+  {
+    "file": "Bible_English_NET_x.zip", "abbrev": "NET", "name": "New English Translation",
+    "fixes": {
+      "2 Cor 13:12": "Greet one another with a holy kiss.",
+      "2 Cor 13:13": "All the saints greet you.",
+      "2 Cor 13:14": "The grace of the Lord Jesus Christ and the love of God and the fellowship of the Holy Spirit be with you all."
+    }
+  },
+  { "file": "Bible_English_AMP.zip", "abbrev": "AMP", "name": "Amplified Bible" },
+  { "file": "Bible_English_RSV.zip", "abbrev": "RSV", "name": "Revised Standard Version" },
+  { "file": "scrollmapper-ASV.json.gz", "abbrev": "ASV", "name": "American Standard Version (1901)" },
+  { "file": "scrollmapper-BBE.json.gz", "abbrev": "BBE", "name": "Bible in Basic English" }
+]

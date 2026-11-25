@@ -1,0 +1,229 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:v="using:Nexora.App.Views"
+             x:Class="Nexora.App.Views.CameraSectionView"
+             x:DataType="vm:CameraSectionViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.tile">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Background" Value="Black" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line2}" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Stretch" />
+      <Setter Property="Margin" Value="0,0,10,10" />
+    </Style>
+    <Style Selector="Button.tile.preview">
+      <Setter Property="BorderBrush" Value="{StaticResource PreviewBrush}" />
+    </Style>
+    <Style Selector="Button.tile.program">
+      <Setter Property="BorderBrush" Value="{StaticResource Live}" />
+    </Style>
+    <Style Selector="ToggleButton.seg">
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.seg:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface4}" />
+      <Setter Property="Foreground" Value="{StaticResource Text1}" />
+    </Style>
+    <Style Selector="TextBlock.flabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*" Margin="20,16,20,18">
+    <v:AirStrip />
+    <Grid Grid.Row="1" ColumnDefinitions="*,16,Auto">
+      <Grid RowDefinitions="Auto,12,*">
+        <!-- Preview and Program -->
+        <Grid ColumnDefinitions="*,12,Auto,12,*">
+          <Border Classes="card" Padding="12">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="Auto,*">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Ellipse Width="8" Height="8" Fill="{StaticResource PreviewBrush}" VerticalAlignment="Center" />
+                  <TextBlock Classes="eyebrow" Foreground="{StaticResource PreviewBrush}" Text="PREVIEW" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding PreviewLabel}" HorizontalAlignment="Right" FontWeight="SemiBold" />
+              </Grid>
+              <Border CornerRadius="8" ClipToBounds="True" BorderBrush="{StaticResource PreviewBrush}" BorderThickness="2" Background="Black">
+                <Viewbox Stretch="Uniform">
+                  <Panel Width="1920" Height="1080" Background="Black">
+                    <c:VideoView Feed="{Binding IncomingFeed}" Width="1920" Height="1080" />
+                    <TextBlock Text="{Binding PreviewLabel}" FontSize="80" Foreground="#80FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding CommandOnly}" />
+                  </Panel>
+                </Viewbox>
+              </Border>
+            </StackPanel>
+          </Border>
+
+          <!-- Cut, Auto and the T-bar -->
+          <Border Grid.Column="2" Classes="card" Padding="12" Width="130">
+            <StackPanel Spacing="10" VerticalAlignment="Center">
+              <Button Classes="big" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding CutCommand}" ToolTip.Tip="Space" Content="CUT" FontWeight="Bold" />
+              <Button Classes="primary big" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding AutoCommand}" ToolTip.Tip="Enter" Content="AUTO" FontWeight="Bold" IsVisible="{Binding LocalMode}" />
+              <Button Classes="primary big" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding AutoCommand}" ToolTip.Tip="Enter" Content="MIX" FontWeight="Bold" IsVisible="{Binding CommandOnly}" />
+              <Slider Orientation="Vertical" Height="150" Minimum="0" Maximum="1" Value="{Binding Mix}" HorizontalAlignment="Center" IsVisible="{Binding LocalMode}" ToolTip.Tip="T-bar: drag to mix by hand" />
+              <TextBlock Classes="faint small" Text="Mix time" HorizontalAlignment="Center" />
+              <NumericUpDown Value="{Binding AutoMs}" Minimum="100" Maximum="5000" Increment="100" FormatString="0" />
+            </StackPanel>
+          </Border>
+
+          <Border Grid.Column="4" Classes="card" Padding="12">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="Auto,*">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Ellipse Width="8" Height="8" Fill="{StaticResource Live}" VerticalAlignment="Center" />
+                  <TextBlock Classes="eyebrow" Foreground="{StaticResource Live}" Text="PROGRAM" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding ProgramLabel}" HorizontalAlignment="Right" FontWeight="SemiBold" />
+              </Grid>
+              <Border CornerRadius="8" ClipToBounds="True" BorderBrush="{StaticResource Live}" BorderThickness="2" Background="Black">
+                <Viewbox Stretch="Uniform">
+                  <Panel x:Name="ProgramSurface" Width="1920" Height="1080" Background="Black">
+                    <c:VideoView Feed="{Binding ProgramFeed}" Width="1920" Height="1080" />
+                    <c:VideoView Feed="{Binding IncomingFeed}" Width="1920" Height="1080" Opacity="{Binding Mix}" />
+                    <TextBlock Text="{Binding ProgramLabel}" FontSize="80" Foreground="#80FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding CommandOnly}" />
+                  </Panel>
+                </Viewbox>
+              </Border>
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <!-- Multiview -->
+        <Border Grid.Row="2" Classes="card" Padding="12,12,2,2">
+          <Grid RowDefinitions="Auto,*">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,10,10">
+              <StackPanel Spacing="1">
+                <TextBlock Classes="h3" Text="Cameras" />
+                <TextBlock Classes="faint small" Text="1–8 choose the next camera · Shift+number takes it at once · Space cut · Enter mix" />
+              </StackPanel>
+              <ToggleButton Grid.Column="1" Classes="seg" IsChecked="{Binding SetupOpen}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <c:Icon Kind="settings" Width="13" Height="13" />
+                  <TextBlock Text="Set up cameras" />
+                </StackPanel>
+              </ToggleButton>
+            </Grid>
+            <TextBlock Grid.Row="1" Classes="faint" TextWrapping="Wrap" IsVisible="{Binding !HasInputs}" Margin="0,20,10,0"
+                       Text="No cameras yet. Press Set up cameras and add your capture cards or NDI cameras." />
+            <ItemsControl Grid.Row="1" ItemsSource="{Binding Inputs}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><UniformGrid Columns="4" /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:CameraInput">
+                  <Button Classes="tile" Classes.preview="{Binding IsPreview}" Classes.program="{Binding IsProgram}" VerticalAlignment="Top"
+                          Command="{Binding $parent[UserControl].((vm:CameraSectionViewModel)DataContext).PickPreviewCommand}" CommandParameter="{Binding}">
+                    <Grid>
+                      <Viewbox Stretch="Uniform">
+                        <Panel Width="1920" Height="1080" Background="Black">
+                          <c:VideoView Feed="{Binding Feed}" Width="1920" Height="1080" />
+                          <TextBlock Text="{Binding Problem}" FontSize="70" Foreground="#99FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding HasProblem}" />
+                        </Panel>
+                      </Viewbox>
+                      <Border VerticalAlignment="Bottom" Background="#CC0C0C0E" Padding="8,4">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                          <Border Background="{StaticResource Surface4}" CornerRadius="4" Padding="6,0" Margin="0,0,8,0">
+                            <TextBlock Text="{Binding Number}" Classes="mono" FontWeight="Bold" FontSize="12" />
+                          </Border>
+                          <TextBlock Grid.Column="1" Text="{Binding Label}" FontWeight="SemiBold" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Grid.Column="2" Text="{Binding KindText}" Classes="faint" FontSize="11" />
+                        </Grid>
+                      </Border>
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- Right: going live and set-up -->
+      <Border Grid.Column="2" Classes="card" Padding="16" Width="360">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="h3" Text="To the screens" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap" IsVisible="{Binding LocalMode}"
+                       Text="The Program picture goes out over NDI. Live Output shows it under the lyrics, Scripture and names, and records it." />
+            <TextBlock Classes="faint small" TextWrapping="Wrap" IsVisible="{Binding CommandOnly}"
+                       Text="The cameras are plugged into the Live Output PC. Each cut here switches the camera there." />
+            <Grid ColumnDefinitions="*,8,Auto">
+              <Button Classes="primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding GoLiveCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <c:Icon Kind="broadcast" Width="14" Height="14" />
+                  <TextBlock Text="Send cameras to Live Output" />
+                </StackPanel>
+              </Button>
+              <Button Grid.Column="2" Command="{Binding TakeOffCommand}" Content="Stop" />
+            </Grid>
+            <Border Background="{StaticResource TintLive}" CornerRadius="8" Padding="10,8" IsVisible="{Binding OnLiveOutput}">
+              <TextBlock Classes="small" Foreground="{StaticResource Live}" FontWeight="SemiBold" Text="Live Output is taking your cameras." TextWrapping="Wrap" />
+            </Border>
+            <TextBlock Classes="small" Foreground="{StaticResource PreviewBrush}" Text="{Binding NdiStatus}" TextWrapping="Wrap" IsVisible="{Binding SendingNdi}" />
+            <Border Background="{StaticResource TintWarn}" CornerRadius="8" Padding="10,8" IsVisible="{Binding !NdiAvailable}">
+              <TextBlock Classes="small" Foreground="{StaticResource Warn}" Text="{Binding NdiProblem}" TextWrapping="Wrap" />
+            </Border>
+
+            <StackPanel Spacing="10" IsVisible="{Binding SetupOpen}">
+              <Border Height="1" Background="{StaticResource Line}" />
+              <TextBlock Classes="h3" Text="Set up cameras" />
+              <UniformGrid Columns="2" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding LocalMode, Mode=OneWay}" Command="{Binding UseLocalCommand}" Content="On this PC" />
+                <ToggleButton Classes="seg" IsChecked="{Binding CommandOnly, Mode=OneWay}" Command="{Binding UseCommandOnlyCommand}" Content="On Live Output" />
+              </UniformGrid>
+              <Grid ColumnDefinitions="*,8,Auto">
+                <ComboBox ItemsSource="{Binding Detected}" SelectedItem="{Binding SelectedDetected}" HorizontalAlignment="Stretch" PlaceholderText="Pick a camera or NDI source" />
+                <Button Grid.Column="2" Classes="ghost" Command="{Binding RefreshDetectedCommand}" ToolTip.Tip="Look again">
+                  <c:Icon Kind="refresh" Width="14" Height="14" />
+                </Button>
+              </Grid>
+              <Grid ColumnDefinitions="*,8,Auto">
+                <TextBox Text="{Binding NewLabel}" Watermark="Name, for example Wide or Pulpit" />
+                <Button Grid.Column="2" Command="{Binding AddInputCommand}" Content="Add" />
+              </Grid>
+              <Button x:Name="AddFile" Classes="ghost small" HorizontalAlignment="Left" IsVisible="{Binding LocalMode}" Content="Add a video file as a practice camera…" />
+              <ItemsControl ItemsSource="{Binding Inputs}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:CameraInput">
+                    <Grid ColumnDefinitions="24,*,Auto" Margin="0,0,0,4">
+                      <TextBlock Text="{Binding Number}" Classes="mono faint" VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Label}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Source}" Classes="faint small" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <Button Grid.Column="2" Classes="ghost small" Padding="6" ToolTip.Tip="Remove"
+                              Command="{Binding $parent[UserControl].((vm:CameraSectionViewModel)DataContext).RemoveInputCommand}" CommandParameter="{Binding}">
+                        <c:Icon Kind="x" Width="12" Height="12" />
+                      </Button>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="faint small" TextWrapping="Wrap"
+                         Text="NDI cameras and other NEXORA PCs appear in the list once the free NDI Tools are installed on this PC. Capture cards appear when plugged in." />
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

@@ -6,11 +6,25 @@ holds the users, settings and libraries); the others are **Terminals** where ope
 run Scripture, Song Lyrics, Cameras, Announcements, Lower Thirds and Countdown.
 Everything works offline on the local network.
 
-**Status: Phase 1 (Foundations).** PCs find each other, sign-in with name + 4-digit PIN,
-roles, the section picker, named screens, pin live / take down / bring back, church
-branding. Sections send test slides; real Scripture arrives in Phase 2.
+**Status: Phase 2 (Scripture).** On top of the Phase 1 foundations (PCs find each other,
+sign-in with name + 4-digit PIN, roles, named screens, pin live / take down / bring back,
+church branding), the Scripture section is real: ten bundled translations checked verse by
+verse, a reference box that understands "jn 3 16", word search, the pastor's list for the
+day, arrow-key stepping and history, themes with pictures, fonts, colours and effects,
+automatic splitting of long passages, and side-by-side translations. Other sections still
+send test slides.
 
-Testing at church: see [docs/PHASE1-TESTING.md](docs/PHASE1-TESTING.md).
+Testing at church: see [docs/PHASE2-TESTING.md](docs/PHASE2-TESTING.md) (and
+[docs/PHASE1-TESTING.md](docs/PHASE1-TESTING.md) for installing and pairing the PCs).
+
+### Bibles
+
+The bundled translations live in `src/Nexora.App/Bibles/*.json.gz` and are prepared into
+fast `.nxbible` files on first start. They are built from the original files with
+`tools/Nexora.BibleTool` (`prepare tools/Nexora.BibleTool/sources.json <sourceDir> <outDir>`),
+which records every repair made to a source file. An admin can add more translations in
+*Settings → Bibles & Scripture*; they are checked from Genesis 1:1 to Revelation 22:21 and
+copied to every PC.
 
 ## How it fits together
 

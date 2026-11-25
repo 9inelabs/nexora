@@ -1,0 +1,258 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="Nexora.App.Views.ThemeEditorPanel"
+             x:DataType="vm:ThemeEditor">
+  <UserControl.Styles>
+    <Style Selector="ToggleButton.seg">
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.seg:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface4}" />
+      <Setter Property="Foreground" Value="{StaticResource Text1}" />
+    </Style>
+    <Style Selector="TextBlock.flabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.fval">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+      <Setter Property="Foreground" Value="{StaticResource Text3}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+    <Style Selector="Slider">
+      <Setter Property="Margin" Value="0,-8,0,-6" />
+    </Style>
+    <Style Selector="TextBox.hex">
+      <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="Padding" Value="34,5,8,5" />
+    </Style>
+    <Style Selector="TextBlock.sect">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="LetterSpacing" Value="1.2" />
+      <Setter Property="Foreground" Value="{StaticResource Text3}" />
+      <Setter Property="Margin" Value="0,10,0,0" />
+    </Style>
+  </UserControl.Styles>
+  <StackPanel Spacing="8">
+              <TextBlock Classes="sect" Text="BACKGROUND" Margin="0" />
+              <UniformGrid Columns="3" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding BgColor}" Content="Colour" />
+                <ToggleButton Classes="seg" IsChecked="{Binding BgGradient}" Content="Gradient" />
+                <ToggleButton Classes="seg" IsChecked="{Binding BgImage}" Content="Picture" />
+              </UniformGrid>
+              <Grid ColumnDefinitions="*,8,*">
+                <Panel>
+                  <TextBox Classes="hex" Text="{Binding BackgroundColor}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding BackgroundBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+                <Panel Grid.Column="2" IsVisible="{Binding IsGradient}">
+                  <TextBox Classes="hex" Text="{Binding GradientTo}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding GradientBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40" IsVisible="{Binding IsGradient}">
+                <TextBlock Classes="flabel" Text="Angle" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="360" Value="{Binding GradientAngle}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding GradientAngle, StringFormat={}{0:0}°}" />
+              </Grid>
+              <StackPanel Spacing="8" IsVisible="{Binding IsImage}">
+                <Button x:Name="PickImage" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <c:Icon Kind="upload" Width="14" Height="14" />
+                    <TextBlock Text="Choose a picture…" />
+                  </StackPanel>
+                </Button>
+                <Grid ColumnDefinitions="90,*,40">
+                  <TextBlock Classes="flabel" Text="Blur" />
+                  <Slider Grid.Column="1" Minimum="0" Maximum="40" Value="{Binding Blur}" />
+                  <TextBlock Grid.Column="2" Classes="fval" Text="{Binding Blur, StringFormat={}{0:0}}" />
+                </Grid>
+              </StackPanel>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Darken" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="0.9" Value="{Binding Darken}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding Darken, StringFormat={}{0:P0}}" />
+              </Grid>
+              <Grid ColumnDefinitions="84,*,8,108">
+                <TextBlock Classes="flabel" Text="Tint" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="0.8" Value="{Binding Tint}" />
+                <Panel Grid.Column="3">
+                  <TextBox Classes="hex" Text="{Binding TintColor}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding TintBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+              </Grid>
+
+              <TextBlock Classes="sect" Text="FONT" />
+              <ComboBox ItemsSource="{x:Static vm:ThemeEditor.Fonts}" SelectedItem="{Binding FontFamily}" HorizontalAlignment="Stretch" MaxDropDownHeight="360" />
+              <Grid ColumnDefinitions="*,8,Auto">
+                <ComboBox ItemsSource="{x:Static vm:ThemeEditor.Weights}" SelectedItem="{Binding SelectedWeight}" HorizontalAlignment="Stretch" />
+                <ToggleButton Grid.Column="2" Classes="seg" IsChecked="{Binding Italic}" Content="Italic" Width="70" />
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Size" />
+                <Slider Grid.Column="1" Minimum="30" Maximum="140" Value="{Binding FontSize}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding FontSize, StringFormat={}{0:0}}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto">
+                <CheckBox IsChecked="{Binding AutoFit}" Content="Shrink to fit" FontSize="13" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" IsVisible="{Binding AutoFit}">
+                  <TextBlock Classes="flabel" Text="not below" />
+                  <NumericUpDown Value="{Binding MinFontSize}" Minimum="20" Maximum="120" Increment="2" FormatString="0" Width="110" />
+                </StackPanel>
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Line spacing" />
+                <Slider Grid.Column="1" Minimum="0.9" Maximum="2.2" Value="{Binding LineSpacing}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding LineSpacing, StringFormat={}{0:0.00}}" />
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Letter spacing" />
+                <Slider Grid.Column="1" Minimum="-2" Maximum="10" Value="{Binding LetterSpacing}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding LetterSpacing, StringFormat={}{0:0.0}}" />
+              </Grid>
+
+              <TextBlock Classes="sect" Text="COLOUR AND EFFECTS" />
+              <Grid ColumnDefinitions="90,*">
+                <TextBlock Classes="flabel" Text="Text" />
+                <Panel Grid.Column="1">
+                  <TextBox Classes="hex" Text="{Binding TextColor}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding TextBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+              </Grid>
+              <Grid ColumnDefinitions="84,*,8,108">
+                <TextBlock Classes="flabel" Text="Outline" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="10" Value="{Binding OutlineWidth}" />
+                <Panel Grid.Column="3">
+                  <TextBox Classes="hex" Text="{Binding OutlineColor}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding OutlineBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+              </Grid>
+              <Grid ColumnDefinitions="84,*,8,108">
+                <TextBlock Classes="flabel" Text="Shadow blur" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="40" Value="{Binding ShadowBlur}" />
+                <Panel Grid.Column="3">
+                  <TextBox Classes="hex" Text="{Binding ShadowColor}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding ShadowBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Shadow distance" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="20" Value="{Binding ShadowDistance}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding ShadowDistance, StringFormat={}{0:0}}" />
+              </Grid>
+              <CheckBox IsChecked="{Binding BoxEnabled}" Content="Box behind the words" FontSize="13" />
+              <StackPanel Spacing="8" IsVisible="{Binding BoxEnabled}">
+                <Grid ColumnDefinitions="84,*,8,108">
+                  <TextBlock Classes="flabel" Text="Box see-through" />
+                  <Slider Grid.Column="1" Minimum="0.1" Maximum="1" Value="{Binding BoxOpacity}" />
+                  <Panel Grid.Column="3">
+                    <TextBox Classes="hex" Text="{Binding BoxColor}" />
+                    <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding BoxBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                  </Panel>
+                </Grid>
+                <Grid ColumnDefinitions="90,*,40">
+                  <TextBlock Classes="flabel" Text="Corners" />
+                  <Slider Grid.Column="1" Minimum="0" Maximum="60" Value="{Binding BoxRadius}" />
+                  <TextBlock Grid.Column="2" Classes="fval" Text="{Binding BoxRadius, StringFormat={}{0:0}}" />
+                </Grid>
+              </StackPanel>
+
+              <TextBlock Classes="sect" Text="LAYOUT" />
+              <UniformGrid Columns="2" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding LayoutFull}" Content="Full screen" />
+                <ToggleButton Classes="seg" IsChecked="{Binding LayoutLower}" Content="Lower third" />
+              </UniformGrid>
+              <UniformGrid Columns="4" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding AlignLeft}" Content="Left" />
+                <ToggleButton Classes="seg" IsChecked="{Binding AlignCenter}" Content="Centre" />
+                <ToggleButton Classes="seg" IsChecked="{Binding AlignRight}" Content="Right" />
+                <ToggleButton Classes="seg" IsChecked="{Binding AlignJustify}" Content="Justify" />
+              </UniformGrid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Side margins" />
+                <Slider Grid.Column="1" Minimum="20" Maximum="500" Value="{Binding MarginX}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding MarginX, StringFormat={}{0:0}}" />
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Top and bottom" />
+                <Slider Grid.Column="1" Minimum="20" Maximum="400" Value="{Binding MarginY}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding MarginY, StringFormat={}{0:0}}" />
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40" IsVisible="{Binding IsLowerThird}">
+                <TextBlock Classes="flabel" Text="Box height" />
+                <Slider Grid.Column="1" Minimum="160" Maximum="700" Value="{Binding LowerThirdHeight}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding LowerThirdHeight, StringFormat={}{0:0}}" />
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Safe area" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="10" Value="{Binding SafeArea}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding SafeArea, StringFormat={}{0:0}%}" />
+              </Grid>
+              <CheckBox x:Name="CameraOption" IsChecked="{Binding LowerThirdWithCamera}" Content="Lower third when a camera is live" FontSize="13" />
+
+              <TextBlock Classes="sect" x:Name="RefHeader" Text="REFERENCE LINE" />
+              <UniformGrid Columns="3" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding RefAbove}" Content="Above" />
+                <ToggleButton Classes="seg" IsChecked="{Binding RefBelow}" Content="Below" />
+                <ToggleButton Classes="seg" IsChecked="{Binding RefHidden}" Content="Hidden" />
+              </UniformGrid>
+              <ComboBox ItemsSource="{x:Static vm:ThemeEditor.Fonts}" SelectedItem="{Binding RefFontFamily}" HorizontalAlignment="Stretch" MaxDropDownHeight="360" />
+              <Grid ColumnDefinitions="84,*,8,108">
+                <TextBlock Classes="flabel" Text="Size" />
+                <Slider Grid.Column="1" Minimum="16" Maximum="80" Value="{Binding RefFontSize}" />
+                <Panel Grid.Column="3">
+                  <TextBox Classes="hex" Text="{Binding RefColor}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding RefBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="14" x:Name="RefOptions">
+                <CheckBox IsChecked="{Binding RefUppercase}" Content="Capitals" FontSize="13" />
+                <CheckBox IsChecked="{Binding RefShowTranslation}" Content="Show translation" FontSize="13" />
+              </StackPanel>
+
+              <StackPanel Spacing="8" x:Name="VerseNumbersSection">
+              <TextBlock Classes="sect" Text="VERSE NUMBERS" />
+              <UniformGrid Columns="3" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding NumSuper}" Content="Small, raised" />
+                <ToggleButton Classes="seg" IsChecked="{Binding NumInline}" Content="In line" />
+                <ToggleButton Classes="seg" IsChecked="{Binding NumHidden}" Content="Hidden" />
+              </UniformGrid>
+              <Panel>
+                <TextBox Classes="hex" Text="{Binding VerseNumberColor}" />
+                <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding NumberBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+              </Panel>
+
+              </StackPanel>
+              <StackPanel Spacing="8" x:Name="TransitionSection">
+              <TextBlock Classes="sect" Text="TRANSITION" />
+              <UniformGrid Columns="3" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding TrCut}" Content="Cut" />
+                <ToggleButton Classes="seg" IsChecked="{Binding TrFade}" Content="Fade" />
+                <ToggleButton Classes="seg" IsChecked="{Binding TrSlide}" Content="Slide in" />
+              </UniformGrid>
+              <Grid ColumnDefinitions="90,*,48">
+                <TextBlock Classes="flabel" Text="Speed" />
+                <Slider Grid.Column="1" Minimum="100" Maximum="1500" Value="{Binding TransitionMs}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding TransitionMs, StringFormat={}{0:0} ms}" />
+              </Grid>
+                          </StackPanel>
+  </StackPanel>
+</UserControl>
