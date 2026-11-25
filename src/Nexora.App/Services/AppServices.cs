@@ -212,6 +212,7 @@ public sealed partial class LiveModel : ObservableObject
         c.LatencyChanged += OnClientLatency;
         c.NoticeReceived += OnClientNotice;
         c.LibraryChanged += OnClientLibrary;
+        c.MessageReceived += OnClientMessage;
     }
 
     public void Detach()
@@ -224,6 +225,7 @@ public sealed partial class LiveModel : ObservableObject
         c.LatencyChanged -= OnClientLatency;
         c.NoticeReceived -= OnClientNotice;
         c.LibraryChanged -= OnClientLibrary;
+        c.MessageReceived -= OnClientMessage;
         _client = null;
         AppServices.OnUi(() =>
         {
@@ -248,6 +250,17 @@ public sealed partial class LiveModel : ObservableObject
     private void OnClientUser() => AppServices.OnUi(() => User = _client?.User);
     private void OnClientLatency() => AppServices.OnUi(() => LatencyMs = _client?.LatencyMs ?? -1);
     private void OnClientNotice(Notice n) => AppServices.OnUi(() => Notice?.Invoke(n));
+    private void OnClientMessage(Message m)
+    {
+        if (m is EngineStatusMessage e) AppServices.OnUi(() => _engineLive = e.Status);
+    }
+
+    private EngineStatus? _engineStatus;
+    private EngineStatus? _engineLive
+    {
+        set { _engineStatus = value; OnPropertyChanged(nameof(Engine)); }
+    }
+
     private void OnClientLibrary() => AppServices.OnUi(() => Library = _client?.Library);
 
     public IReadOnlyList<ScriptureTheme> ScriptureThemes => Library?.Themes is { Count: > 0 } t ? t : ScriptureTheme.BuiltIn;
@@ -264,7 +277,8 @@ public sealed partial class LiveModel : ObservableObject
     public IReadOnlyList<string> SermonPoints => Library?.SermonPoints ?? [];
     public SongList SongList => Library?.SongList is { } l && l.Date == SongList.Today ? l : new SongList(SongList.Today, []);
     public LiveModes Modes => Snapshot.CurrentModes;
-    public EngineStatus Engine => Snapshot.Engine ?? new EngineStatus();
+    /// <summary>Recording, streaming and health, sent by the output engine every second (outside the snapshot).</summary>
+    public EngineStatus Engine => _engineStatus ?? Snapshot.Engine ?? new EngineStatus();
 
     partial void OnLibraryChanged(LibraryInfo? value)
     {

@@ -250,7 +250,7 @@ public sealed class LiveState
         _sources.Clear();
         foreach (var s in saved.Sources)
         {
-            var src = new SourceState { Key = s.Key, PcId = s.PcId, Section = s.Section, PcName = s.PcName, UserName = s.UserName, Current = s.Current, Online = false };
+            var src = new SourceState { Key = s.Key, PcId = s.PcId, Section = s.Section, PcName = s.PcName, UserName = s.UserName, Current = s.Current, Online = s.PcId == LiveOutputPc };
             foreach (var (screen, state) in s.Routes)
                 if (_frames.ContainsKey(screen)) src.Routes[screen] = state;
             _sources[s.Key] = src;

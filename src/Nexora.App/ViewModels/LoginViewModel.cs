@@ -160,6 +160,8 @@ public sealed partial class LoginViewModel : ViewModelBase
             var r = await client.LoginAsync(SelectedUser.Id, Pin);
             if (r.Ok)
             {
+                // The client's own user update reaches the UI a moment later; don't open the picker without it.
+                Live.User = r.User;
                 _main.GoSectionPicker();
                 return;
             }

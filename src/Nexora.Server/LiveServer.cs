@@ -374,6 +374,16 @@ public sealed partial class LiveServer : IAsyncDisposable
             case Logout: OnLogout(s); return;
         }
 
+        if (msg is EngineStatusMessage es)
+        {
+            if (s.Hello?.Kind != ClientKind.OutputEngine) return;
+            _engine = es.Status;
+            // Sent on its own (not in a snapshot) so every PC does not redraw every second.
+            var json = Wire.Serialize(es);
+            foreach (var x in _sessions.Values.Where(x => x.User is not null)) x.SendRaw(json);
+            return;
+        }
+
         if (s.User is null)
         {
             s.Send(new Notice("Please sign in first.", true));

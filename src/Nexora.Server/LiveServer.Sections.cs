@@ -110,11 +110,6 @@ public sealed partial class LiveServer
             case MediaCommand m: OnMedia(s, m); break;
             case CameraCommand m: OnCamera(s, m); break;
             case EngineCommand m: OnEngineCommand(s, m); break;
-            case EngineStatusMessage m:
-                if (s.Hello?.Kind != ClientKind.OutputEngine) return;
-                _engine = m.Status;
-                BroadcastSnapshot();
-                break;
             case SaveBroadcastSettings m:
                 if (!s.User!.IsAdmin) { Deny(s); return; }
                 if (Blocked(s)) return;
