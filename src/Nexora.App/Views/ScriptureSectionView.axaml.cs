@@ -19,7 +19,27 @@ public partial class ScriptureSectionView : UserControl
         PickImage.Click += async (_, _) => await PickBackgroundAsync();
         ExportTheme.Click += async (_, _) => await ExportAsync();
         ImportTheme.Click += async (_, _) => await ImportAsync();
+        DataContextChanged += (_, _) =>
+        {
+            if (_hooked is not null) _hooked.ScrollToRow -= OnScrollToRow;
+            _hooked = Vm;
+            if (_hooked is not null) _hooked.ScrollToRow += OnScrollToRow;
+        };
     }
+
+    private ScriptureSectionViewModel? _hooked;
+
+    private void OnScrollToRow(int index) => Dispatcher.UIThread.Post(() =>
+    {
+        if (VerseList.ContainerFromIndex(index) is not Control c) return;
+        // Keep a little of the verse before in sight.
+        var top = c.TranslatePoint(new Point(0, 0), VerseList)?.Y ?? 0;
+        var bottom = top + c.Bounds.Height;
+        var view = VerseScroll.Viewport.Height;
+        var off = VerseScroll.Offset.Y;
+        if (top < off || bottom > off + view)
+            VerseScroll.Offset = new Vector(0, Math.Max(0, top - Math.Min(80, view / 4)));
+    }, DispatcherPriority.Background);
 
     private ScriptureSectionViewModel? Vm => DataContext as ScriptureSectionViewModel;
 

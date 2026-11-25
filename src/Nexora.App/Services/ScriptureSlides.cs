@@ -28,7 +28,10 @@ public static class ScriptureSlides
         var secondList = second is null ? null : first.Select(v => SecondText(book, v, second)).ToList();
 
         var area = ScriptureRenderer.TextArea(theme);
-        var size = theme.AutoFit ? Math.Min(theme.MinFontSize, theme.FontSize) : theme.FontSize;
+        // Verses are grouped at the theme's full size so the words stay big; shrink-to-fit only
+        // rescues a single verse that is a little too long, before it is split between words.
+        var size = theme.FontSize;
+        var smallest = theme.AutoFit ? Math.Min(theme.MinFontSize, theme.FontSize) : theme.FontSize;
         var groups = new List<(List<VerseText> A, List<VerseText>? B)>();
 
         var i = 0;
@@ -38,10 +41,11 @@ public static class ScriptureSlides
             var b = secondList is null ? null : new List<VerseText> { secondList[i] };
             if (!FitsGroup(book, a, b, theme, size, area, primary, second))
             {
-                if (b is null)
+                if (FitsGroup(book, a, b, theme, smallest, area, primary, second)) groups.Add((a, b));
+                else if (b is null)
                 {
-                    // One verse that does not fit: split it between words.
-                    foreach (var piece in SplitVerse(book, first[i], theme, size, area, primary)) groups.Add(([piece], null));
+                    // One verse that does not fit even when shrunk: split it between words.
+                    foreach (var piece in SplitVerse(book, first[i], theme, smallest, area, primary)) groups.Add(([piece], null));
                 }
                 else groups.Add((a, b)); // side by side: shown smaller rather than cut
                 i++;

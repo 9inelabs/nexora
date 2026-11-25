@@ -72,9 +72,10 @@ public sealed record BibleCheckReport(
     {
         get
         {
-            var note = (Joined.Count > 0 ? $" {Joined.Count} verses are printed together with the verse before ({string.Join(", ", Joined.Take(3))}…)." : "")
-                     + (Omitted.Count > 0 ? $" {Omitted.Count} verses are left out as in most modern translations ({string.Join(", ", Omitted.Take(3))}…)." : "")
-                     + (Extra.Count > 0 ? $" {Extra.Count} extra verses are numbered differently ({string.Join(", ", Extra.Take(3))})." : "");
+            static string List(IReadOnlyList<string> l) => string.Join(", ", l.Take(3)) + (l.Count > 3 ? "…" : "");
+            var note = (Joined.Count > 0 ? $" {Joined.Count} {(Joined.Count == 1 ? "verse is" : "verses are")} printed together with the verse before ({List(Joined)})." : "")
+                     + (Omitted.Count > 0 ? $" {Omitted.Count} {(Omitted.Count == 1 ? "verse is" : "verses are")} left out as in most modern translations ({List(Omitted)})." : "")
+                     + (Extra.Count > 0 ? $" {Extra.Count} extra {(Extra.Count == 1 ? "verse is" : "verses are")} numbered differently ({List(Extra)})." : "");
             if (Complete) return $"Complete from Genesis 1:1 to Revelation 22:21.{note}";
             if (MissingBooks.Count == 66) return "No verses were found in this file.";
             var books = MissingBooks.Count > 0 ? $" Missing books: {string.Join(", ", MissingBooks.Take(6).Select(b => BibleBooks.Get(b).Name))}{(MissingBooks.Count > 6 ? "…" : "")}." : "";

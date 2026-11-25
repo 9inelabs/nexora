@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Nexora.App.Controls;
 using Nexora.App.Services;
+using Nexora.Core.Bible;
 using Nexora.Core.Config;
 using Nexora.Core.Model;
 using Nexora.Core.Protocol;
@@ -28,8 +29,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
         NavItems.Add(new NavItem("pc", "This PC", "pc"));
         NavItems.Add(new NavItem("screens", "Screens & outputs", "monitor"));
         NavItems.Add(new NavItem("users", "Users & PINs", "users"));
+        NavItems.Add(new NavItem("bibles", "Bibles & Scripture", "scripture"));
         NavItems.Add(new NavItem("network", "Network", "network"));
         Live.PropertyChanged += OnLive;
+        S.Bibles.Changed += OnBiblesChanged;
         LoadBranding();
         LoadPc();
         LoadScreens();
@@ -45,6 +48,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public bool IsScreens => Page == "screens";
     public bool IsUsers => Page == "users";
     public bool IsNetwork => Page == "network";
+    public bool IsBibles => Page == "bibles";
 
     partial void OnPageChanged(string value)
     {
@@ -53,6 +57,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsScreens));
         OnPropertyChanged(nameof(IsUsers));
         OnPropertyChanged(nameof(IsNetwork));
+        OnPropertyChanged(nameof(IsBibles));
     }
 
     [RelayCommand]
@@ -61,6 +66,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         foreach (var n in NavItems) n.IsSelected = n == item;
         Page = item.Key;
         if (item.Key == "network") LoadNetwork();
+        if (item.Key == "bibles") _ = LoadBiblesAsync();
     }
 
     /// <summary>Set by the view: opens a file picker and returns the chosen image bytes.</summary>
@@ -354,6 +360,167 @@ public sealed partial class SettingsViewModel : ViewModelBase
         foreach (var c in Live.Snapshot.Clients) Clients.Add(new ClientRow(c));
     }
 
+    // ================= Bibles & Scripture =================
+
+    public ObservableCollection<BibleRow> BibleRows { get; } = [];
+    public ObservableCollection<string> TranslationOptions { get; } = [];
+    public ObservableCollection<string> ThemeOptions { get; } = [];
+    [ObservableProperty] private string? _defaultTranslation;
+    [ObservableProperty] private string? _defaultTheme;
+    [ObservableProperty] private string? _biblesMessage;
+    [ObservableProperty] private bool _biblesBusy;
+
+    // A file being imported, waiting for the admin to check the name and press Add.
+    [ObservableProperty] private bool _hasPending;
+    [ObservableProperty] private string _pendingAbbrev = "";
+    [ObservableProperty] private string _pendingName = "";
+    [ObservableProperty] private string _pendingReport = "";
+    [ObservableProperty] private string _pendingFile = "";
+    [ObservableProperty] private bool _pendingComplete;
+    private BibleImport.Result? _pending;
+
+    /// <summary>Set by the view: opens a file picker and returns the chosen file's path.</summary>
+    public Func<Task<string?>>? PickBibleFile { get; set; }
+
+    private bool _loadingScripture;
+
+    private void OnBiblesChanged() => Dispatcher.UIThread.Post(() => { if (Page == "bibles") RefreshBibles(); });
+
+    private async Task LoadBiblesAsync()
+    {
+        await S.LoadBiblesAsync();
+        Dispatcher.UIThread.Post(RefreshBibles);
+    }
+
+    private void RefreshBibles()
+    {
+        _loadingScripture = true;
+        BibleRows.Clear();
+        foreach (var t in S.Bibles.All)
+        {
+            var bundled = S.Bibles.IsBundled(t.Abbrev);
+            BibleRows.Add(new BibleRow(t.Abbrev, t.Name, $"{t.Info.Verses:N0} verses · {(t.Info.Complete ? "complete" : "has gaps")}", bundled, t.Info.Complete));
+        }
+        TranslationOptions.Clear();
+        foreach (var t in S.Bibles.All) TranslationOptions.Add(t.Abbrev);
+        ThemeOptions.Clear();
+        foreach (var th in Live.ScriptureThemes) ThemeOptions.Add(th.Name);
+        var set = Live.ScriptureSettings;
+        DefaultTranslation = TranslationOptions.FirstOrDefault(a => a.Equals(set.DefaultTranslation, StringComparison.OrdinalIgnoreCase)) ?? TranslationOptions.FirstOrDefault();
+        DefaultTheme = Live.ScriptureThemes.FirstOrDefault(t => t.Id == set.DefaultThemeId)?.Name ?? ThemeOptions.FirstOrDefault();
+        _loadingScripture = false;
+    }
+
+    partial void OnDefaultTranslationChanged(string? value) => SaveScripture();
+    partial void OnDefaultThemeChanged(string? value) => SaveScripture();
+
+    private void SaveScripture()
+    {
+        if (_loadingScripture || DefaultTranslation is null) return;
+        var theme = Live.ScriptureThemes.FirstOrDefault(t => t.Name == DefaultTheme)?.Id ?? ScriptureSettings.Default.DefaultThemeId;
+        var next = new ScriptureSettings(DefaultTranslation, theme);
+        if (next == Live.ScriptureSettings) return;
+        if (Live.Client is { } c) _ = c.SendAsync(new SaveScriptureSettings(next));
+    }
+
+    [RelayCommand]
+    private async Task ChooseBibleFile()
+    {
+        if (PickBibleFile is null) return;
+        var path = await PickBibleFile();
+        if (path is null) return;
+        BiblesBusy = true;
+        BiblesMessage = "Reading the file and checking every verse…";
+        try
+        {
+            var result = await Task.Run(() => BibleImport.Load(path));
+            _pending = result;
+            PendingFile = Path.GetFileName(path);
+            PendingAbbrev = GuessAbbrev(result.Bible.Abbrev, path);
+            PendingName = result.Bible.Name.Equals(result.Bible.Abbrev, StringComparison.OrdinalIgnoreCase) ? PendingAbbrev : result.Bible.Name;
+            PendingComplete = result.Report.Complete;
+            PendingReport = $"{result.Format}. {result.Report.Summary}";
+            HasPending = true;
+            BiblesMessage = null;
+        }
+        catch (Exception ex)
+        {
+            BiblesMessage = "That file could not be read: " + ex.Message;
+        }
+        finally { BiblesBusy = false; }
+    }
+
+    /// <summary>
+    /// The file's own short name, unless the file name says better: "Bible_English_RSV.zip" gives RSV
+    /// when the file inside only calls itself "BIBLEE".
+    /// </summary>
+    private static string GuessAbbrev(string fromFile, string path)
+    {
+        var own = BibleImport.CleanAbbrev(fromFile);
+        var name = Path.GetFileNameWithoutExtension(path);
+        if (own.Length > 0 && name.Contains(own, StringComparison.OrdinalIgnoreCase)) return own;
+        var token = name.Split(['_', '-', ' ', '.'], StringSplitOptions.RemoveEmptyEntries).Reverse()
+            .FirstOrDefault(t => t.Length is >= 2 and <= 8 && t.All(char.IsLetterOrDigit) && t.Any(char.IsLetter)
+                && !t.Equals("bible", StringComparison.OrdinalIgnoreCase) && !t.Equals("english", StringComparison.OrdinalIgnoreCase));
+        return token is null ? own : BibleImport.CleanAbbrev(token.ToUpperInvariant());
+    }
+
+    [RelayCommand]
+    private void CancelBible()
+    {
+        _pending = null;
+        HasPending = false;
+    }
+
+    [RelayCommand]
+    private async Task AddBible()
+    {
+        if (_pending is not { } p || Live.Client is not { } c) return;
+        var abbrev = BibleImport.CleanAbbrev(PendingAbbrev);
+        if (abbrev.Length == 0) { BiblesMessage = "Give the translation a short name, like NIV."; return; }
+        if (S.Bibles.IsBundled(abbrev)) { BiblesMessage = $"{abbrev} is already built in. Use another short name."; return; }
+        BiblesBusy = true;
+        BiblesMessage = $"Adding {abbrev}…";
+        var tmp = Path.Combine(Path.GetTempPath(), $"nexora-{Guid.NewGuid():N}{BibleFile.Extension}");
+        try
+        {
+            p.Bible.Abbrev = abbrev;
+            p.Bible.Name = string.IsNullOrWhiteSpace(PendingName) ? abbrev : PendingName.Trim();
+            await Task.Run(() => BibleFile.Write(p.Bible, tmp, PendingFile, p.Hash));
+            var name = await c.UploadAsync("bibles", abbrev + BibleFile.Extension, tmp);
+            // Use it on this PC at once; the other PCs copy it from the Live Output PC.
+            await Task.Run(() => S.Bibles.AddFile(tmp));
+            BiblesMessage = $"{abbrev} added. Every PC gets it in a moment.";
+            _pending = null;
+            HasPending = false;
+            RefreshBibles();
+        }
+        catch (Exception ex)
+        {
+            BiblesMessage = $"{abbrev} could not be added: {ex.Message}";
+        }
+        finally
+        {
+            BiblesBusy = false;
+            try { File.Delete(tmp); } catch (IOException) { }
+        }
+    }
+
+    [RelayCommand]
+    private async Task RemoveBible(BibleRow row)
+    {
+        if (row.Bundled) return;
+        if (!row.ConfirmRemove)
+        {
+            foreach (var r in BibleRows) r.ConfirmRemove = false;
+            row.ConfirmRemove = true;
+            BiblesMessage = $"Press Remove again to remove {row.Abbrev} from every PC.";
+            return;
+        }
+        if (Live.Client is { } c) await c.SendAsync(new RemoveBible(row.Abbrev));
+        BiblesMessage = $"{row.Abbrev} removed.";
+    }
+
     // ================= Live updates =================
 
     private void OnLive(object? sender, PropertyChangedEventArgs e)
@@ -363,6 +530,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
             LoadUsers();
             if (!_brandingSave.IsEnabled && SavedText != "Saving…") LoadBranding();
         }
+        if (e.PropertyName is nameof(Live.Library) && Page == "bibles") RefreshBibles();
         if (e.PropertyName == nameof(Live.Snapshot))
         {
             if (Page == "network") LoadNetwork();
@@ -375,6 +543,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public override void OnLeave()
     {
         Live.PropertyChanged -= OnLive;
+        S.Bibles.Changed -= OnBiblesChanged;
         if (_brandingSave.IsEnabled) SaveBranding();
     }
 }
@@ -502,4 +671,16 @@ public sealed class ClientRow(ClientInfo c)
     public string Address => c.Address.Replace("::ffff:", "");
     public string Sections => c.Sections.Count == 0 ? "—" : string.Join(", ", c.Sections.Select(s => Nexora.Core.Model.Sections.Get(s).Title));
     public string Version => c.AppVersion;
+}
+
+public sealed partial class BibleRow(string abbrev, string name, string detail, bool bundled, bool complete) : ObservableObject
+{
+    public string Abbrev => abbrev;
+    public string Name => name;
+    public string Detail => detail;
+    public bool Bundled => bundled;
+    public bool Imported => !bundled;
+    public bool Complete => complete;
+    public string Kind => bundled ? "Built in" : "Added";
+    [ObservableProperty] private bool _confirmRemove;
 }

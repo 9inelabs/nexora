@@ -31,6 +31,20 @@ public partial class SettingsView : UserControl
             await s.CopyToAsync(ms);
             return ms.ToArray();
         };
+        vm.PickBibleFile = async () =>
+        {
+            var files = await top.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Choose a Bible file",
+                AllowMultiple = false,
+                FileTypeFilter =
+                [
+                    new FilePickerFileType("Bible files") { Patterns = ["*.xml", "*.zip", "*.usfm", "*.sfm", "*.sqlite", "*.sqlite3", "*.db", "*.SQLite3", "*.json", "*.gz", "*.csv", "*.tsv", "*.txt", "*.osis", "*.nxbible"] },
+                    new FilePickerFileType("All files") { Patterns = ["*"] },
+                ],
+            });
+            return files.Count == 0 ? null : files[0].TryGetLocalPath();
+        };
         vm.ListDisplays = () =>
         {
             if (top is not Window w) return [];

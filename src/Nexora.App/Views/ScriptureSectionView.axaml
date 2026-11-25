@@ -194,7 +194,7 @@
               <TextBlock Grid.Column="1" Classes="faint small" Text="{Binding SearchInfo}" IsVisible="{Binding SearchMode}" />
             </Grid>
             <ScrollViewer Grid.Row="1" x:Name="VerseScroll" VerticalScrollBarVisibility="Auto">
-              <ItemsControl ItemsSource="{Binding Verses}">
+              <ItemsControl x:Name="VerseList" ItemsSource="{Binding Verses}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:VerseRow">
                     <Button Classes="verse" Classes.selected="{Binding IsSelected}" Classes.current="{Binding IsCurrent}" Classes.showing="{Binding IsShowing}"
@@ -242,12 +242,12 @@
               <Button Grid.Column="4" Classes="ghost" Margin="0,0,8,0" Command="{Binding ClearCommand}">
                 <StackPanel Orientation="Horizontal" Spacing="7">
                   <c:Icon Kind="x" Width="14" Height="14" />
-                  <TextBlock Text="Clear (Esc)" />
+                  <TextBlock Text="Clear" />
                 </StackPanel>
               </Button>
               <Button Grid.Column="5" Classes="primary big" Command="{Binding ShowCommand}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                  <TextBlock Text="Send to screen (Enter)" />
+                  <TextBlock Text="Send to screen" />
                   <c:Icon Kind="send" Width="15" Height="15" />
                 </StackPanel>
               </Button>
@@ -276,7 +276,7 @@
               <Grid ColumnDefinitions="*,Auto,Auto" Margin="8,0,8,8">
                 <StackPanel Spacing="1">
                   <TextBlock Classes="h3" Text="Pastor's list" />
-                  <TextBlock Classes="faint small" Text="Page Down for the next one" />
+                  <TextBlock Classes="faint small" Text="Page Down for the next" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
                 <Button Grid.Column="1" Classes="ghost small" Command="{Binding ClearPlanCommand}" IsVisible="{Binding HasPlan}" Margin="0,0,6,0">Clear</Button>
                 <Button Grid.Column="2" Classes="small" Command="{Binding EditPlanCommand}">
@@ -416,7 +416,7 @@
                 <Slider Grid.Column="1" Minimum="0" Maximum="0.9" Value="{Binding Darken}" />
                 <TextBlock Grid.Column="2" Classes="fval" Text="{Binding Darken, StringFormat={}{0:P0}}" />
               </Grid>
-              <Grid ColumnDefinitions="90,*,8,92">
+              <Grid ColumnDefinitions="84,*,8,108">
                 <TextBlock Classes="flabel" Text="Tint" />
                 <Slider Grid.Column="1" Minimum="0" Maximum="0.8" Value="{Binding Tint}" />
                 <Panel Grid.Column="3">
@@ -462,7 +462,7 @@
                   <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding TextBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
                 </Panel>
               </Grid>
-              <Grid ColumnDefinitions="90,*,8,92">
+              <Grid ColumnDefinitions="84,*,8,108">
                 <TextBlock Classes="flabel" Text="Outline" />
                 <Slider Grid.Column="1" Minimum="0" Maximum="10" Value="{Binding OutlineWidth}" />
                 <Panel Grid.Column="3">
@@ -470,7 +470,7 @@
                   <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding OutlineBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
                 </Panel>
               </Grid>
-              <Grid ColumnDefinitions="90,*,8,92">
+              <Grid ColumnDefinitions="84,*,8,108">
                 <TextBlock Classes="flabel" Text="Shadow blur" />
                 <Slider Grid.Column="1" Minimum="0" Maximum="40" Value="{Binding ShadowBlur}" />
                 <Panel Grid.Column="3">
@@ -485,7 +485,7 @@
               </Grid>
               <CheckBox IsChecked="{Binding BoxEnabled}" Content="Box behind the words" FontSize="13" />
               <StackPanel Spacing="8" IsVisible="{Binding BoxEnabled}">
-                <Grid ColumnDefinitions="90,*,8,92">
+                <Grid ColumnDefinitions="84,*,8,108">
                   <TextBlock Classes="flabel" Text="Box see-through" />
                   <Slider Grid.Column="1" Minimum="0.1" Maximum="1" Value="{Binding BoxOpacity}" />
                   <Panel Grid.Column="3">
@@ -540,7 +540,7 @@
                 <ToggleButton Classes="seg" IsChecked="{Binding RefHidden}" Content="Hidden" />
               </UniformGrid>
               <ComboBox ItemsSource="{x:Static vm:ThemeEditor.Fonts}" SelectedItem="{Binding RefFontFamily}" HorizontalAlignment="Stretch" MaxDropDownHeight="360" />
-              <Grid ColumnDefinitions="90,*,8,92">
+              <Grid ColumnDefinitions="84,*,8,108">
                 <TextBlock Classes="flabel" Text="Size" />
                 <Slider Grid.Column="1" Minimum="16" Maximum="80" Value="{Binding RefFontSize}" />
                 <Panel Grid.Column="3">

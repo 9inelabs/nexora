@@ -214,7 +214,12 @@ public sealed partial class ScriptureSectionViewModel : ViewModelBase, IKeyHandl
             row.IsCurrent = onSlide.Contains((row.Chapter, row.Verse));
             row.IsShowing = Showing && row.IsCurrent;
         }
+        var first = Verses.ToList().FindIndex(r => r.IsCurrent || r.IsSelected);
+        if (first >= 0) ScrollToRow?.Invoke(first);
     }
+
+    /// <summary>Asks the view to bring a row of the chapter list into sight.</summary>
+    public event Action<int>? ScrollToRow;
 
     [RelayCommand]
     private void PickVerse(VerseRow row)

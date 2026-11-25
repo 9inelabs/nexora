@@ -331,6 +331,99 @@
           </Grid>
         </StackPanel>
 
+        <!-- ============ Bibles & Scripture ============ -->
+        <StackPanel IsVisible="{Binding IsBibles}" Spacing="20">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h1" Text="Bibles &amp; Scripture" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="The translations every PC can show. Add a Bible file here and NEXORA checks every verse from Genesis 1:1 to Revelation 22:21, then copies it to every PC." />
+          </StackPanel>
+
+          <Border Classes="card">
+            <StackPanel Spacing="14">
+              <TextBlock Classes="h3" Text="Defaults" />
+              <Grid ColumnDefinitions="*,16,*">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="flabel" Text="Translation a new Scripture section starts with" />
+                  <ComboBox ItemsSource="{Binding TranslationOptions}" SelectedItem="{Binding DefaultTranslation}" HorizontalAlignment="Stretch" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="6">
+                  <TextBlock Classes="flabel" Text="Theme a new Scripture section starts with" />
+                  <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding DefaultTheme}" HorizontalAlignment="Stretch" />
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel Spacing="14">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="h3" Text="Add a translation" />
+                  <TextBlock Classes="muted small" TextWrapping="Wrap" Text="Zefania or OSIS XML, USFM, MyBible or other SQLite Bibles, JSON, CSV, or a zip with any of these." />
+                </StackPanel>
+                <Button Grid.Column="1" Classes="primary" Command="{Binding ChooseBibleFileCommand}" IsEnabled="{Binding !BiblesBusy}" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <c:Icon Kind="upload" Width="15" Height="15" />
+                    <TextBlock Text="Choose file…" />
+                  </StackPanel>
+                </Button>
+              </Grid>
+              <Border Classes="panel" IsVisible="{Binding HasPending}">
+                <StackPanel Spacing="12">
+                  <TextBlock Classes="muted small" Text="{Binding PendingFile}" />
+                  <Grid ColumnDefinitions="160,16,*">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="flabel" Text="Short name" />
+                      <TextBox Text="{Binding PendingAbbrev}" MaxLength="10" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Spacing="6">
+                      <TextBlock Classes="flabel" Text="Full name" />
+                      <TextBox Text="{Binding PendingName}" />
+                    </StackPanel>
+                  </Grid>
+                  <Grid ColumnDefinitions="Auto,*">
+                    <c:Icon Kind="check" Width="15" Height="15" Margin="0,2,8,0" VerticalAlignment="Top" IsVisible="{Binding PendingComplete}" Foreground="{StaticResource PreviewBrush}" />
+                    <c:Icon Kind="info" Width="15" Height="15" Margin="0,2,8,0" VerticalAlignment="Top" IsVisible="{Binding !PendingComplete}" Foreground="{StaticResource Warn}" />
+                    <TextBlock Grid.Column="1" TextWrapping="Wrap" Text="{Binding PendingReport}" />
+                  </Grid>
+                  <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                    <Button Classes="ghost" Command="{Binding CancelBibleCommand}">Cancel</Button>
+                    <Button Classes="primary" Command="{Binding AddBibleCommand}" IsEnabled="{Binding !BiblesBusy}">Add to every PC</Button>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding BiblesMessage}" IsVisible="{Binding BiblesMessage, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card" Padding="0">
+            <ItemsControl ItemsSource="{Binding BibleRows}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:BibleRow">
+                  <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="18,12">
+                    <Grid ColumnDefinitions="80,*,Auto,Auto">
+                      <TextBlock Text="{Binding Abbrev}" Classes="mono" FontWeight="Bold" VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="1" Spacing="2">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Detail}" Classes="muted small" />
+                      </StackPanel>
+                      <TextBlock Grid.Column="2" Text="{Binding Kind}" Classes="faint small" VerticalAlignment="Center" Margin="12,0" />
+                      <Button Grid.Column="3" Classes="ghost small" IsVisible="{Binding Imported}" VerticalAlignment="Center"
+                              Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).RemoveBibleCommand}" CommandParameter="{Binding}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <c:Icon Kind="trash" Width="13" Height="13" />
+                          <TextBlock Text="Remove" IsVisible="{Binding !ConfirmRemove}" />
+                          <TextBlock Text="Press again to remove" IsVisible="{Binding ConfirmRemove}" Foreground="{StaticResource Warn}" />
+                        </StackPanel>
+                      </Button>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Border>
+        </StackPanel>
+
         <!-- ============ Network ============ -->
         <StackPanel IsVisible="{Binding IsNetwork}" Spacing="20">
           <StackPanel Spacing="6">

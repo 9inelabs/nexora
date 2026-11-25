@@ -143,7 +143,7 @@ public sealed record ScriptureSlide(
     {
         get
         {
-            var tr = string.Join(" | ", Columns.Select(c => c.Translation));
+            var tr = string.Join(" · ", Columns.Select(c => c.Translation));
             var text = Theme.RefShowTranslation && tr.Length > 0 ? $"{Reference} ({tr})" : Reference;
             return Theme.RefUppercase ? text.ToUpperInvariant() : text;
         }
