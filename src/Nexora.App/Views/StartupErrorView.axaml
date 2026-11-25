@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             x:Class="Nexora.App.Views.StartupErrorView"
+             x:DataType="vm:StartupErrorViewModel">
+  <Grid RowDefinitions="Auto,*" Margin="40,30">
+    <Image Source="avares://Nexora/Assets/nexora-lockup-white.png" Height="30" HorizontalAlignment="Left" />
+    <Border Grid.Row="1" Classes="card" Padding="34" Width="560" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="14">
+        <TextBlock Classes="h1" Text="NEXORA could not start" />
+        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Foreground="{StaticResource Live}" />
+        <TextBlock Classes="muted small" TextWrapping="Wrap">
+          <Run Text="Details are saved in " /><Run Text="{Binding LogsFolder}" FontFamily="{StaticResource FontMono}" />
+        </TextBlock>
+        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,8,0,0">
+          <Button Content="Set up this PC again" Command="{Binding SetUpAgainCommand}" />
+          <Button Classes="primary" Content="Try again" Command="{Binding RetryCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

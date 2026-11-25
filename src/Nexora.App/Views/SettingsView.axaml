@@ -1,0 +1,372 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="Nexora.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.nav">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Padding" Value="12,9" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <Style Selector="Button.nav.selected">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="Foreground" Value="{StaticResource Text1}" />
+    </Style>
+    <Style Selector="Button.userrow">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <Style Selector="Button.userrow.selected">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line2}" />
+    </Style>
+    <Style Selector="Grid.row">
+      <Setter Property="Margin" Value="0,4" />
+    </Style>
+    <Style Selector="CheckBox">
+      <Setter Property="Margin" Value="0,0,0,2" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid ColumnDefinitions="230,*">
+    <!-- Settings navigation -->
+    <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0" Padding="12,16">
+      <ItemsControl ItemsSource="{Binding NavItems}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:NavItem">
+            <Button Classes="nav" Classes.selected="{Binding IsSelected}"
+                    Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).GoCommand}" CommandParameter="{Binding}">
+              <StackPanel Orientation="Horizontal" Spacing="11">
+                <c:Icon Kind="{Binding Icon}" Width="17" Height="17" />
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
+
+    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+      <Panel Margin="32,26,32,32">
+
+        <!-- ============ Church branding ============ -->
+        <StackPanel IsVisible="{Binding IsBranding}" Spacing="20">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="h1" Text="Church branding" />
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="Shown on the sign-in screen and the logo screen. Change it once and every PC on the network picks it up." />
+            </StackPanel>
+            <Border Grid.Column="1" Classes="chip ok" VerticalAlignment="Top">
+              <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding SavedText}" /></StackPanel>
+            </Border>
+          </Grid>
+          <Grid ColumnDefinitions="*,28,*">
+            <StackPanel Spacing="16">
+              <Border Classes="panel" Padding="16" BorderBrush="{StaticResource Line2}">
+                <Grid ColumnDefinitions="Auto,16,*,Auto">
+                  <Border Width="120" Height="64" CornerRadius="10" Background="{StaticResource Surface3}" ClipToBounds="True">
+                    <Panel>
+                      <TextBlock Text="{Binding ChurchInitials}" FontWeight="Bold" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasLogo}" />
+                      <Image Source="{Binding LogoBitmap}" Margin="6" IsVisible="{Binding HasLogo}" />
+                    </Panel>
+                  </Border>
+                  <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="Church logo" FontWeight="Bold" />
+                    <TextBlock Classes="faint small" TextWrapping="Wrap" Text="PNG or JPG. A transparent background works best." />
+                  </StackPanel>
+                  <StackPanel Grid.Column="3" Spacing="6" VerticalAlignment="Center">
+                    <Button Classes="small" Command="{Binding UploadLogoCommand}">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <c:Icon Kind="upload" Width="13" Height="13" />
+                        <TextBlock Text="Upload logo" />
+                      </StackPanel>
+                    </Button>
+                    <Button Classes="link small" Content="Remove" HorizontalAlignment="Center" Command="{Binding RemoveLogoCommand}" IsVisible="{Binding HasLogo}" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+              <StackPanel>
+                <TextBlock Classes="label" Text="Church name" />
+                <TextBox Text="{Binding ChurchName}" />
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Classes="label" Text="Address" />
+                <TextBox Text="{Binding ChurchAddress}" AcceptsReturn="True" MinHeight="58" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Classes="label" Text="Logo screen line" />
+                <TextBox Text="{Binding LogoLine}" />
+              </StackPanel>
+              <Border Classes="panel">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="label" Text="Use branding on" />
+                  <Grid ColumnDefinitions="*,Auto" Classes="row">
+                    <TextBlock Text="Sign-in screen" VerticalAlignment="Center" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowOnSignIn}" OnContent="" OffContent="" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,Auto" Classes="row">
+                    <TextBlock Text="Logo screen when nothing is live" VerticalAlignment="Center" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding LogoWhenIdle}" OnContent="" OffContent="" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,Auto" Classes="row">
+                    <TextBlock Text="Corner watermark on stream (Phase 7)" VerticalAlignment="Center" Classes="faint" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding CornerWatermark}" OnContent="" OffContent="" />
+                  </Grid>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Spacing="10">
+              <TextBlock Classes="label" Text="Logo screen on the audience screen" />
+              <Border CornerRadius="12" ClipToBounds="True" BorderBrush="{StaticResource Line2}" BorderThickness="1">
+                <c:ScreenView Branding="{Binding PreviewBranding}" Animate="False" />
+              </Border>
+              <TextBlock Classes="label" Text="Sign-in screen" Margin="0,12,0,6" />
+              <Border Background="#0E0F11" CornerRadius="12" Padding="16" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                <Grid ColumnDefinitions="Auto,14,*">
+                  <Border Width="42" Height="42" CornerRadius="10" Background="{StaticResource Surface3}" ClipToBounds="True">
+                    <Panel>
+                      <TextBlock Text="{Binding ChurchInitials}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasLogo}" />
+                      <Image Source="{Binding LogoBitmap}" Margin="4" IsVisible="{Binding HasLogo}" />
+                    </Panel>
+                  </Border>
+                  <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ChurchName}" FontFamily="{StaticResource FontDisplay}" FontWeight="SemiBold" FontSize="15" />
+                    <TextBlock Text="{Binding ChurchAddress}" Classes="muted small" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+
+        <!-- ============ This PC ============ -->
+        <StackPanel IsVisible="{Binding IsPc}" Spacing="20" MaxWidth="760" HorizontalAlignment="Left">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h1" Text="This PC" />
+            <TextBlock Classes="muted" Text="{Binding PcRoleText}" TextWrapping="Wrap" />
+          </StackPanel>
+          <Grid ColumnDefinitions="*,16,*">
+            <StackPanel>
+              <TextBlock Classes="label" Text="Name of this PC" />
+              <TextBox Text="{Binding PcName}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+              <TextBlock Classes="label" Text="Pairing code" />
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBox Text="{Binding PairingCode}" FontFamily="{StaticResource FontMono}" />
+                <Button Grid.Column="1" Classes="ghost small" Margin="6,0,0,0" Command="{Binding NewPairingCodeCommand}" IsVisible="{Binding IsLiveOutputPc}" ToolTip.Tip="Make a new code">
+                  <c:Icon Kind="refresh" Width="15" Height="15" />
+                </Button>
+              </Grid>
+            </StackPanel>
+          </Grid>
+          <StackPanel IsVisible="{Binding IsTerminalPc}">
+            <TextBlock Classes="label" Text="Live Output PC address (leave empty to find it automatically)" />
+            <TextBox Text="{Binding ManualAddress}" Watermark="For example: 192.168.1.20" FontFamily="{StaticResource FontMono}" />
+          </StackPanel>
+          <Border Classes="panel" IsVisible="{Binding IsLiveOutputPc}">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" Text="Addresses of this PC on the church network" />
+              <TextBlock Text="{Binding LanAddresses}" Classes="mono" TextWrapping="Wrap" />
+              <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Terminals normally find this PC by themselves. Type one of these on a terminal only if it cannot." />
+            </StackPanel>
+          </Border>
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Button Classes="primary" Content="Save" Command="{Binding SavePcCommand}" />
+            <Button Command="{Binding AllowFirewallCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <c:Icon Kind="shield" Width="14" Height="14" />
+                <TextBlock Text="Allow NEXORA through Windows Firewall" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+          <TextBlock Text="{Binding PcMessage}" TextWrapping="Wrap" Foreground="{StaticResource Accent}"
+                     IsVisible="{Binding PcMessage, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <Border Classes="hairline" />
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h3" Text="Set up this PC again" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="Change this PC between Live Output and Terminal. Users and settings stored on this PC are kept." />
+            <Button Classes="takedown" HorizontalAlignment="Left" Margin="0,6,0,0" Content="Run the set-up again" Command="{Binding ResetPcCommand}" />
+          </StackPanel>
+          <TextBlock Classes="faint small">
+            <Run Text="NEXORA " /><Run Text="{Binding VersionText}" /><Run Text="   ·   Data folder: " /><Run Text="{Binding DataFolder}" FontFamily="{StaticResource FontMono}" />
+          </TextBlock>
+        </StackPanel>
+
+        <!-- ============ Screens & outputs ============ -->
+        <StackPanel IsVisible="{Binding IsScreens}" Spacing="20">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h1" Text="Screens &amp; outputs" />
+            <TextBlock Classes="muted" TextWrapping="Wrap"
+                       Text="Each named screen is one output of the Live Output PC. Choose which display it fills. 'Window' shows it in a normal window, handy for testing on one monitor." />
+          </StackPanel>
+          <ItemsControl ItemsSource="{Binding ScreenEdits}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ScreenEdit">
+                <Border Classes="panel" Margin="0,0,0,12" Padding="16">
+                  <Grid ColumnDefinitions="2*,14,2*,14,2*,14,Auto,14,Auto">
+                    <StackPanel>
+                      <TextBlock Classes="label" Text="Name" />
+                      <TextBox Text="{Binding Name}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                      <TextBlock Classes="label" Text="Look" />
+                      <ComboBox SelectedIndex="{Binding KindIndex}"
+                                ItemsSource="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).KindOptions}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="4">
+                      <TextBlock Classes="label" Text="Shows on" />
+                      <ComboBox SelectedIndex="{Binding DisplayIndex}"
+                                ItemsSource="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).DisplayOptions}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="6">
+                      <TextBlock Classes="label" Text="One text at a time" ToolTip.Tip="Pinning Scripture live takes Lyrics down on this screen, and the other way round." />
+                      <ToggleSwitch IsChecked="{Binding OneTextSource}" OnContent="" OffContent="" />
+                    </StackPanel>
+                    <Button Grid.Column="8" Classes="ghost" VerticalAlignment="Bottom" ToolTip.Tip="Remove this screen"
+                            Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).RemoveScreenCommand}" CommandParameter="{Binding}">
+                      <c:Icon Kind="trash" Width="16" Height="16" />
+                    </Button>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Button Command="{Binding AddScreenCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <c:Icon Kind="plus" Width="14" Height="14" />
+                <TextBlock Text="Add screen" />
+              </StackPanel>
+            </Button>
+            <Button Classes="primary" Content="Save screens" Command="{Binding SaveScreensCommand}" />
+          </StackPanel>
+          <TextBlock Text="{Binding ScreensMessage}" TextWrapping="Wrap" Foreground="{StaticResource Accent}"
+                     IsVisible="{Binding ScreensMessage, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <!-- ============ Users & PINs ============ -->
+        <StackPanel IsVisible="{Binding IsUsers}" Spacing="20">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h1" Text="Users &amp; PINs" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="Each person has their own name and 4-digit PIN. Their roles decide which sections they can open. Users are stored on the Live Output PC and work on every terminal." />
+          </StackPanel>
+          <Grid ColumnDefinitions="300,24,*">
+            <StackPanel>
+              <ItemsControl ItemsSource="{Binding UserEdits}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:UserEdit">
+                    <Button Classes="userrow" Classes.selected="{Binding IsSelected}"
+                            Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).SelectUserCommand}" CommandParameter="{Binding}">
+                      <Grid ColumnDefinitions="Auto,12,*">
+                        <Border Classes="avatar">
+                          <TextBlock Text="{Binding Initials}" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" />
+                          <TextBlock Text="{Binding RolesText}" Classes="faint small" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button Margin="0,8,0,0" Command="{Binding AddUserCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <c:Icon Kind="plus" Width="14" Height="14" />
+                  <TextBlock Text="Add user" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+
+            <Border Grid.Column="2" Classes="card" IsVisible="{Binding HasSelectedUser}" VerticalAlignment="Top">
+              <StackPanel Spacing="14" DataContext="{Binding SelectedUser}" x:DataType="vm:UserEdit">
+                <Grid ColumnDefinitions="*,14,*">
+                  <StackPanel>
+                    <TextBlock Classes="label" Text="Name" />
+                    <TextBox Text="{Binding Name}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <TextBlock Classes="label" Text="Title (optional)" />
+                    <TextBox Text="{Binding Title}" Watermark="For example: Media lead" />
+                  </StackPanel>
+                </Grid>
+                <StackPanel>
+                  <TextBlock Classes="label" Text="PIN" />
+                  <TextBox Text="{Binding Pin}" PasswordChar="•" MaxLength="4" Width="180" HorizontalAlignment="Left" Watermark="4 digits" />
+                  <TextBlock Classes="faint small" Margin="0,4,0,0" Text="{Binding PinHint}" />
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="label" Text="Roles" />
+                  <UniformGrid Columns="3">
+                    <CheckBox Content="Admin" IsChecked="{Binding Admin}" />
+                    <CheckBox Content="Live Output" IsChecked="{Binding LiveOutput}" />
+                    <CheckBox Content="Scripture" IsChecked="{Binding Scripture}" />
+                    <CheckBox Content="Song Lyrics" IsChecked="{Binding Lyrics}" />
+                    <CheckBox Content="Camera Switcher" IsChecked="{Binding Camera}" />
+                    <CheckBox Content="Announcements" IsChecked="{Binding Announcements}" />
+                    <CheckBox Content="Lower Thirds" IsChecked="{Binding LowerThirds}" />
+                    <CheckBox Content="Countdown" IsChecked="{Binding Countdown}" />
+                    <CheckBox Content="Trainee (practice only)" IsChecked="{Binding Trainee}" />
+                  </UniformGrid>
+                </StackPanel>
+                <TextBlock Text="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).UsersMessage}" TextWrapping="Wrap" Foreground="{StaticResource Accent}" />
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <Button Classes="primary" Content="Save user" Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).SaveUserCommand}" />
+                  <Button Classes="takedown" Content="Remove" Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).DeleteUserCommand}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </StackPanel>
+
+        <!-- ============ Network ============ -->
+        <StackPanel IsVisible="{Binding IsNetwork}" Spacing="20">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h1" Text="Network" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="Every NEXORA program connected to the Live Output PC right now." />
+          </StackPanel>
+          <Border Classes="card" Padding="0">
+            <StackPanel>
+              <Grid ColumnDefinitions="2*,1.4*,1.4*,1.4*,2*,*" Margin="18,12">
+                <TextBlock Classes="eyebrow" Text="PC" />
+                <TextBlock Grid.Column="1" Classes="eyebrow" Text="TYPE" />
+                <TextBlock Grid.Column="2" Classes="eyebrow" Text="USER" />
+                <TextBlock Grid.Column="3" Classes="eyebrow" Text="ADDRESS" />
+                <TextBlock Grid.Column="4" Classes="eyebrow" Text="SECTIONS" />
+                <TextBlock Grid.Column="5" Classes="eyebrow" Text="VERSION" />
+              </Grid>
+              <ItemsControl ItemsSource="{Binding Clients}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ClientRow">
+                    <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="18,11">
+                      <Grid ColumnDefinitions="2*,1.4*,1.4*,1.4*,2*,*">
+                        <TextBlock Text="{Binding PcName}" FontWeight="Bold" />
+                        <TextBlock Grid.Column="1" Text="{Binding Kind}" Classes="muted" />
+                        <TextBlock Grid.Column="2" Text="{Binding User}" Classes="muted" />
+                        <TextBlock Grid.Column="3" Text="{Binding Address}" Classes="mono muted" />
+                        <TextBlock Grid.Column="4" Text="{Binding Sections}" Classes="muted" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="5" Text="{Binding Version}" Classes="mono faint" />
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Panel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

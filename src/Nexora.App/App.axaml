@@ -1,0 +1,14 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Nexora.App"
+             x:Class="Nexora.App.App"
+             RequestedThemeVariant="Dark"
+             Name="NEXORA">
+  <Application.DataTemplates>
+    <local:ViewLocator />
+  </Application.DataTemplates>
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Nexora/Theme/Theme.axaml" />
+  </Application.Styles>
+</Application>

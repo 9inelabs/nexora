@@ -1,0 +1,139 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="Nexora.App.Views.LoginView"
+             x:DataType="vm:LoginViewModel">
+  <UserControl.Styles>
+    <Style Selector="Border.pin">
+      <Setter Property="Width" Value="87" />
+      <Setter Property="Height" Value="54" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line2}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.pin.active">
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="Button.who">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="4" />
+    </Style>
+    <Style Selector="Button.who:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.face">
+      <Setter Property="Width" Value="46" />
+      <Setter Property="Height" Value="46" />
+      <Setter Property="CornerRadius" Value="999" />
+      <Setter Property="Background" Value="{StaticResource Surface3}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Border.face.selected">
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+    </Style>
+    <Style Selector="Button.who:pointerover Border.face">
+      <Setter Property="Background" Value="{StaticResource Surface4}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="40,30">
+    <Grid ColumnDefinitions="Auto,*,Auto">
+      <Image Source="avares://Nexora/Assets/nexora-lockup-white.png" Height="30" />
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" IsVisible="{Binding LinkOk}" />
+        <Ellipse Width="7" Height="7" Fill="{StaticResource Live}" IsVisible="{Binding LinkBad}" />
+        <Ellipse Width="7" Height="7" Fill="{StaticResource Warn}" IsVisible="{Binding LinkWaiting}" />
+        <TextBlock Classes="muted small" VerticalAlignment="Center">
+          <Run Text="{Binding PcLine}" /><Run Text="  ·  " /><Run Text="{Binding LinkText}" />
+        </TextBlock>
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Row="1" Classes="card" Padding="36" Width="452" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="0">
+        <!-- Church branding -->
+        <StackPanel IsVisible="{Binding ShowBranding}">
+          <Grid ColumnDefinitions="Auto,14,*">
+            <Border Width="42" Height="42" CornerRadius="10" Background="{StaticResource Surface3}" ClipToBounds="True">
+              <Panel>
+                <TextBlock Text="{Binding ChurchInitials}" FontWeight="Bold" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           IsVisible="{Binding !HasLogo}" />
+                <Image Source="{Binding Logo}" Stretch="Uniform" Margin="4" IsVisible="{Binding HasLogo}" />
+              </Panel>
+            </Border>
+            <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="1">
+              <TextBlock Text="{Binding ChurchName}" FontFamily="{StaticResource FontDisplay}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding Address}" Classes="muted small" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </Grid>
+          <Border Classes="hairline" Margin="0,22,0,24" />
+        </StackPanel>
+
+        <TextBlock Classes="h1" Text="Sign in" />
+        <TextBlock Classes="muted" Margin="0,8,0,22" Text="Choose your name, then type your 4-digit PIN." />
+
+        <!-- Who are you? -->
+        <ItemsControl ItemsSource="{Binding Users}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel ItemWidth="64" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:UserChoice">
+              <Button Classes="who" HorizontalAlignment="Center"
+                      Command="{Binding $parent[UserControl].((vm:LoginViewModel)DataContext).SelectUserCommand}" CommandParameter="{Binding}">
+                <StackPanel Spacing="6" HorizontalAlignment="Center">
+                  <Border Classes="face" Classes.selected="{Binding IsSelected}" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding Initials}" FontWeight="Bold" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <TextBlock Text="{Binding Name}" FontSize="12" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="60"
+                             Foreground="{StaticResource Text2}" />
+                </StackPanel>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="muted" IsVisible="{Binding NoUsers}" Text="No users yet. Ask the admin to add you in Settings." />
+
+        <!-- PIN -->
+        <ItemsControl ItemsSource="{Binding PinSlots}" Margin="0,24,0,0">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="4" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:PinSlot">
+              <Border Classes="pin" Classes.active="{Binding Active}" HorizontalAlignment="Center">
+                <Ellipse Width="10" Height="10" Fill="{StaticResource Text1}" IsVisible="{Binding Filled}" />
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Classes="error" Margin="0,14,0,0" Text="{Binding Error}" TextWrapping="Wrap"
+                   IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <Button Classes="primary big" Margin="0,22,0,0" HorizontalAlignment="Stretch" Height="46"
+                Content="Sign in" Command="{Binding SignInCommand}" IsEnabled="{Binding CanSignIn}" />
+
+        <StackPanel IsVisible="{Binding ShowConnectionHelp}" Margin="0,18,0,0" Spacing="6">
+          <Border Classes="hairline" Margin="0,0,0,10" />
+          <TextBlock Classes="muted small" TextWrapping="Wrap"
+                     Text="Not connected to the Live Output PC yet. Check that NEXORA is open there, that both PCs are on the church network, and that the pairing code matches." />
+          <Button Classes="link" Content="Change connection settings" Command="{Binding ConnectionSettingsCommand}" HorizontalAlignment="Left" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <TextBlock Grid.Row="2" Classes="faint small" HorizontalAlignment="Center">
+      <Run Text="NEXORA " /><Run Text="{Binding Version}" /><Run Text="      Works offline on the church network" />
+    </TextBlock>
+  </Grid>
+</UserControl>

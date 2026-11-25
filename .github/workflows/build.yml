@@ -1,0 +1,78 @@
+name: Build NEXORA
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Test and build the Windows installer
+    runs-on: windows-latest
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Version
+        id: version
+        shell: pwsh
+        run: |
+          $v = "0.1.${{ github.run_number }}"
+          "value=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "NEXORA $v"
+
+      - name: Run the automatic checks
+        run: dotnet test tests/Nexora.Tests -c Release --logger "console;verbosity=normal"
+
+      - name: Publish NEXORA for Windows
+        run: >
+          dotnet publish src/Nexora.App/Nexora.App.csproj -c Release -r win-x64 --self-contained true
+          -p:Version=${{ steps.version.outputs.value }} -p:DebugType=none -o publish
+
+      - name: Build the installer (Velopack)
+        shell: pwsh
+        run: |
+          dotnet tool install -g vpk --version 1.2.161
+          vpk pack --packId Nexora --packVersion ${{ steps.version.outputs.value }} --packDir publish `
+            --mainExe Nexora.exe --packTitle NEXORA --packAuthors NEXORA `
+            --icon src/Nexora.App/Assets/nexora.ico --outputDir Releases
+          Get-ChildItem Releases
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item Releases/Nexora-win-Setup.exe out/NEXORA-Setup.exe
+          Copy-Item Releases/Nexora-win-Portable.zip out/NEXORA-Portable.zip
+          Copy-Item docs/PHASE1-TESTING.md out/PHASE1-TESTING.md
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXORA-Setup-${{ steps.version.outputs.value }}
+          path: out/*
+          retention-days: 30
+
+      - name: Publish a test release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.value }}
+          name: NEXORA ${{ steps.version.outputs.value }} (test build)
+          prerelease: true
+          body: |
+            Test build of NEXORA. Download **NEXORA-Setup.exe** below and follow PHASE1-TESTING.md.
+          files: |
+            out/NEXORA-Setup.exe
+            out/NEXORA-Portable.zip
+            out/PHASE1-TESTING.md
