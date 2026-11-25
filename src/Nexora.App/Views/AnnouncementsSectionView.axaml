@@ -1,0 +1,224 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:m="using:Nexora.Core.Model"
+             xmlns:v="using:Nexora.App.Views"
+             x:Class="Nexora.App.Views.AnnouncementsSectionView"
+             x:DataType="vm:AnnouncementsSectionViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.row">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.row.current">
+      <Setter Property="Background" Value="{StaticResource TintAccent}" />
+    </Style>
+    <Style Selector="ToggleButton.seg">
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.seg:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface4}" />
+      <Setter Property="Foreground" Value="{StaticResource Text1}" />
+    </Style>
+    <Style Selector="TextBlock.flabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*" Margin="20,16,20,18">
+    <v:AirStrip />
+    <Grid Grid.Row="1" ColumnDefinitions="320,16,*,16,Auto">
+      <!-- Slides -->
+      <Border Classes="card" Padding="8,14,8,8">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <Grid ColumnDefinitions="*,Auto" Margin="8,0,8,10">
+            <StackPanel Spacing="1">
+              <TextBlock Classes="h3" Text="Slides" />
+              <TextBlock Classes="faint small" Text="{Binding LoopInfo}" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="small" Command="{Binding AddSlideCommand}" IsVisible="{Binding MayEdit}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <c:Icon Kind="plus" Width="13" Height="13" />
+                <TextBlock Text="Add" />
+              </StackPanel>
+            </Button>
+          </Grid>
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+              <TextBlock Classes="faint small" Margin="8,4" TextWrapping="Wrap" IsVisible="{Binding !HasSlides}"
+                         Text="Add a slide for each notice: words on a template, or a picture your designers made." />
+              <ItemsControl ItemsSource="{Binding Slides}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:AnnouncementRow">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                      <Button Classes="row" Classes.current="{Binding IsCurrent}" Opacity="{Binding Expired, Converter={x:Static c:Conv.DimIf}}"
+                              Command="{Binding $parent[UserControl].((vm:AnnouncementsSectionViewModel)DataContext).PickCommand}" CommandParameter="{Binding}">
+                        <StackPanel Spacing="1">
+                          <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding Sub}" Classes="faint small" />
+                        </StackPanel>
+                      </Button>
+                      <Button Grid.Column="1" Classes="ghost small" Padding="6" ToolTip.Tip="Move up"
+                              Command="{Binding $parent[UserControl].((vm:AnnouncementsSectionViewModel)DataContext).MoveUpCommand}" CommandParameter="{Binding}">
+                        <c:Icon Kind="arrowup" Width="12" Height="12" />
+                      </Button>
+                      <Button Grid.Column="2" Classes="ghost small" Padding="6" ToolTip.Tip="Remove"
+                              Command="{Binding $parent[UserControl].((vm:AnnouncementsSectionViewModel)DataContext).RemoveSlideCommand}" CommandParameter="{Binding}">
+                        <c:Icon Kind="x" Width="12" Height="12" />
+                      </Button>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </ScrollViewer>
+          <Border Grid.Row="2" Background="{StaticResource TintWarn}" CornerRadius="8" Padding="10,8" Margin="4,8,4,0" IsVisible="{Binding Dirty}">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="small" Foreground="{StaticResource Warn}" Text="Changes not saved yet" VerticalAlignment="Center" />
+              <Button Grid.Column="1" Classes="primary small" Command="{Binding SaveCommand}" Content="Save" />
+            </Grid>
+          </Border>
+        </Grid>
+      </Border>
+
+      <!-- Edit the slide -->
+      <Border Grid.Column="2" Classes="card" Padding="16">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="10" IsEnabled="{Binding HasSelected}">
+            <TextBlock Classes="h3" Text="Slide" />
+            <TextBox Text="{Binding Title}" Watermark="Title, for example Youth Camp" FontSize="16" FontWeight="SemiBold" />
+            <TextBox Text="{Binding DateText}" Watermark="When and where, for example Saturday 14 Dec · 10 AM · Main hall" />
+            <TextBox Text="{Binding Details}" Watermark="Details" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="110" />
+            <Grid ColumnDefinitions="Auto,*,Auto,12,Auto,8,160">
+              <TextBlock Classes="flabel" Text="Seconds in the loop" Margin="0,0,8,0" />
+              <Slider Grid.Column="1" Minimum="3" Maximum="60" Value="{Binding Seconds}" Margin="0,-8,0,-6" />
+              <TextBlock Grid.Column="2" Classes="faint small mono" Text="{Binding Seconds, StringFormat={}{0:0} s}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="4" Classes="flabel" Text="Last day" />
+              <TextBox Grid.Column="6" Text="{Binding Expires}" Watermark="2026-12-14" ToolTip.Tip="After this day the slide leaves the loop by itself. Leave empty to keep it." />
+            </Grid>
+            <TextBlock Classes="sect" Text="PICTURE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Text3}" Margin="0,8,0,0" />
+            <Grid ColumnDefinitions="Auto,8,Auto,*,Auto">
+              <Button x:Name="PickPicture">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <c:Icon Kind="image" Width="14" Height="14" />
+                  <TextBlock Text="Choose a picture…" />
+                </StackPanel>
+              </Button>
+              <Button Grid.Column="2" Classes="ghost" Command="{Binding ClearPictureCommand}" IsVisible="{Binding HasImage}" Content="Remove" />
+              <CheckBox Grid.Column="4" IsChecked="{Binding ImageOnly}" IsEnabled="{Binding HasImage}" Content="The picture is the whole slide" />
+            </Grid>
+            <TextBlock Classes="faint small" TextWrapping="Wrap" Text="A picture goes behind the words. Tick the box for a finished graphic from your designers: it fills the screen on its own." />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <!-- Preview and sending -->
+      <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="16">
+        <Border Classes="card" Padding="16" Width="430">
+          <StackPanel Spacing="12">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" VerticalAlignment="Center" />
+              <TextBlock Classes="eyebrow" Foreground="{StaticResource PreviewBrush}" Text="PREVIEW" />
+            </StackPanel>
+            <Border CornerRadius="10" ClipToBounds="True" BorderBrush="{StaticResource PreviewBrush}" BorderThickness="1.5">
+              <c:ScreenView Frame="{Binding PreviewFrame}" Branding="{Binding Branding}" Animate="False" />
+            </Border>
+            <Grid ColumnDefinitions="Auto,8,Auto,*,Auto">
+              <Button Command="{Binding PreviousCommand}" ToolTip.Tip="Previous (↑)">
+                <c:Icon Kind="arrowup" Width="16" Height="16" />
+              </Button>
+              <Button Grid.Column="2" Command="{Binding NextCommand}" ToolTip.Tip="Next (↓)">
+                <c:Icon Kind="arrowdown" Width="16" Height="16" />
+              </Button>
+              <Button Grid.Column="4" Classes="primary big" Command="{Binding ShowCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="Show this one" />
+                  <c:Icon Kind="send" Width="15" Height="15" />
+                </StackPanel>
+              </Button>
+            </Grid>
+            <Grid ColumnDefinitions="*,8,*">
+              <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding StartLoopCommand}" ToolTip.Tip="All current slides, one after another, until you clear (L)">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <c:Icon Kind="refresh" Width="14" Height="14" />
+                  <TextBlock Text="Run the loop" />
+                </StackPanel>
+              </Button>
+              <Button Grid.Column="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ClearCommand}" ToolTip.Tip="Off the screen (Esc)">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <c:Icon Kind="x" Width="13" Height="13" />
+                  <TextBlock Text="Clear" />
+                </StackPanel>
+              </Button>
+            </Grid>
+            <Border Background="{StaticResource TintLive}" CornerRadius="8" Padding="10,8" IsVisible="{Binding Looping}">
+              <TextBlock Classes="small" Foreground="{StaticResource Live}" FontWeight="SemiBold" TextWrapping="Wrap"
+                         Text="The loop is running on the Live Output PC. It carries on even if this PC is switched off." />
+            </Border>
+            <Border Height="1" Background="{StaticResource Line}" />
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,8,Auto">
+              <TextBlock Classes="flabel" Text="Template" Margin="0,0,12,0" />
+              <Grid Grid.Column="1" ColumnDefinitions="*,8,Auto">
+                <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}" HorizontalAlignment="Stretch">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="m:ScriptureTheme">
+                      <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <ToggleButton Grid.Column="2" Classes="seg" IsChecked="{Binding StyleOpen}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="palette" Width="13" Height="13" />
+                    <TextBlock Text="Style" />
+                  </StackPanel>
+                </ToggleButton>
+              </Grid>
+              <TextBlock Grid.Row="2" Classes="flabel" Text="Between slides" />
+              <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{x:Static vm:AnnouncementsSectionViewModel.Transitions}" SelectedItem="{Binding LoopTransition}" HorizontalAlignment="Stretch" />
+            </Grid>
+            <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Keys: ↑ ↓ choose · Enter show · L loop · Esc clear" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" Padding="0" Width="350" IsVisible="{Binding StyleOpen}">
+          <Grid RowDefinitions="Auto,*,Auto">
+            <TextBlock Classes="h3" Text="Template style" Margin="16,14,16,10" />
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,0,16,0">
+              <v:ThemeEditorPanel x:Name="StylePanel" Kind="Announcements" DataContext="{Binding Editor}" Margin="0,0,0,12" />
+            </ScrollViewer>
+            <Border Grid.Row="2" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="16,12" IsVisible="{Binding MayEdit}">
+              <StackPanel Spacing="8">
+                <Button Classes="primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding SaveThemeCommand}" Content="Save template" />
+                <Grid ColumnDefinitions="*,8,Auto">
+                  <TextBox Text="{Binding NewThemeName}" Watermark="New template name" />
+                  <Button Grid.Column="2" Command="{Binding SaveThemeAsNewCommand}" Content="Save as new" />
+                </Grid>
+                <Button HorizontalAlignment="Right" Classes="ghost small" Command="{Binding DeleteThemeCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="trash" Width="12" Height="12" />
+                    <TextBlock Text="Delete" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </Border>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>

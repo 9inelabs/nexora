@@ -774,7 +774,11 @@ public sealed partial class LiveServer : IAsyncDisposable
     {
         var now = DateTime.UtcNow;
         var countdown = c.Countdown;
-        if (countdown is { Running: true })
+        if (countdown is { Running: true, EndsUtc: { } given } && Math.Abs((given - now).TotalHours) < 24)
+        {
+            // Already running on this PC's clock (the terminal sent back the end time it was given): keep it exact.
+        }
+        else if (countdown is { Running: true })
         {
             // The timer runs on this PC's clock from now on.
             var ends = countdown.Mode == CountdownMode.ToTime && CountdownShow.NextLocal(countdown.ToTime, DateTime.Now) is { } local

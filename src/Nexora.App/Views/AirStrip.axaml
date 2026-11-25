@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="Nexora.App.Views.AirStrip"
+             x:DataType="vm:SectionBase">
+  <StackPanel Spacing="6" Margin="0,0,0,12">
+    <ItemsControl ItemsSource="{Binding Bars}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:AirBar">
+          <Panel>
+            <Border CornerRadius="10" Padding="14,9" Margin="0,0,0,6" Background="{StaticResource Live}" IsVisible="{Binding IsLive}">
+              <StackPanel Orientation="Horizontal" Spacing="9">
+                <Ellipse Width="8" Height="8" Fill="White" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Text}" Foreground="White" FontWeight="Bold" LetterSpacing="0.6" />
+                <TextBlock Text="What you send goes straight to this screen." Foreground="#E6FFFFFF" Margin="10,0,0,0" />
+              </StackPanel>
+            </Border>
+            <Border CornerRadius="10" Padding="14,9" Margin="0,0,0,6" Background="{StaticResource TintWarn}" IsVisible="{Binding IsStandby}">
+              <StackPanel Orientation="Horizontal" Spacing="9">
+                <Ellipse Width="8" Height="8" Fill="{StaticResource Warn}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Text}" Foreground="{StaticResource Warn}" FontWeight="Bold" LetterSpacing="0.6" />
+                <TextBlock Text="Taken down. Keep preparing; nothing reaches this screen until Live Output brings you back." Foreground="{StaticResource Warn}" Opacity="0.85" Margin="10,0,0,0" />
+              </StackPanel>
+            </Border>
+          </Panel>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Border CornerRadius="10" Padding="14,9" Background="{StaticResource Surface1}" BorderBrush="{StaticResource Line}" BorderThickness="1" IsVisible="{Binding NotRouted}">
+      <StackPanel Orientation="Horizontal" Spacing="9">
+        <c:Icon Kind="info" Width="16" Height="16" Foreground="{StaticResource Text2}" />
+        <TextBlock Classes="muted" Text="Not on any screen yet. The Live Output operator pins you live when it is your turn. You can prepare and preview now." />
+      </StackPanel>
+    </Border>
+    <Border CornerRadius="10" Padding="14,9" Background="{StaticResource TintWarn}" IsVisible="{Binding IsTrainee}">
+      <TextBlock Foreground="{StaticResource Warn}" FontWeight="SemiBold" Text="Trainee: practice mode. Nothing you send reaches the screens." />
+    </Border>
+  </StackPanel>
+</UserControl>

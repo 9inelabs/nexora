@@ -1,0 +1,362 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:m="using:Nexora.Core.Model"
+             xmlns:v="using:Nexora.App.Views"
+             x:Class="Nexora.App.Views.LyricsSectionView"
+             x:DataType="vm:LyricsSectionViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.row">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.row.current">
+      <Setter Property="Background" Value="{StaticResource TintAccent}" />
+    </Style>
+    <Style Selector="Button.tile">
+      <Setter Property="Width" Value="232" />
+      <Setter Property="Height" Value="128" />
+      <Setter Property="Margin" Value="0,0,10,10" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.tile.selected">
+      <Setter Property="BorderBrush" Value="{StaticResource PreviewBrush}" />
+    </Style>
+    <Style Selector="Button.tile.showing">
+      <Setter Property="BorderBrush" Value="{StaticResource Live}" />
+      <Setter Property="Background" Value="{StaticResource TintLive}" />
+    </Style>
+    <Style Selector="ToggleButton.seg">
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.seg:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface4}" />
+      <Setter Property="Foreground" Value="{StaticResource Text1}" />
+    </Style>
+    <Style Selector="TextBlock.flabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*" Margin="20,16,20,18">
+    <v:AirStrip />
+
+    <Grid Grid.Row="1" ColumnDefinitions="320,16,*,16,Auto,Auto">
+      <!-- ========== Left: library and the list for the day ========== -->
+      <Grid RowDefinitions="*,12,Auto">
+        <Border Classes="card" Padding="8,14,8,8">
+          <Grid RowDefinitions="Auto,Auto,Auto,*">
+            <Grid ColumnDefinitions="*,Auto" Margin="8,0,8,10">
+              <TextBlock Classes="h3" Text="Songs" VerticalAlignment="Center" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                <Button x:Name="ImportButton" Classes="ghost small" ToolTip.Tip="Import from EasyWorship (Songs.db), OpenLyrics, OpenSong, SongSelect text or a zip" IsVisible="{Binding MayEdit}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="download" Width="13" Height="13" />
+                    <TextBlock Text="Import" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="small" Command="{Binding NewSongCommand}" IsVisible="{Binding MayEdit}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="plus" Width="13" Height="13" />
+                    <TextBlock Text="New" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </Grid>
+            <Panel Grid.Row="1" Margin="8,0,8,6">
+              <TextBox x:Name="SearchBox" Text="{Binding Search}" Watermark="Title, first line or any words" Padding="36,8,10,8" />
+              <c:Icon Kind="search" Width="16" Height="16" Foreground="{StaticResource Text3}" Margin="12,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
+            </Panel>
+            <StackPanel Grid.Row="2" Margin="8,0,8,6" Spacing="4">
+              <TextBlock Classes="faint small" Text="{Binding LibraryInfo}" TextWrapping="Wrap" />
+              <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding ImportStatus}" TextWrapping="Wrap" IsVisible="{Binding ImportStatus.Length}" />
+            </StackPanel>
+            <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding Library}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:SongRow">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <Button Classes="row" Command="{Binding $parent[UserControl].((vm:LyricsSectionViewModel)DataContext).OpenCommand}" CommandParameter="{Binding}">
+                        <StackPanel Spacing="1">
+                          <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding Sub}" Classes="faint small" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                      </Button>
+                      <Button Grid.Column="1" Classes="ghost small" Padding="6" ToolTip.Tip="Add to today's list"
+                              Command="{Binding $parent[UserControl].((vm:LyricsSectionViewModel)DataContext).AddRowToListCommand}" CommandParameter="{Binding}">
+                        <c:Icon Kind="plus" Width="12" Height="12" />
+                      </Button>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Classes="card" Padding="8,14,8,8" MaxHeight="330">
+          <Grid RowDefinitions="Auto,*">
+            <Grid ColumnDefinitions="*,Auto" Margin="8,0,8,8">
+              <StackPanel Spacing="1">
+                <TextBlock Classes="h3" Text="Today's songs" />
+                <TextBlock Classes="faint small" Text="Ctrl+↓ for the next song" />
+              </StackPanel>
+              <Button Grid.Column="1" Classes="ghost small" Command="{Binding ClearListCommand}" IsVisible="{Binding HasToday}">Clear</Button>
+            </Grid>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+              <StackPanel>
+                <TextBlock Classes="faint small" Margin="8,4" TextWrapping="Wrap" IsVisible="{Binding !HasToday}"
+                           Text="Press + beside a song to add it. Every Lyrics PC sees the same list." />
+                <ItemsControl ItemsSource="{Binding Today}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ListRow">
+                      <Grid ColumnDefinitions="*,Auto,Auto">
+                        <Button Classes="row" Classes.current="{Binding IsCurrent}"
+                                Command="{Binding $parent[UserControl].((vm:LyricsSectionViewModel)DataContext).OpenFromListCommand}" CommandParameter="{Binding}">
+                          <Grid ColumnDefinitions="22,*">
+                            <TextBlock Text="{Binding Number}" Classes="mono faint" FontSize="12" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Spacing="1">
+                              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Text="{Binding Arrangement}" Classes="faint small" IsVisible="{Binding Arrangement.Length}" />
+                            </StackPanel>
+                          </Grid>
+                        </Button>
+                        <Button Grid.Column="1" Classes="ghost small" Padding="6" ToolTip.Tip="Move up"
+                                Command="{Binding $parent[UserControl].((vm:LyricsSectionViewModel)DataContext).MoveUpCommand}" CommandParameter="{Binding}">
+                          <c:Icon Kind="arrowup" Width="12" Height="12" />
+                        </Button>
+                        <Button Grid.Column="2" Classes="ghost small" Padding="6" ToolTip.Tip="Remove"
+                                Command="{Binding $parent[UserControl].((vm:LyricsSectionViewModel)DataContext).RemoveFromListCommand}" CommandParameter="{Binding}">
+                          <c:Icon Kind="x" Width="12" Height="12" />
+                        </Button>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- ========== Middle: the song's slides ========== -->
+      <Border Grid.Column="2" Classes="card" Padding="16,14,6,6">
+        <Panel>
+          <Grid RowDefinitions="Auto,Auto,*" IsVisible="{Binding !Editing}">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,10,10">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="h2" Text="{Binding SongTitle}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="faint small" Text="{Binding SongMeta}" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top" IsVisible="{Binding HasSong}">
+                <Button Classes="ghost small" Command="{Binding AddToListCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="list" Width="13" Height="13" />
+                    <TextBlock Text="Add to today" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="ghost small" Command="{Binding EditSongCommand}" IsVisible="{Binding MayEdit}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="edit" Width="13" Height="13" />
+                    <TextBlock Text="Edit" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </Grid>
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="0,0,10,12" IsVisible="{Binding HasSong}">
+              <TextBlock Classes="flabel" Text="Lines per slide" Margin="0,0,8,0" />
+              <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:LyricsSectionViewModel.LinesChoices}" SelectedItem="{Binding SelectedLines}" MinWidth="120" />
+              <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0" IsVisible="{Binding HasArrangements}">
+                <TextBlock Classes="flabel" Text="Order" />
+                <ComboBox ItemsSource="{Binding Arrangements}" SelectedItem="{Binding ArrangementChoice}" MinWidth="130" />
+              </StackPanel>
+              <TextBlock Grid.Column="4" Classes="small" Foreground="{StaticResource Accent}" Text="{Binding JumpHint}" VerticalAlignment="Center" FontWeight="SemiBold" />
+            </Grid>
+            <TextBlock Grid.Row="2" Classes="faint" Margin="0,30,10,0" TextWrapping="Wrap" IsVisible="{Binding !HasSong}" HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="460"
+                       Text="Pick a song on the left. Its slides appear here: click one to preview it, double-click (or Enter) to put it on the screen. While you are on the screen, a single click is enough." />
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding Tiles}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:LyricTile">
+                    <Button Classes="tile" Classes.selected="{Binding IsSelected}" Classes.showing="{Binding IsShowing}" Tag="{Binding}"
+                            Command="{Binding $parent[UserControl].((vm:LyricsSectionViewModel)DataContext).PickTileCommand}" CommandParameter="{Binding}">
+                      <Grid RowDefinitions="Auto,*">
+                        <Border Background="{StaticResource Surface3}" CornerRadius="10,10,0,0" Padding="10,5">
+                          <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Background="{StaticResource Surface4}" CornerRadius="5" Padding="6,1" Margin="0,0,8,0">
+                              <TextBlock Text="{Binding Code}" Classes="mono" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Accent}" />
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="{Binding Page}" Classes="faint mono" FontSize="11" VerticalAlignment="Center" />
+                          </Grid>
+                        </Border>
+                        <TextBlock Grid.Row="1" Text="{Binding Text}" Margin="10,7" FontSize="12.5" LineHeight="17" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+
+          <!-- Song editor -->
+          <Grid RowDefinitions="Auto,Auto,*,Auto" IsVisible="{Binding Editing}" Margin="0,0,10,8">
+            <TextBlock Classes="h2" Text="Song" Margin="0,0,0,10" />
+            <Grid Grid.Row="1" ColumnDefinitions="2*,10,*,10,*" RowDefinitions="Auto,8,Auto,8,Auto">
+              <TextBox Text="{Binding EditTitle}" Watermark="Title" />
+              <TextBox Grid.Column="2" Text="{Binding EditAuthor}" Watermark="Author" />
+              <TextBox Grid.Column="4" Text="{Binding EditKey}" Watermark="Key (G, Bb…)" />
+              <TextBox Grid.Row="2" Text="{Binding EditCopyright}" Watermark="Copyright" />
+              <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding EditCcli}" Watermark="CCLI song number" />
+              <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding EditTags}" Watermark="Tags" />
+              <TextBox Grid.Row="4" Text="{Binding EditOrder}" Watermark="Order, for example V1 C V2 C B C" />
+              <ComboBox Grid.Row="4" Grid.Column="2" ItemsSource="{x:Static vm:LyricsSectionViewModel.LinesChoices}" SelectedItem="{Binding EditLinesChoice}" HorizontalAlignment="Stretch" PlaceholderText="Lines per slide" />
+            </Grid>
+            <Grid Grid.Row="2" RowDefinitions="Auto,*" Margin="0,10,0,0">
+              <TextBlock Classes="faint small" Text="{Binding EditInfo}" TextWrapping="Wrap" Margin="0,0,0,6" />
+              <TextBox Grid.Row="1" Text="{Binding EditText}" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="{StaticResource FontMono}" FontSize="13"
+                       Watermark="[Verse 1]&#x0a;Amazing grace, how sweet the sound&#x0a;That saved a wretch like me&#x0a;&#x0a;[Chorus]&#x0a;…" VerticalContentAlignment="Top" />
+            </Grid>
+            <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,8,Auto" Margin="0,10,0,0">
+              <Button Classes="ghost small" Command="{Binding DeleteSongCommand}" IsVisible="{Binding IsExistingSong}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <c:Icon Kind="trash" Width="12" Height="12" />
+                  <TextBlock Text="Delete song" />
+                </StackPanel>
+              </Button>
+              <Button Grid.Column="2" Classes="ghost" Command="{Binding CancelEditCommand}" Content="Cancel" />
+              <Button Grid.Column="4" Classes="primary" Command="{Binding SaveSongCommand}" Content="Save song" />
+            </Grid>
+          </Grid>
+        </Panel>
+      </Border>
+
+      <!-- ========== Right: preview and controls ========== -->
+      <Border Grid.Column="4" Classes="card" Padding="16" Width="430">
+        <StackPanel Spacing="12">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" VerticalAlignment="Center" />
+              <TextBlock Classes="eyebrow" Foreground="{StaticResource PreviewBrush}" Text="PREVIEW" />
+            </StackPanel>
+            <CheckBox Grid.Column="2" IsChecked="{Binding OverCamera}" Content="Over a camera" FontSize="12.5" />
+          </Grid>
+          <Border CornerRadius="10" ClipToBounds="True" BorderBrush="{StaticResource PreviewBrush}" BorderThickness="1.5">
+            <c:ScreenView Frame="{Binding PreviewFrame}" Branding="{Binding Branding}" Animate="False" />
+          </Border>
+          <Grid ColumnDefinitions="Auto,*">
+            <TextBlock Classes="eyebrow" Text="NEXT" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <TextBlock Grid.Column="1" Classes="muted small" Text="{Binding NextText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+          </Grid>
+          <Grid ColumnDefinitions="Auto,8,Auto,*,Auto">
+            <Button Command="{Binding PreviousCommand}" ToolTip.Tip="Previous (←)">
+              <c:Icon Kind="arrowup" Width="16" Height="16" />
+            </Button>
+            <Button Grid.Column="2" Command="{Binding NextCommand}" ToolTip.Tip="Next (→ or Space)">
+              <c:Icon Kind="arrowdown" Width="16" Height="16" />
+            </Button>
+            <Button Grid.Column="4" Classes="primary big" Command="{Binding ShowCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Send to screen" />
+                <c:Icon Kind="send" Width="15" Height="15" />
+              </StackPanel>
+            </Button>
+          </Grid>
+          <UniformGrid Columns="3" ColumnSpacing="8">
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding BlankCommand}" ToolTip.Tip="Words off, background stays (F1)" Content="Blank" />
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding LogoCommand}" ToolTip.Tip="The church logo (F2)" Content="Logo" />
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ClearCommand}" ToolTip.Tip="Off the screen (Esc)">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <c:Icon Kind="x" Width="13" Height="13" />
+                <TextBlock Text="Clear" />
+              </StackPanel>
+            </Button>
+          </UniformGrid>
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Keys: → next · ← back · V then 2 for verse 2 · C chorus · B bridge · P pre-chorus · T tag · E ending · F1 blank · F2 logo · Esc clear" />
+
+          <Border Height="1" Background="{StaticResource Line}" />
+          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,8,Auto,8,Auto">
+            <TextBlock Classes="flabel" Text="Animation" Margin="0,0,12,0" />
+            <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:LyricsSectionViewModel.Animations}" SelectedItem="{Binding Animation}" HorizontalAlignment="Stretch" />
+            <TextBlock Grid.Row="2" Classes="flabel" Text="Speed" />
+            <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,60">
+              <Slider Minimum="100" Maximum="2000" Value="{Binding AnimationMs}" Margin="0,-8,0,-6" />
+              <TextBlock Grid.Column="1" Classes="faint small mono" Text="{Binding AnimationMs, StringFormat={}{0:0} ms}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+            </Grid>
+            <TextBlock Grid.Row="4" Classes="flabel" Text="Theme" />
+            <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="*,8,Auto">
+              <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}" HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="m:ScriptureTheme">
+                    <TextBlock Text="{Binding Name}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <ToggleButton Grid.Column="2" Classes="seg" IsChecked="{Binding StyleOpen}" ToolTip.Tip="Change the look">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <c:Icon Kind="palette" Width="13" Height="13" />
+                  <TextBlock Text="Style" />
+                </StackPanel>
+              </ToggleButton>
+            </Grid>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- ========== Style drawer ========== -->
+      <Border Grid.Column="5" Classes="card" Padding="0" Width="350" Margin="16,0,0,0" IsVisible="{Binding StyleOpen}">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <TextBlock Classes="h3" Text="Lyric style" Margin="16,14,16,10" />
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,0,16,0">
+            <v:ThemeEditorPanel x:Name="StylePanel" Kind="Lyrics" DataContext="{Binding Editor}" Margin="0,0,0,12" />
+          </ScrollViewer>
+          <Border Grid.Row="2" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="16,12" IsVisible="{Binding MayEdit}">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,8,*">
+                <Button Classes="primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding SaveThemeCommand}" Content="Save theme" />
+                <Button Grid.Column="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ResetThemeCommand}" Content="Undo changes" />
+              </Grid>
+              <Grid ColumnDefinitions="*,8,Auto">
+                <TextBox Text="{Binding NewThemeName}" Watermark="New theme name" />
+                <Button Grid.Column="2" Command="{Binding SaveThemeAsNewCommand}" Content="Save as new" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button Classes="ghost small" Command="{Binding UseThemeForSongCommand}" Content="Always use for this song" IsVisible="{Binding HasSong}" />
+                <Button Grid.Column="2" Classes="ghost small" Command="{Binding DeleteThemeCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="trash" Width="12" Height="12" />
+                    <TextBlock Text="Delete" />
+                  </StackPanel>
+                </Button>
+              </Grid>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

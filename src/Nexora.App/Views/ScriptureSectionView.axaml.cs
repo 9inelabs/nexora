@@ -16,7 +16,7 @@ public partial class ScriptureSectionView : UserControl
         RefBox.AddHandler(KeyDownEvent, OnRefKey, RoutingStrategies.Tunnel);
         RefBox.GotFocus += (_, _) => Dispatcher.UIThread.Post(RefBox.SelectAll);
         AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(() => RefBox.Focus(), DispatcherPriority.Input);
-        PickImage.Click += async (_, _) => await PickBackgroundAsync();
+        StylePanel.PickImageRequested += async () => await PickBackgroundAsync();
         ExportTheme.Click += async (_, _) => await ExportAsync();
         ImportTheme.Click += async (_, _) => await ImportAsync();
         DataContextChanged += (_, _) =>

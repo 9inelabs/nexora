@@ -1,0 +1,179 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:v="using:Nexora.App.Views"
+             x:Class="Nexora.App.Views.LowerThirdsSectionView"
+             x:DataType="vm:LowerThirdsSectionViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.row">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="TextBlock.flabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*" Margin="20,16,20,18">
+    <v:AirStrip />
+    <Grid Grid.Row="1" ColumnDefinitions="340,16,*,16,440">
+      <!-- People -->
+      <Border Classes="card" Padding="8,14,8,8">
+        <Grid RowDefinitions="Auto,Auto,*">
+          <Grid ColumnDefinitions="*,Auto" Margin="8,0,8,10">
+            <TextBlock Classes="h3" Text="People" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="small" Command="{Binding NewPersonCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <c:Icon Kind="plus" Width="13" Height="13" />
+                <TextBlock Text="New" />
+              </StackPanel>
+            </Button>
+          </Grid>
+          <TextBox Grid.Row="1" Margin="8,0,8,8" Text="{Binding Search}" Watermark="Search names" />
+          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding People}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:PersonRow">
+                  <Grid ColumnDefinitions="*,Auto,Auto">
+                    <Button Classes="row" Command="{Binding $parent[UserControl].((vm:LowerThirdsSectionViewModel)DataContext).PickCommand}" CommandParameter="{Binding}">
+                      <StackPanel Spacing="1">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Title}" Classes="faint small" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </Button>
+                    <Button Grid.Column="1" Classes="ghost small" Padding="6" ToolTip.Tip="Add to today's speakers"
+                            Command="{Binding $parent[UserControl].((vm:LowerThirdsSectionViewModel)DataContext).AddTodayCommand}" CommandParameter="{Binding}">
+                      <c:Icon Kind="plus" Width="12" Height="12" />
+                    </Button>
+                    <Button Grid.Column="2" Classes="ghost small" Padding="6" ToolTip.Tip="Remove from the list"
+                            Command="{Binding $parent[UserControl].((vm:LowerThirdsSectionViewModel)DataContext).DeletePersonCommand}" CommandParameter="{Binding}">
+                      <c:Icon Kind="trash" Width="12" Height="12" />
+                    </Button>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+
+      <!-- Today and the name being shown -->
+      <Grid Grid.Column="2" RowDefinitions="*,12,Auto">
+        <Border Classes="card" Padding="8,14,8,8">
+          <Grid RowDefinitions="Auto,*">
+            <Grid ColumnDefinitions="*,Auto" Margin="8,0,8,10">
+              <StackPanel Spacing="1">
+                <TextBlock Classes="h3" Text="Today's speakers" />
+                <TextBlock Classes="faint small" Text="F1 to F8 show them at once" />
+              </StackPanel>
+              <Button Grid.Column="1" Classes="ghost small" Command="{Binding ClearTodayCommand}" IsVisible="{Binding HasToday}">Clear</Button>
+            </Grid>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+              <StackPanel>
+                <TextBlock Classes="faint small" Margin="8,4" TextWrapping="Wrap" IsVisible="{Binding !HasToday}"
+                           Text="Press + beside a name to add today's ministers. Then one click puts their name on the screen." />
+                <ItemsControl ItemsSource="{Binding Today}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PersonRow">
+                      <Border Classes="panel" Width="250" Margin="0,0,10,10" Padding="12,10">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                          <TextBlock Text="{Binding Name}" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
+                          <Border Grid.Column="1" Background="{StaticResource Surface4}" CornerRadius="5" Padding="6,1" IsVisible="{Binding HasKey}">
+                            <TextBlock Text="{Binding Key}" Classes="mono" FontSize="11" Foreground="{StaticResource Accent}" />
+                          </Border>
+                          <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Title}" Classes="faint small" TextTrimming="CharacterEllipsis" Margin="0,2,0,8" />
+                          <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto">
+                            <Button Classes="primary small" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                    Command="{Binding $parent[UserControl].((vm:LowerThirdsSectionViewModel)DataContext).ShowPersonCommand}" CommandParameter="{Binding}" Content="Show" />
+                            <Button Grid.Column="1" Classes="ghost small" Padding="6" Margin="6,0,0,0" ToolTip.Tip="Remove from today"
+                                    Command="{Binding $parent[UserControl].((vm:LowerThirdsSectionViewModel)DataContext).RemoveTodayCommand}" CommandParameter="{Binding}">
+                              <c:Icon Kind="x" Width="12" Height="12" />
+                            </Button>
+                          </Grid>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Classes="card" Padding="16">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="h3" Text="Name on screen" />
+            <Grid ColumnDefinitions="*,10,*">
+              <TextBox Text="{Binding Name}" Watermark="Name, for example Pastor John Mensah" FontWeight="SemiBold" />
+              <TextBox Grid.Column="2" Text="{Binding Title}" Watermark="Title, for example Senior Pastor" />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,8,Auto,*,Auto">
+              <Button x:Name="PickPhoto">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <c:Icon Kind="image" Width="14" Height="14" />
+                  <TextBlock Text="Photo…" />
+                </StackPanel>
+              </Button>
+              <Button Grid.Column="2" Classes="ghost" Command="{Binding ClearPhotoCommand}" IsVisible="{Binding HasImage}" Content="No photo" />
+              <Button Grid.Column="4" Command="{Binding SavePersonCommand}" IsVisible="{Binding MayEdit}" Content="Save to the people list" />
+            </Grid>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Preview, style and sending -->
+      <Border Grid.Column="4" Classes="card" Padding="16">
+        <StackPanel Spacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" VerticalAlignment="Center" />
+            <TextBlock Classes="eyebrow" Foreground="{StaticResource PreviewBrush}" Text="PREVIEW" />
+          </StackPanel>
+          <Border CornerRadius="10" ClipToBounds="True" BorderBrush="{StaticResource PreviewBrush}" BorderThickness="1.5">
+            <c:ScreenView Frame="{Binding PreviewFrame}" Branding="{Binding Branding}" Animate="False" />
+          </Border>
+          <Grid ColumnDefinitions="*,8,Auto">
+            <Button Classes="primary big" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ShowCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Show name" />
+                <c:Icon Kind="send" Width="15" Height="15" />
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="2" Classes="big" Command="{Binding HideCommand}" ToolTip.Tip="Take it off now (Esc)" Content="Hide" />
+          </Grid>
+          <Border Height="1" Background="{StaticResource Line}" />
+          <TextBlock Classes="h3" Text="Style" />
+          <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,8,Auto,8,Auto,8,Auto">
+            <TextBlock Classes="flabel" Text="Look" />
+            <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:LowerThirdsSectionViewModel.Styles}" SelectedItem="{Binding Style}" HorizontalAlignment="Stretch" />
+            <TextBlock Grid.Row="2" Classes="flabel" Text="Comes in by" />
+            <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{x:Static vm:LowerThirdsSectionViewModel.Animations}" SelectedItem="{Binding Animation}" HorizontalAlignment="Stretch" />
+            <TextBlock Grid.Row="4" Classes="flabel" Text="Colour" />
+            <Panel Grid.Row="4" Grid.Column="1">
+              <TextBox Text="{Binding Accent}" FontFamily="{StaticResource FontMono}" Padding="34,5,8,5" />
+              <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding AccentBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+            </Panel>
+            <TextBlock Grid.Row="6" Classes="flabel" Text="Hide after" />
+            <Grid Grid.Row="6" Grid.Column="1" ColumnDefinitions="*,50,Auto">
+              <Slider Minimum="3" Maximum="30" Value="{Binding HideAfter}" IsEnabled="{Binding !Stay}" Margin="0,-8,0,-6" />
+              <TextBlock Grid.Column="1" Classes="faint small mono" Text="{Binding HideAfter, StringFormat={}{0:0} s}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+              <CheckBox Grid.Column="2" Margin="10,0,0,0" IsChecked="{Binding Stay}" Content="Stay" />
+            </Grid>
+          </Grid>
+          <Button HorizontalAlignment="Right" Command="{Binding SaveStyleCommand}" IsVisible="{Binding Dirty}" Content="Save style for every PC" />
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Keys: F1–F8 today's speakers · Enter show · Esc hide" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

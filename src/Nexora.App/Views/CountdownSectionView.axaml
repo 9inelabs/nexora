@@ -1,0 +1,214 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:m="using:Nexora.Core.Model"
+             xmlns:v="using:Nexora.App.Views"
+             x:Class="Nexora.App.Views.CountdownSectionView"
+             x:DataType="vm:CountdownSectionViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.row">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.row.current">
+      <Setter Property="Background" Value="{StaticResource TintAccent}" />
+    </Style>
+    <Style Selector="Button.preset">
+      <Setter Property="Margin" Value="0,0,8,8" />
+      <Setter Property="Padding" Value="14,10" />
+      <Setter Property="MinWidth" Value="130" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+    <Style Selector="ToggleButton.seg">
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.seg:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface4}" />
+      <Setter Property="Foreground" Value="{StaticResource Text1}" />
+    </Style>
+    <Style Selector="TextBlock.flabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*" Margin="20,16,20,18">
+    <v:AirStrip />
+    <Grid Grid.Row="1" ColumnDefinitions="*,16,380,16,360">
+      <!-- Timer -->
+      <Grid RowDefinitions="Auto,12,*">
+        <Border Classes="card" Padding="20">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="2" VerticalAlignment="Center">
+              <TextBlock Classes="eyebrow" Text="{Binding StateText}" />
+              <TextBlock Text="{Binding TimeText}" FontFamily="{StaticResource FontMono}" FontSize="96" FontWeight="Medium" Foreground="{Binding TimeBrush}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center" MinWidth="200">
+              <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding HasTimer}">
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding PauseCommand}" IsVisible="{Binding Running}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="pause" Width="13" Height="13" />
+                    <TextBlock Text="Pause" />
+                  </StackPanel>
+                </Button>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ResumeCommand}" IsVisible="{Binding !Running}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="play" Width="13" Height="13" />
+                    <TextBlock Text="Resume" />
+                  </StackPanel>
+                </Button>
+                <Button Grid.Column="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding StopCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="stop" Width="13" Height="13" />
+                    <TextBlock Text="Stop" />
+                  </StackPanel>
+                </Button>
+              </Grid>
+              <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding HasTimer}">
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding RemoveMinuteCommand}" Content="− 1 min" />
+                <Button Grid.Column="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding AddMinuteCommand}" Content="+ 1 min" />
+              </Grid>
+              <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Space pause · + − a minute · Esc stop" HorizontalAlignment="Center" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Classes="card" Padding="20,16">
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h3" Text="Quick timers" />
+              <ItemsControl ItemsSource="{Binding Presets}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="m:CountdownPreset">
+                    <Button Classes="preset" Command="{Binding $parent[UserControl].((vm:CountdownSectionViewModel)DataContext).UsePresetCommand}" CommandParameter="{Binding}">
+                      <Button.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="Delete this timer" Command="{Binding $parent[UserControl].((vm:CountdownSectionViewModel)DataContext).DeletePresetCommand}" CommandParameter="{Binding}" />
+                        </ContextMenu>
+                      </Button.ContextMenu>
+                      <StackPanel Spacing="1">
+                        <TextBlock Text="{Binding Label}" FontWeight="SemiBold" />
+                        <TextBlock Classes="faint small mono" Text="{Binding ToTime}" IsVisible="{Binding ToTime, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <TextBlock Classes="faint small mono" Text="{Binding Seconds, Converter={x:Static c:Conv.Clock}}" IsVisible="{Binding ToTime, Converter={x:Static ObjectConverters.IsNull}}" />
+                      </StackPanel>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <Border Height="1" Background="{StaticResource Line}" />
+              <TextBlock Classes="h3" Text="New timer" />
+              <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,8,Auto,8,Auto,8,Auto,8,Auto,8,Auto">
+                <TextBlock Classes="flabel" Text="Name" />
+                <TextBox Grid.Column="1" Text="{Binding Label}" Watermark="Service starts in" />
+                <TextBlock Grid.Row="2" Classes="flabel" Text="Count" />
+                <UniformGrid Grid.Row="2" Grid.Column="1" Columns="2" ColumnSpacing="4">
+                  <ToggleButton Classes="seg" IsChecked="{Binding ModeDuration}" Content="For a length of time" />
+                  <ToggleButton Classes="seg" IsChecked="{Binding ModeToTime}" Content="To a clock time" />
+                </UniformGrid>
+                <TextBlock Grid.Row="4" Classes="flabel" Text="{Binding ModeToTime, Converter={x:Static c:Conv.TimeLabel}}" />
+                <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="*,8,Auto">
+                  <TextBox Text="{Binding Minutes}" Watermark="5 or 2:30" IsVisible="{Binding ModeDuration}" FontFamily="{StaticResource FontMono}" />
+                  <TextBox Text="{Binding ToTime}" Watermark="9:00 or 6pm" IsVisible="{Binding ModeToTime}" FontFamily="{StaticResource FontMono}" />
+                  <Button Grid.Column="2" Classes="primary" Command="{Binding StartCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <c:Icon Kind="play" Width="13" Height="13" />
+                      <TextBlock Text="Start" />
+                    </StackPanel>
+                  </Button>
+                </Grid>
+                <TextBlock Grid.Row="6" Classes="flabel" Text="On the screen" />
+                <ComboBox Grid.Row="6" Grid.Column="1" ItemsSource="{x:Static vm:CountdownSectionViewModel.Looks}" SelectedItem="{Binding Look}" HorizontalAlignment="Stretch" />
+                <TextBlock Grid.Row="8" Classes="flabel" Text="Amber from" />
+                <Grid Grid.Row="8" Grid.Column="1" ColumnDefinitions="*,60">
+                  <Slider Minimum="0" Maximum="600" SmallChange="15" Value="{Binding WarnAt}" Margin="0,-8,0,-6" />
+                  <TextBlock Grid.Column="1" Classes="faint small mono" Text="{Binding WarnAt, Converter={x:Static c:Conv.Clock}}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                </Grid>
+                <TextBlock Grid.Row="10" Classes="flabel" Text="At zero" />
+                <Grid Grid.Row="10" Grid.Column="1" ColumnDefinitions="*,12,Auto">
+                  <ComboBox ItemsSource="{x:Static vm:CountdownSectionViewModel.ZeroActions}" SelectedItem="{Binding AtZero}" HorizontalAlignment="Stretch" />
+                  <CheckBox Grid.Column="2" IsChecked="{Binding Overtime}" Content="Count up after" />
+                </Grid>
+              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <Button Classes="ghost" Command="{Binding ChangeLookCommand}" IsVisible="{Binding HasTimer}" Content="Apply to the running timer" />
+                <Button Classes="ghost" Command="{Binding SavePresetCommand}" IsVisible="{Binding MayEdit}" Content="Save as a quick timer" />
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
+      </Grid>
+
+      <!-- Sermon points -->
+      <Border Grid.Column="2" Classes="card" Padding="8,14,8,8">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
+          <StackPanel Spacing="1" Margin="8,0,8,10">
+            <TextBlock Classes="h3" Text="Sermon points" />
+            <TextBlock Classes="faint small" Text="Shown only on the Stage Monitor · ↓ next point" />
+          </StackPanel>
+          <TextBox Grid.Row="1" Margin="8,0,8,10" Text="{Binding PointsText}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" MaxHeight="170"
+                   Watermark="One point per line&#x0a;Faith that moves&#x0a;Faith that waits" />
+          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Points}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:PointRow">
+                  <Button Classes="row" Classes.current="{Binding IsCurrent}"
+                          Command="{Binding $parent[UserControl].((vm:CountdownSectionViewModel)DataContext).PickPointCommand}" CommandParameter="{Binding}">
+                    <Grid ColumnDefinitions="24,*">
+                      <TextBlock Text="{Binding Number}" Classes="mono faint" FontSize="12" />
+                      <TextBlock Grid.Column="1" Text="{Binding Text}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          <Grid Grid.Row="3" ColumnDefinitions="*,8,*" Margin="8,8,8,0">
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ShowPointsCommand}" IsVisible="{Binding !PointsOnStage}" Content="Show on stage" />
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding HidePointsCommand}" IsVisible="{Binding PointsOnStage}" Content="Hide from stage" />
+            <Button Grid.Column="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding NextPointCommand}" Content="Next point" />
+          </Grid>
+        </Grid>
+      </Border>
+
+      <!-- Stage Monitor layout -->
+      <Border Grid.Column="4" Classes="card" Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="h3" Text="Stage Monitor" />
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="What the people on stage see. The words being shown and what comes next fill the middle." />
+          <CheckBox IsChecked="{Binding StageClock}" Content="Clock" />
+          <CheckBox IsChecked="{Binding Stage24h}" Content="24-hour clock" Margin="24,0,0,0" IsEnabled="{Binding StageClock}" />
+          <CheckBox IsChecked="{Binding StageCountdown}" Content="Countdown (amber, then red at zero)" />
+          <CheckBox IsChecked="{Binding StageNext}" Content="What comes next" />
+          <CheckBox IsChecked="{Binding StagePoints}" Content="Sermon points" />
+          <CheckBox IsChecked="{Binding StageBooth}" Content="Messages from the media desk" />
+          <Grid ColumnDefinitions="Auto,*,50">
+            <TextBlock Classes="flabel" Text="Text size" Margin="0,0,10,0" />
+            <Slider Grid.Column="1" Minimum="0.7" Maximum="1.6" Value="{Binding StageScale}" Margin="0,-8,0,-6" />
+            <TextBlock Grid.Column="2" Classes="faint small mono" Text="{Binding StageScale, StringFormat={}{0:P0}}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+          </Grid>
+          <Button Classes="primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding SaveStageCommand}" IsEnabled="{Binding StageDirty}" Content="Save layout and points" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>
