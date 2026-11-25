@@ -138,8 +138,11 @@ public sealed record ScreenInfo(
     bool OneTextSource,
     int Order);
 
-/// <summary>A piece of content a terminal sends. In Phase 1 this is a test slide.</summary>
-public sealed record SlideContent(string Text, string? Caption = null, string? Label = null);
+/// <summary>
+/// A piece of content a terminal sends. Text and Caption are always filled (the Stage Monitor and
+/// the routing panel use them); Scripture carries the verses and theme for the audience look.
+/// </summary>
+public sealed record SlideContent(string Text, string? Caption = null, string? Label = null, ScriptureSlide? Scripture = null);
 
 public sealed record LayerItem(
     Layer Layer,

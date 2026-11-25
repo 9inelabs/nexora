@@ -33,4 +33,13 @@ public static class AppPaths
     public static string ConfigFile => Path.Combine(Ensure(Root), "this-pc.json");
     public static string LibraryFile => Path.Combine(Ensure(Path.Combine(Root, "library")), "nexora-library.db");
     public static string LogsDir => Ensure(Path.Combine(Root, "logs"));
+    /// <summary>Bible translations: bundled ones are prepared here on first start, imported ones are kept here.</summary>
+    public static string BiblesDir => Ensure(Path.Combine(Root, "bibles"));
+    /// <summary>Uploaded backgrounds and other media, copied to every PC.</summary>
+    public static string MediaDir => Ensure(Path.Combine(Root, "media"));
+    /// <summary>The Live Output PC's master copies of imported Bibles and uploaded media, served to every PC.</summary>
+    public static string LibraryBiblesDir => Ensure(Path.Combine(Root, "library", "bibles"));
+    public static string LibraryMediaDir => Ensure(Path.Combine(Root, "library", "media"));
+    /// <summary>Things only this PC needs, such as today's Scripture list.</summary>
+    public static string LocalDir => Ensure(Path.Combine(Root, "local"));
 }

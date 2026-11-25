@@ -23,6 +23,10 @@ namespace Nexora.Core.Protocol;
 [JsonDerivedType(typeof(DeleteUser), "deleteUser")]
 [JsonDerivedType(typeof(SaveBranding), "saveBranding")]
 [JsonDerivedType(typeof(SaveScreens), "saveScreens")]
+[JsonDerivedType(typeof(SaveScriptureTheme), "saveTheme")]
+[JsonDerivedType(typeof(DeleteScriptureTheme), "deleteTheme")]
+[JsonDerivedType(typeof(SaveScriptureSettings), "saveScripture")]
+[JsonDerivedType(typeof(RemoveBible), "removeBible")]
 [JsonDerivedType(typeof(Ping), "ping")]
 // server -> client
 [JsonDerivedType(typeof(Welcome), "welcome")]
@@ -32,6 +36,7 @@ namespace Nexora.Core.Protocol;
 [JsonDerivedType(typeof(SnapshotMessage), "snapshot")]
 [JsonDerivedType(typeof(Notice), "notice")]
 [JsonDerivedType(typeof(Pong), "pong")]
+[JsonDerivedType(typeof(LibraryInfo), "library")]
 public abstract record Message;
 
 // ---------- client -> server ----------
@@ -68,6 +73,16 @@ public sealed record SaveBranding(Branding Branding) : Message;
 
 public sealed record SaveScreens(IReadOnlyList<ScreenInfo> Screens) : Message;
 
+/// <summary>Create or update a Scripture theme (admin or Scripture operator).</summary>
+public sealed record SaveScriptureTheme(ScriptureTheme Theme) : Message;
+
+public sealed record DeleteScriptureTheme(string ThemeId) : Message;
+
+public sealed record SaveScriptureSettings(ScriptureSettings Settings) : Message;
+
+/// <summary>Remove an imported translation from every PC (admin).</summary>
+public sealed record RemoveBible(string Abbrev) : Message;
+
 public sealed record Ping(long SentTicks) : Message;
 
 // ---------- server -> client ----------
@@ -86,6 +101,16 @@ public sealed record SnapshotMessage(LiveSnapshot Snapshot) : Message;
 public sealed record Notice(string Text, bool IsError) : Message;
 
 public sealed record Pong(long SentTicks) : Message;
+
+/// <summary>
+/// The shared library: Scripture themes and settings, plus the imported Bibles and media files
+/// every PC keeps a copy of. Files are fetched over HTTP from <see cref="Wire.LibraryPath"/>.
+/// </summary>
+public sealed record LibraryInfo(
+    IReadOnlyList<ScriptureTheme> Themes,
+    ScriptureSettings Scripture,
+    IReadOnlyList<LibraryFile> Bibles,
+    IReadOnlyList<LibraryFile> Media) : Message;
 
 public static class Wire
 {
@@ -107,4 +132,8 @@ public static class Wire
     public const int DefaultPort = 7400;
     public const int DiscoveryPort = 7401;
     public const string Path = "/nexora";
+    /// <summary>HTTP: GET /library/{bibles|media}/{name} (header X-Nexora-Code), POST with header X-Nexora-Token to upload.</summary>
+    public const string LibraryPath = "/library";
+    public const string CodeHeader = "X-Nexora-Code";
+    public const string TokenHeader = "X-Nexora-Token";
 }

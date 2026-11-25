@@ -153,6 +153,18 @@ public sealed class LibraryStore : IDisposable
         set => Set("screens", value);
     }
 
+    public IReadOnlyList<ScriptureTheme> ScriptureThemes
+    {
+        get => Get<List<ScriptureTheme>>("scriptureThemes") is { Count: > 0 } t ? t : ScriptureTheme.BuiltIn;
+        set => Set("scriptureThemes", value);
+    }
+
+    public ScriptureSettings ScriptureSettings
+    {
+        get => Get<ScriptureSettings>("scriptureSettings") ?? ScriptureSettings.Default;
+        set => Set("scriptureSettings", value);
+    }
+
     public static readonly IReadOnlyList<ScreenInfo> DefaultScreens =
     [
         new("main", "Main Audience Screen", ScreenKind.Audience, 0, true, 0),
