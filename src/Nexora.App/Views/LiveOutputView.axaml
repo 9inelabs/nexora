@@ -1,0 +1,278 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="Nexora.App.Views.LiveOutputView"
+             x:DataType="vm:LiveOutputViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.screentab">
+      <Setter Property="Background" Value="{StaticResource Surface1}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="14,9" />
+      <Setter Property="Margin" Value="0,0,10,0" />
+    </Style>
+    <Style Selector="Button.screentab.selected">
+      <Setter Property="BorderBrush" Value="{StaticResource Text1}" />
+    </Style>
+    <Style Selector="Button.screentab.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{StaticResource Text1}" />
+    </Style>
+    <Style Selector="Border.source">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="12" />
+      <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+    <Style Selector="Border.source.live">
+      <Setter Property="BorderBrush" Value="{StaticResource Pinned}" />
+    </Style>
+    <Style Selector="Border.source.previewed">
+      <Setter Property="BorderBrush" Value="{StaticResource PreviewBrush}" />
+    </Style>
+    <Style Selector="Border.source.offline">
+      <Setter Property="Opacity" Value="0.6" />
+    </Style>
+    <Style Selector="Button.quick">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Padding" Value="6,10" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+    </Style>
+    <Style Selector="Button.quick.active">
+      <Setter Property="Background" Value="{StaticResource TintAccent}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+      <Setter Property="Foreground" Value="{StaticResource Accent}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*" Margin="20,14,20,18">
+    <!-- Screens -->
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+      <ItemsControl ItemsSource="{Binding Screens}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:ScreenTab">
+            <Button Classes="screentab" Classes.selected="{Binding IsSelected}"
+                    Command="{Binding $parent[UserControl].((vm:LiveOutputViewModel)DataContext).SelectScreenCommand}" CommandParameter="{Binding}">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <c:Icon Kind="{Binding Icon}" Width="19" Height="19" Foreground="{StaticResource Text2}" VerticalAlignment="Center" />
+                <StackPanel HorizontalAlignment="Left">
+                  <TextBlock Text="{Binding Name}" FontWeight="Bold" HorizontalAlignment="Left" />
+                  <TextBlock Text="{Binding Sub}" Classes="faint small" HorizontalAlignment="Left" />
+                </StackPanel>
+                <Border Classes="chip live" IsVisible="{Binding IsLive}" Margin="6,0,0,0">
+                  <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="LIVE" /></StackPanel>
+                </Border>
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+        <Border Classes="chip">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <c:Icon Kind="network" Width="13" Height="13" Foreground="{StaticResource Text2}" />
+            <TextBlock Text="{Binding ConnectedText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="chip ok" Classes.bad="{Binding !OutputOk}" IsVisible="{Binding IsLocal}">
+          <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding OutputStatus}" /></StackPanel>
+        </Border>
+        <TextBlock Text="{Binding Clock}" Classes="mono muted" VerticalAlignment="Center" Margin="6,0,0,0" />
+      </StackPanel>
+    </Grid>
+
+    <Grid Grid.Row="1" ColumnDefinitions="290,14,*,14,290">
+      <!-- Terminals -->
+      <Border Classes="card" Padding="14">
+        <Grid RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="*,Auto" Margin="2,0,2,12">
+            <TextBlock Classes="h3" Text="Terminals" />
+            <TextBlock Grid.Column="1" Classes="eyebrow" Text="F1–F8" VerticalAlignment="Center" />
+          </Grid>
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+              <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding NoSources}" Margin="2"
+                         Text="No terminals yet. When an operator signs in on a terminal and starts a section, it appears here." />
+              <ItemsControl ItemsSource="{Binding Sources}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:SourceCard">
+                    <Border Classes="source" Classes.live="{Binding IsLive}" Classes.previewed="{Binding IsPreviewed}" Classes.offline="{Binding IsOffline}">
+                      <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="Auto,10,*,Auto">
+                          <Border Width="32" Height="32" CornerRadius="8" Background="{StaticResource Surface3}">
+                            <c:Icon Kind="{Binding Icon}" Width="16" Height="16" Foreground="{StaticResource Text2}" />
+                          </Border>
+                          <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Title}" FontWeight="Bold" />
+                            <TextBlock Text="{Binding Sub}" Classes="faint small" TextWrapping="Wrap" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="3" Spacing="4" HorizontalAlignment="Right">
+                            <Border Classes="chip pinned" IsVisible="{Binding IsLive}">
+                              <StackPanel Orientation="Horizontal" Spacing="4">
+                                <c:Icon Kind="pin" Width="11" Height="11" Foreground="{StaticResource Pinned}" />
+                                <TextBlock Text="Pinned" />
+                              </StackPanel>
+                            </Border>
+                            <Border Classes="chip warn" IsVisible="{Binding IsStandby}"><TextBlock Text="Standby" /></Border>
+                            <Border Classes="chip bad" IsVisible="{Binding IsOffline}"><TextBlock Text="Offline" /></Border>
+                            <TextBlock Text="{Binding Shortcut}" Classes="mono faint small" HorizontalAlignment="Right" />
+                          </StackPanel>
+                        </Grid>
+                        <Border Classes="well">
+                          <TextBlock Text="{Binding Current}" Classes="muted small" TextTrimming="CharacterEllipsis" />
+                        </Border>
+                        <Grid ColumnDefinitions="*,8,*">
+                          <Button Classes="small pin" Classes.takedown="{Binding IsLive}" Classes.warn="{Binding IsStandby}" HorizontalAlignment="Stretch"
+                                  Command="{Binding $parent[UserControl].((vm:LiveOutputViewModel)DataContext).PrimaryCommand}" CommandParameter="{Binding}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                              <c:Icon Kind="{Binding PrimaryIcon}" Width="13" Height="13" />
+                              <TextBlock Text="{Binding PrimaryLabel}" />
+                            </StackPanel>
+                          </Button>
+                          <Button Grid.Column="2" Classes="small" HorizontalAlignment="Stretch" Content="Preview"
+                                  Command="{Binding $parent[UserControl].((vm:LiveOutputViewModel)DataContext).PreviewCommand}" CommandParameter="{Binding}" />
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding !IsNotRouted}">
+                          <Button Classes="link small" Content="Stop routing to this screen"
+                                  Command="{Binding $parent[UserControl].((vm:LiveOutputViewModel)DataContext).UnrouteCommand}" CommandParameter="{Binding}" />
+                        </StackPanel>
+                        <Button Classes="link small" Content="Remove from list" IsVisible="{Binding IsOffline}"
+                                Command="{Binding $parent[UserControl].((vm:LiveOutputViewModel)DataContext).ForgetCommand}" CommandParameter="{Binding}" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+
+      <!-- Preview / Program -->
+      <Border Grid.Column="2" Classes="card" Padding="16">
+        <Grid RowDefinitions="Auto,Auto,Auto,*">
+          <Grid ColumnDefinitions="*,16,*">
+            <StackPanel Spacing="10">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" VerticalAlignment="Center" />
+                <TextBlock Classes="eyebrow" Foreground="{StaticResource PreviewBrush}" Text="PREVIEW" />
+              </StackPanel>
+              <Border CornerRadius="10" ClipToBounds="True" BorderBrush="{StaticResource PreviewBrush}" BorderThickness="1.5">
+                <c:ScreenView Frame="{Binding PreviewFrame}" Kind="{Binding ProgramKind}" Branding="{Binding Branding}" />
+              </Border>
+              <TextBlock Text="{Binding PreviewInfo}" Classes="faint small" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Spacing="10">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Ellipse Width="7" Height="7" Fill="{StaticResource Live}" VerticalAlignment="Center" />
+                  <TextBlock Classes="eyebrow" Foreground="{StaticResource Live}" Text="PROGRAM" />
+                  <TextBlock Classes="eyebrow" Foreground="{StaticResource Live}" Text="{Binding SelectedScreen.Name, FallbackValue=''}" />
+                </StackPanel>
+                <Border Grid.Column="2" Classes="chip live" IsVisible="{Binding ProgramIsLive}">
+                  <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="ON AIR" /></StackPanel>
+                </Border>
+              </Grid>
+              <Border CornerRadius="10" ClipToBounds="True" BorderBrush="{StaticResource Live}" BorderThickness="1.5">
+                <c:ScreenView Frame="{Binding ProgramFrame}" Kind="{Binding ProgramKind}" Branding="{Binding Branding}"
+                              ScreenName="{Binding SelectedScreen.Name, FallbackValue=''}" />
+              </Border>
+              <TextBlock Text="{Binding ProgramInfo}" Classes="faint small" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </Grid>
+
+          <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,16,0,0">
+            <TextBlock Classes="muted small" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,16,0"
+                       Text="Pin a terminal live and its changes go straight to this screen. Or preview it and press Take to program for a one-off." />
+            <Button Grid.Column="1" Classes="onair big" Content="Take to program" Command="{Binding TakeCommand}" IsEnabled="{Binding CanTake}" />
+          </Grid>
+
+          <Border Grid.Row="2" Classes="hairline" Margin="0,18" />
+
+          <StackPanel Grid.Row="3" Spacing="8">
+            <TextBlock Classes="h3" Text="Coming in later phases" />
+            <TextBlock Classes="faint" TextWrapping="Wrap"
+                       Text="Video playback, overlays, recording and streaming join this screen in later phases. Phase 1 proves the PCs, the routing and the screens." />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Right column -->
+      <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="14">
+          <Border Classes="card" Padding="16">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h3" Text="Quick screens" />
+              <UniformGrid Columns="2">
+                <Button Classes="quick" Classes.active="{Binding LogoActive}" Margin="0,0,4,8" Command="{Binding LogoCommand}">
+                  <StackPanel Spacing="5" HorizontalAlignment="Center">
+                    <c:Icon Kind="palette" Width="17" Height="17" HorizontalAlignment="Center" />
+                    <TextBlock Text="Logo" FontSize="12" HorizontalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="quick" Classes.active="{Binding BlackActive}" Margin="4,0,0,8" Command="{Binding BlackCommand}">
+                  <StackPanel Spacing="5" HorizontalAlignment="Center">
+                    <c:Icon Kind="square" Width="17" Height="17" HorizontalAlignment="Center" />
+                    <TextBlock Text="Black" FontSize="12" HorizontalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="quick" Margin="0,0,4,0" Command="{Binding ClearTextCommand}">
+                  <StackPanel Spacing="5" HorizontalAlignment="Center">
+                    <c:Icon Kind="x" Width="17" Height="17" HorizontalAlignment="Center" />
+                    <TextBlock Text="Clear text" FontSize="12" HorizontalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="quick" Margin="4,0,0,0" Command="{Binding ClearAllCommand}">
+                  <StackPanel Spacing="5" HorizontalAlignment="Center">
+                    <c:Icon Kind="clear" Width="17" Height="17" HorizontalAlignment="Center" />
+                    <TextBlock Text="Clear all" FontSize="12" HorizontalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+              </UniformGrid>
+              <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Logo and Black cover this screen until pressed again. Pins stay as they are." />
+            </StackPanel>
+          </Border>
+
+          <ItemsControl ItemsSource="{Binding OtherScreens}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:MiniScreen">
+                <Border Classes="card" Padding="16" Margin="0,0,0,14">
+                  <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Classes="h3" Text="{Binding Name}" />
+                      <TextBlock Grid.Column="1" Classes="mono faint small" Text="{Binding Display}" VerticalAlignment="Center" />
+                    </Grid>
+                    <Border CornerRadius="8" ClipToBounds="True" BorderBrush="{StaticResource Line2}" BorderThickness="1">
+                      <c:ScreenView Frame="{Binding Frame}" Kind="{Binding Kind}" ScreenName="{Binding Name}"
+                                    Branding="{Binding $parent[UserControl].((vm:LiveOutputViewModel)DataContext).Branding}" />
+                    </Border>
+                    <TextBlock Text="{Binding Info}" Classes="faint small" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <Border Classes="card" Padding="16" IsVisible="{Binding IsLocal}">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="h3" Text="Output windows" />
+              <TextBlock Classes="faint small" TextWrapping="Wrap"
+                         Text="The audience screens run as their own program, so they keep their picture even if this control screen is closed or freezes." />
+              <Button Classes="small" HorizontalAlignment="Left" Command="{Binding RestartOutputCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <c:Icon Kind="refresh" Width="13" Height="13" />
+                  <TextBlock Text="Restart output windows" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</UserControl>

@@ -1,0 +1,83 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="Nexora.App.Views.ShellView"
+             x:DataType="vm:ShellViewModel">
+  <Grid ColumnDefinitions="68,*">
+    <!-- Side rail -->
+    <Border Background="{StaticResource Ground}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,*,Auto" Margin="0,16">
+        <Image Source="avares://Nexora/Assets/nexora-mark-white.png" Width="32" HorizontalAlignment="Center" Margin="0,4,0,22" />
+        <StackPanel Grid.Row="1" Spacing="8">
+          <ItemsControl ItemsSource="{Binding Pages}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:RailItem">
+                <Grid Margin="0,4">
+                  <Border Width="3" Height="20" CornerRadius="0,2,2,0" Background="{StaticResource Accent}" HorizontalAlignment="Left"
+                          IsVisible="{Binding IsSelected}" />
+                  <Button Classes="rail" Classes.selected="{Binding IsSelected}" ToolTip.Tip="{Binding Title}"
+                          Command="{Binding $parent[UserControl].((vm:ShellViewModel)DataContext).SelectCommand}" CommandParameter="{Binding}">
+                    <c:Icon Kind="{Binding Icon}" Width="20" Height="20" />
+                  </Button>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <Button Classes="rail" ToolTip.Tip="Add or change sections" Command="{Binding AddSectionsCommand}">
+            <c:Icon Kind="plus" Width="18" Height="18" />
+          </Button>
+        </StackPanel>
+        <StackPanel Grid.Row="2" Spacing="8">
+          <Grid IsVisible="{Binding HasSettings}">
+            <Border Width="3" Height="20" CornerRadius="0,2,2,0" Background="{StaticResource Accent}" HorizontalAlignment="Left"
+                    IsVisible="{Binding SettingsItem.IsSelected, FallbackValue=False}" />
+            <Button Classes="rail" Classes.selected="{Binding SettingsItem.IsSelected, FallbackValue=False}" ToolTip.Tip="Settings"
+                    Command="{Binding SelectCommand}" CommandParameter="{Binding SettingsItem}">
+              <c:Icon Kind="settings" Width="20" Height="20" />
+            </Button>
+          </Grid>
+          <Button Classes="rail" ToolTip.Tip="Sign out" Command="{Binding SignOutCommand}">
+            <c:Icon Kind="signout" Width="19" Height="19" />
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Main -->
+    <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*">
+      <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="24,0" Height="58">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+          <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+            <TextBlock Text="{Binding Title}" FontFamily="{StaticResource FontDisplay}" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding Subtitle}" Classes="faint" VerticalAlignment="Center" />
+          </StackPanel>
+          <Border Grid.Column="2" Classes="chip ok" Classes.bad="{Binding LinkLost}" Margin="0,0,16,0">
+            <StackPanel Orientation="Horizontal">
+              <Ellipse />
+              <TextBlock Text="{Binding LinkText}" />
+            </StackPanel>
+          </Border>
+          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+            <Border Classes="avatar" Width="30" Height="30">
+              <TextBlock Text="{Binding UserInitials}" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <TextBlock Text="{Binding UserName}" FontWeight="SemiBold" VerticalAlignment="Center" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <StackPanel Grid.Row="1">
+        <Border Background="{StaticResource TintLive}" Padding="24,9" IsVisible="{Binding LinkLost}">
+          <TextBlock Foreground="{StaticResource Live}" FontWeight="SemiBold"
+                     Text="Lost connection to the Live Output PC. Reconnecting by itself… Your work here is kept, and the audience screen keeps its picture." />
+        </Border>
+        <Border Background="{StaticResource TintWarn}" Padding="24,9" IsVisible="{Binding VersionMismatch}">
+          <TextBlock Foreground="{StaticResource Warn}" FontWeight="SemiBold" Text="{Binding VersionText}" TextWrapping="Wrap" />
+        </Border>
+      </StackPanel>
+
+      <ContentControl Grid.Row="2" Content="{Binding Page}" />
+    </Grid>
+  </Grid>
+</UserControl>

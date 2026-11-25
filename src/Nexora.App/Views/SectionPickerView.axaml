@@ -1,0 +1,144 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="Nexora.App.Views.SectionPickerView"
+             x:DataType="vm:SectionPickerViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.section">
+      <Setter Property="Padding" Value="20" />
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="Background" Value="{StaticResource Surface1}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="VerticalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.section:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line2}" />
+    </Style>
+    <Style Selector="Button.section.selected">
+      <Setter Property="BorderBrush" Value="{StaticResource Text1}" />
+    </Style>
+    <Style Selector="Button.section.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{StaticResource Text1}" />
+    </Style>
+    <Style Selector="Button.section.locked">
+      <Setter Property="Opacity" Value="0.45" />
+      <Setter Property="Cursor" Value="Arrow" />
+    </Style>
+    <Style Selector="Border.tick">
+      <Setter Property="Width" Value="22" />
+      <Setter Property="Height" Value="22" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line2}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+    <Style Selector="Border.tick.on">
+      <Setter Property="Background" Value="{StaticResource Accent}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="50,30,50,30" MaxWidth="1240">
+    <!-- Header -->
+    <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+      <Image Source="avares://Nexora/Assets/nexora-lockup-white.png" Height="30" VerticalAlignment="Center" />
+      <Border Grid.Column="1" Classes="chip" Margin="20,0,0,0" Background="{StaticResource Surface2}">
+        <TextBlock Text="{Binding ChurchName}" FontWeight="SemiBold" />
+      </Border>
+      <Border Grid.Column="3" Classes="chip ok" Classes.bad="{Binding !LinkOk}" Margin="0,0,16,0">
+        <StackPanel Orientation="Horizontal">
+          <Ellipse />
+          <TextBlock Text="{Binding LinkText}" />
+        </StackPanel>
+      </Border>
+      <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="10" Margin="0,0,16,0">
+        <Border Classes="avatar">
+          <TextBlock Text="{Binding UserInitials}" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="{Binding UserName}" FontWeight="Bold" />
+          <TextBlock Text="{Binding UserTitle}" Classes="faint small" />
+        </StackPanel>
+      </StackPanel>
+      <Button Grid.Column="5" Classes="small" Command="{Binding SignOutCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <c:Icon Kind="signout" Width="14" Height="14" />
+          <TextBlock Text="Sign out" />
+        </StackPanel>
+      </Button>
+    </Grid>
+
+    <!-- Greeting -->
+    <StackPanel Grid.Row="1" Margin="0,46,0,30" Spacing="10">
+      <TextBlock Classes="display" FontSize="42" Text="{Binding Greeting}" />
+      <TextBlock Classes="muted" FontSize="15" Text="What are you running today? Pick one or more. You can add sections later." />
+      <Border Classes="chip warn" IsVisible="{Binding IsTrainee}" Margin="0,6,0,0">
+        <TextBlock Text="Trainee: practice mode. Nothing you send reaches the screens." />
+      </Border>
+    </StackPanel>
+
+    <!-- Section cards -->
+    <ItemsControl Grid.Row="2" ItemsSource="{Binding Cards}" VerticalAlignment="Top">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <UniformGrid Columns="3" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:SectionCard">
+          <Button Classes="section" Classes.selected="{Binding IsSelected}" Classes.locked="{Binding IsLocked}" Margin="8" Height="168"
+                  Command="{Binding $parent[UserControl].((vm:SectionPickerViewModel)DataContext).ToggleCommand}" CommandParameter="{Binding}">
+            <Grid RowDefinitions="Auto,*,Auto">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <Border Width="42" Height="42" CornerRadius="10" Background="{StaticResource Surface3}">
+                  <c:Icon Kind="{Binding Icon}" Width="19" Height="19" Foreground="{StaticResource Accent}" />
+                </Border>
+                <Border Grid.Column="2" Classes="tick" Classes.on="{Binding IsSelected}" VerticalAlignment="Top">
+                  <c:Icon Kind="check" Width="14" Height="14" Stroke="2.4" Foreground="{StaticResource OnAccent}" IsVisible="{Binding IsSelected}" />
+                </Border>
+              </Grid>
+              <StackPanel Grid.Row="1" Margin="0,16,0,0" Spacing="6">
+                <TextBlock Text="{Binding Title}" FontFamily="{StaticResource FontDisplay}" FontWeight="SemiBold" FontSize="17" />
+                <TextBlock Text="{Binding Description}" Classes="muted" TextWrapping="Wrap" FontWeight="Medium" />
+              </StackPanel>
+              <Border Grid.Row="2" Margin="0,12,0,0" Classes="chip ok" Classes.warn="{Binding IsInUse}" Classes.ok="{Binding IsFree}">
+                <StackPanel Orientation="Horizontal">
+                  <Ellipse />
+                  <TextBlock Text="{Binding StatusText}" />
+                </StackPanel>
+              </Border>
+            </Grid>
+          </Button>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <!-- Session bar -->
+    <Border Grid.Row="3" Classes="card" Padding="20,14" Margin="8,20,8,0">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+        <StackPanel VerticalAlignment="Center" Spacing="3">
+          <TextBlock Classes="eyebrow" Text="YOUR SESSION" />
+          <TextBlock Text="{Binding Summary}" FontWeight="Bold" FontSize="14" />
+        </StackPanel>
+        <Button Grid.Column="1" Margin="0,0,10,0" Command="{Binding OpenSettingsCommand}" IsVisible="{Binding IsAdmin}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <c:Icon Kind="settings" Width="15" Height="15" />
+            <TextBlock Text="Settings" />
+          </StackPanel>
+        </Button>
+        <Button Grid.Column="2" Margin="0,0,12,0" Command="{Binding OpenLiveOutputCommand}" IsVisible="{Binding CanOpenLiveOutput}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <c:Icon Kind="live" Width="15" Height="15" />
+            <TextBlock Text="Open Live Output" />
+          </StackPanel>
+        </Button>
+        <Button Grid.Column="3" Classes="primary big" Content="Start session" Command="{Binding StartCommand}" />
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

@@ -1,0 +1,166 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="Nexora.App.Views.FirstRunView"
+             x:DataType="vm:FirstRunViewModel">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="40,30">
+    <Image Source="avares://Nexora/Assets/nexora-lockup-white.png" Height="30" HorizontalAlignment="Left" />
+
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+      <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,24">
+
+        <!-- Step 0: what is this PC? -->
+        <StackPanel IsVisible="{Binding IsChoose}" Spacing="26" Width="820">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="display" Text="Welcome to NEXORA." />
+            <TextBlock Classes="muted" FontSize="15" Text="Let's set up this PC. You only do this once." />
+          </StackPanel>
+          <Grid ColumnDefinitions="*,18,*">
+            <Button Command="{Binding ChooseLiveOutputCommand}" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                    Background="{StaticResource Surface1}" CornerRadius="16">
+              <StackPanel Margin="26" Spacing="12">
+                <Border Width="44" Height="44" CornerRadius="12" Background="{StaticResource Surface3}" HorizontalAlignment="Left">
+                  <c:Icon Kind="live" Width="22" Height="22" Foreground="{StaticResource Accent}" />
+                </Border>
+                <TextBlock Classes="h2" FontSize="18" Text="This PC is the Live Output" />
+                <TextBlock Classes="muted" TextWrapping="Wrap" LineHeight="20" FontWeight="Medium"
+                           Text="It drives the audience screen and the Stage Monitor, and keeps the users, settings and libraries for every PC. Pick this on one PC only." />
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="2" Command="{Binding ChooseTerminalCommand}" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                    Background="{StaticResource Surface1}" CornerRadius="16">
+              <StackPanel Margin="26" Spacing="12">
+                <Border Width="44" Height="44" CornerRadius="12" Background="{StaticResource Surface3}" HorizontalAlignment="Left">
+                  <c:Icon Kind="pc" Width="22" Height="22" Foreground="{StaticResource Text1}" />
+                </Border>
+                <TextBlock Classes="h2" FontSize="18" Text="This PC is a Terminal" />
+                <TextBlock Classes="muted" TextWrapping="Wrap" LineHeight="20" FontWeight="Medium"
+                           Text="An operator station for Scripture, Song Lyrics, Cameras and the rest. It finds the Live Output PC on the church network by itself." />
+              </StackPanel>
+            </Button>
+          </Grid>
+        </StackPanel>
+
+        <!-- Step 1: Live Output details -->
+        <Border Classes="card" Padding="34" Width="560" IsVisible="{Binding IsLiveOutput}">
+          <StackPanel Spacing="16">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="h1" Text="Set up the Live Output PC" />
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="You can change all of this later in Settings." />
+            </StackPanel>
+            <Border Classes="hairline" />
+            <StackPanel>
+              <TextBlock Classes="label" Text="Church name" />
+              <TextBox Text="{Binding ChurchName}" Watermark="For example: Grace Harvest Chapel" />
+            </StackPanel>
+            <StackPanel>
+              <TextBlock Classes="label" Text="Address (optional)" />
+              <TextBox Text="{Binding Address}" Watermark="Shown on the sign-in screen" />
+            </StackPanel>
+            <Grid ColumnDefinitions="*,14,*">
+              <StackPanel>
+                <TextBlock Classes="label" Text="Name of this PC" />
+                <TextBox Text="{Binding PcName}" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="label" Text="Pairing code" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBox Text="{Binding PairingCode}" FontFamily="{StaticResource FontMono}" />
+                  <Button Grid.Column="1" Classes="ghost small" Margin="6,0,0,0" Command="{Binding NewCodeCommand}" ToolTip.Tip="Make a new code">
+                    <c:Icon Kind="refresh" Width="15" Height="15" />
+                  </Button>
+                </Grid>
+              </StackPanel>
+            </Grid>
+            <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Terminals type this pairing code once, so a visitor's laptop on the same network cannot take over the screens." />
+
+            <StackPanel Spacing="16" IsVisible="{Binding NeedsAdmin}">
+              <Border Classes="hairline" />
+              <TextBlock Classes="h3" Text="First admin account (you)" />
+              <StackPanel>
+                <TextBlock Classes="label" Text="Your name" />
+                <TextBox Text="{Binding AdminName}" Watermark="For example: Franklyn" />
+              </StackPanel>
+              <Grid ColumnDefinitions="*,14,*">
+                <StackPanel>
+                  <TextBlock Classes="label" Text="4-digit PIN" />
+                  <TextBox Text="{Binding AdminPin}" PasswordChar="•" MaxLength="4" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="label" Text="Type the PIN again" />
+                  <TextBox Text="{Binding AdminPin2}" PasswordChar="•" MaxLength="4" />
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+            <TextBlock Classes="muted" IsVisible="{Binding HasExistingAdmin}" TextWrapping="Wrap"
+                       Text="This PC already has NEXORA users. They are kept: sign in with your existing PIN." />
+
+            <TextBlock Classes="error" Text="{Binding Error}" TextWrapping="Wrap" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,6,0,0">
+              <Button Content="Back" Command="{Binding BackCommand}" />
+              <Button Grid.Column="2" Classes="primary big" Content="Finish set-up" Command="{Binding FinishLiveOutputCommand}" IsEnabled="{Binding !Busy}" />
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <!-- Step 2: Terminal details -->
+        <Border Classes="card" Padding="34" Width="560" IsVisible="{Binding IsTerminal}">
+          <StackPanel Spacing="16">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="h1" Text="Connect this Terminal" />
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="Make sure NEXORA is open on the Live Output PC and both PCs are on the church network." />
+            </StackPanel>
+            <Border Classes="hairline" />
+            <StackPanel>
+              <TextBlock Classes="label" Text="Live Output PCs found on the network" />
+              <ItemsControl ItemsSource="{Binding Servers}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ServerChoice">
+                    <RadioButton GroupName="server" Margin="0,2"
+                                 IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                 Command="{Binding $parent[UserControl].((vm:FirstRunViewModel)DataContext).SelectServerCommand}" CommandParameter="{Binding}">
+                      <StackPanel Margin="4,0,0,0">
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" />
+                        <TextBlock Text="{Binding Sub}" Classes="muted small" />
+                      </StackPanel>
+                    </RadioButton>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Border Classes="well" IsVisible="{Binding NoServersFound}">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <c:Icon Kind="search" Width="16" Height="16" Foreground="{StaticResource Text2}" />
+                  <TextBlock Classes="muted" Text="Looking for the Live Output PC…" VerticalAlignment="Center" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+            <Grid ColumnDefinitions="*,14,*">
+              <StackPanel>
+                <TextBlock Classes="label" Text="Name of this PC" />
+                <TextBox Text="{Binding PcName}" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="label" Text="Pairing code" />
+                <TextBox Text="{Binding PairingCode}" FontFamily="{StaticResource FontMono}" Watermark="From the Live Output PC" />
+              </StackPanel>
+            </Grid>
+            <StackPanel>
+              <TextBlock Classes="label" Text="Not found? Type the Live Output PC's address (optional)" />
+              <TextBox Text="{Binding ManualAddress}" Watermark="For example: 192.168.1.20" FontFamily="{StaticResource FontMono}" />
+            </StackPanel>
+            <TextBlock Classes="error" Text="{Binding Error}" TextWrapping="Wrap" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,6,0,0">
+              <Button Content="Back" Command="{Binding BackCommand}" />
+              <Button Grid.Column="2" Classes="primary big" Content="Connect" Command="{Binding FinishTerminalCommand}" />
+            </Grid>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <TextBlock Grid.Row="2" Classes="faint small" HorizontalAlignment="Center">
+      <Run Text="NEXORA" /><Run Text=" · " /><Run Text="{Binding Version}" /><Run Text="   ·   Works offline on the church network" />
+    </TextBlock>
+  </Grid>
+</UserControl>

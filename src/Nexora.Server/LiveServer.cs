@@ -51,6 +51,23 @@ public sealed class LiveServer : IAsyncDisposable
         _log = new ActivityLog(options.LogsDir);
         _live.SetScreens(store.Screens);
         if (store.Get<LiveState.Saved>("liveState") is { } saved) _live.Import(saved);
+        // Sign-ins survive a Live Output restart, so terminals carry on without asking for PINs again.
+        foreach (var (token, s) in store.Get<Dictionary<string, SavedSession>>("sessions") ?? [])
+            if (DateTime.UtcNow - s.CreatedUtc < SessionLifetime) _tokens[token] = s.UserId;
+    }
+
+    private sealed record SavedSession(string UserId, DateTime CreatedUtc);
+    private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(2);
+    private readonly ConcurrentDictionary<string, DateTime> _tokenCreated = new();
+
+    private void SaveSessions()
+    {
+        try
+        {
+            _store.Set("sessions", _tokens.ToDictionary(kv => kv.Key,
+                kv => new SavedSession(kv.Value, _tokenCreated.GetValueOrDefault(kv.Key, DateTime.UtcNow))));
+        }
+        catch (Exception ex) { _log.Write("Could not save sign-ins: " + ex.Message); }
     }
 
     public string ServerId => _store.ServerId;
@@ -249,6 +266,8 @@ public sealed class LiveServer : IAsyncDisposable
         _lockouts.TryRemove(user.Id, out _);
         var token = PinHasher.NewToken();
         _tokens[token] = user.Id;
+        _tokenCreated[token] = DateTime.UtcNow;
+        SaveSessions();
         SignIn(s, user, token);
         _log.Write($"{user.Name} signed in on {s.Hello!.PcName}");
     }
@@ -273,7 +292,7 @@ public sealed class LiveServer : IAsyncDisposable
 
     private void OnLogout(Session s)
     {
-        if (s.Token is not null) _tokens.TryRemove(s.Token, out _);
+        if (s.Token is not null && _tokens.TryRemove(s.Token, out _)) SaveSessions();
         if (s.User is not null) _log.Write($"{s.User.Name} signed out on {s.Hello?.PcName}");
         lock (_gate)
         {
@@ -413,6 +432,7 @@ public sealed class LiveServer : IAsyncDisposable
         if (target.IsAdmin && _store.Users().Count(x => x.IsAdmin) == 1) { s.Send(new Notice("NEXORA needs at least one admin.", true)); return; }
         _store.DeleteUser(d.UserId);
         foreach (var (token, uid) in _tokens) if (uid == d.UserId) _tokens.TryRemove(token, out _);
+        SaveSessions();
         _log.Write($"{s.User.Name} removed user {target.Name}");
         BroadcastPublicInfo();
     }

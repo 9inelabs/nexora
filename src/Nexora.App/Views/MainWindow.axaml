@@ -1,0 +1,32 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Nexora.App.ViewModels"
+        xmlns:c="using:Nexora.App.Controls"
+        x:Class="Nexora.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="NEXORA"
+        Icon="avares://Nexora/Assets/nexora.ico"
+        Width="1440" Height="900" MinWidth="1100" MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Ground}">
+  <Grid>
+    <ContentControl Content="{Binding Current}" />
+
+    <!-- Toast -->
+    <Border IsVisible="{Binding Toast, Converter={x:Static ObjectConverters.IsNotNull}}"
+            HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,28"
+            Background="{StaticResource Surface3}" BorderBrush="{StaticResource Line2}" BorderThickness="1"
+            CornerRadius="12" Padding="16,11" MaxWidth="640">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Ellipse Width="8" Height="8" Fill="{StaticResource PreviewBrush}" VerticalAlignment="Center"
+                 IsVisible="{Binding !ToastIsError}" />
+        <Ellipse Width="8" Height="8" Fill="{StaticResource Live}" VerticalAlignment="Center"
+                 IsVisible="{Binding ToastIsError}" />
+        <TextBlock Text="{Binding Toast}" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="13.5" />
+        <Button Classes="ghost small" Command="{Binding DismissToastCommand}" Padding="4">
+          <c:Icon Kind="x" Width="14" Height="14" />
+        </Button>
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

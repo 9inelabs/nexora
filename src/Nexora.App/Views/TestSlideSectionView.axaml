@@ -1,0 +1,172 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="Nexora.App.Views.TestSlideSectionView"
+             x:DataType="vm:TestSlideSectionViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.slide">
+      <Setter Property="Background" Value="{StaticResource Surface1}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="14,12" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style Selector="Button.slide.selected">
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+    </Style>
+    <Style Selector="Button.slide.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*" Margin="24,18,24,20">
+    <!-- On-air bars, one per routed screen -->
+    <StackPanel Spacing="6" Margin="0,0,0,14">
+      <ItemsControl ItemsSource="{Binding Bars}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:AirBar">
+            <Border CornerRadius="10" Padding="14,9" Margin="0,0,0,6"
+                    Background="{StaticResource Live}" IsVisible="{Binding IsLive}">
+              <StackPanel Orientation="Horizontal" Spacing="9">
+                <Ellipse Width="8" Height="8" Fill="White" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Text}" Foreground="White" FontWeight="Bold" LetterSpacing="0.6" />
+                <TextBlock Text="Every Enter and arrow key goes straight to this screen." Foreground="#E6FFFFFF" Margin="10,0,0,0" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <ItemsControl ItemsSource="{Binding Bars}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:AirBar">
+            <Border CornerRadius="10" Padding="14,9" Margin="0,0,0,6" Background="{StaticResource TintWarn}" IsVisible="{Binding IsStandby}">
+              <StackPanel Orientation="Horizontal" Spacing="9">
+                <Ellipse Width="8" Height="8" Fill="{StaticResource Warn}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Text}" Foreground="{StaticResource Warn}" FontWeight="Bold" LetterSpacing="0.6" />
+                <TextBlock Text="Taken down. Keep preparing; nothing reaches this screen until Live Output brings you back." Foreground="{StaticResource Warn}" Opacity="0.85" Margin="10,0,0,0" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Border CornerRadius="10" Padding="14,9" Background="{StaticResource Surface1}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+              IsVisible="{Binding NotRouted}">
+        <StackPanel Orientation="Horizontal" Spacing="9">
+          <c:Icon Kind="info" Width="16" Height="16" Foreground="{StaticResource Text2}" />
+          <TextBlock Classes="muted" Text="Not on any screen yet. The Live Output operator pins you live when it is your turn." />
+        </StackPanel>
+      </Border>
+      <Border CornerRadius="10" Padding="14,9" Background="{StaticResource TintWarn}" IsVisible="{Binding IsTrainee}">
+        <TextBlock Foreground="{StaticResource Warn}" FontWeight="SemiBold" Text="Trainee: practice mode. Nothing you send reaches the screens." />
+      </Border>
+    </StackPanel>
+
+    <Grid Grid.Row="1" ColumnDefinitions="400,24,*">
+      <!-- Slide list -->
+      <Grid RowDefinitions="Auto,*,Auto">
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="h2" Text="Test slides" />
+            <TextBlock Classes="faint small" Text="Phase 1: the full section tools arrive in a later phase." />
+          </StackPanel>
+        </Grid>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+          <ItemsControl ItemsSource="{Binding Slides}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:SlideRow">
+                <Button Classes="slide" Classes.selected="{Binding IsSelected}"
+                        Command="{Binding $parent[UserControl].((vm:TestSlideSectionViewModel)DataContext).PickCommand}" CommandParameter="{Binding}">
+                  <Grid ColumnDefinitions="26,*,Auto">
+                    <TextBlock Text="{Binding Number}" Classes="mono faint" VerticalAlignment="Top" Margin="0,1,0,0" />
+                    <StackPanel Grid.Column="1" Spacing="4">
+                      <TextBlock Text="{Binding Text}" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" FontWeight="Medium" LineHeight="19" />
+                      <TextBlock Text="{Binding Caption}" Classes="mono small" Foreground="{StaticResource Accent}" IsVisible="{Binding HasCaption}" />
+                    </StackPanel>
+                    <Border Grid.Column="2" Classes="chip live" VerticalAlignment="Top" Margin="8,0,0,0" IsVisible="{Binding IsShowing}">
+                      <TextBlock Text="SENT" />
+                    </Border>
+                  </Grid>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+        <Border Grid.Row="2" Classes="panel" Margin="0,10,0,0">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="label" Text="Add your own test slide" Margin="0" />
+            <TextBox Text="{Binding NewText}" Watermark="Text" AcceptsReturn="True" MinHeight="54" TextWrapping="Wrap" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding NewCaption}" Watermark="Small line under it (optional)" />
+              <Button Grid.Column="1" Margin="8,0,0,0" Command="{Binding AddSlideCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <c:Icon Kind="plus" Width="14" Height="14" />
+                  <TextBlock Text="Add" />
+                </StackPanel>
+              </Button>
+            </Grid>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Preview and controls -->
+      <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="14">
+          <Border Classes="card" Padding="16">
+            <StackPanel Spacing="12">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" VerticalAlignment="Center" />
+                  <TextBlock Classes="eyebrow" Foreground="{StaticResource PreviewBrush}" Text="PREVIEW" />
+                </StackPanel>
+                <TextBlock Grid.Column="2" Classes="faint small" Text="↑ ↓ move   ·   Enter show   ·   Esc clear" />
+              </Grid>
+              <Border CornerRadius="10" ClipToBounds="True" BorderBrush="{StaticResource PreviewBrush}" BorderThickness="1.5">
+                <c:ScreenView Frame="{Binding PreviewFrame}" Branding="{Binding Branding}" Animate="False" />
+              </Border>
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+                <Button Command="{Binding PreviousCommand}" ToolTip.Tip="Previous (↑)">
+                  <c:Icon Kind="arrowup" Width="16" Height="16" />
+                </Button>
+                <Button Grid.Column="1" Margin="8,0,0,0" Command="{Binding NextCommand}" ToolTip.Tip="Next (↓)">
+                  <c:Icon Kind="arrowdown" Width="16" Height="16" />
+                </Button>
+                <Button Grid.Column="3" Classes="ghost" Margin="0,0,8,0" Command="{Binding ClearCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="7">
+                    <c:Icon Kind="x" Width="14" Height="14" />
+                    <TextBlock Text="Clear (Esc)" />
+                  </StackPanel>
+                </Button>
+                <Button Grid.Column="4" Classes="primary big" Command="{Binding ShowCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Show (Enter)" />
+                    <c:Icon Kind="send" Width="15" Height="15" />
+                  </StackPanel>
+                </Button>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card" Padding="16" IsVisible="{Binding HasOnAir}">
+            <Grid ColumnDefinitions="320,18,*">
+              <Border CornerRadius="8" ClipToBounds="True" BorderBrush="{StaticResource Live}" BorderThickness="1.5">
+                <c:ScreenView Frame="{Binding OnAirFrame}" Kind="{Binding OnAirKind}" Branding="{Binding Branding}" ScreenName="{Binding OnAirName}" />
+              </Border>
+              <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Ellipse Width="7" Height="7" Fill="{StaticResource Live}" VerticalAlignment="Center" />
+                  <TextBlock Classes="eyebrow" Foreground="{StaticResource Live}" Text="ON SCREEN NOW" />
+                </StackPanel>
+                <TextBlock Text="{Binding OnAirName}" Classes="h2" />
+                <TextBlock Classes="muted" TextWrapping="Wrap" Text="Exactly what the audience sees right now, sent back from the Live Output PC." />
+              </StackPanel>
+            </Grid>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</UserControl>

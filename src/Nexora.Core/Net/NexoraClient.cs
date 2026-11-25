@@ -262,8 +262,8 @@ public sealed class NexoraClient : IAsyncDisposable
                     Token = null;
                     _sections = [];
                 }
-                UserChanged?.Invoke();
                 SetStatus(ConnectionStatus.Connected);
+                UserChanged?.Invoke();
                 _pendingLogin?.TrySetResult(lr);
                 _pendingLogin = null;
                 break;

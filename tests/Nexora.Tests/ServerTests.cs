@@ -264,8 +264,28 @@ public class ServerTests
         await f.RestartAsync();
         // The output engine reconnects and receives the saved picture again.
         await WaitFor(() => output.Status == ConnectionStatus.Connected && Text(output, "main") == "John 3:16");
-        // Tokens do not survive a restart, so the terminal is asked to sign in again.
-        await WaitFor(() => t1.Status == ConnectionStatus.Connected && t1.User is null);
+        // Sign-ins survive the restart: the terminal carries on without a new PIN and stays pinned.
+        await WaitFor(() => t1.Status == ConnectionStatus.Connected && t1.User is not null);
+        await WaitFor(() => f.Server.Snapshot().Sources.Single(s => s.PcId == "pc1").Online);
+        await t1.SendContentAsync(SectionKind.Scripture, new SlideContent("John 3:17"));
+        await WaitFor(() => Text(output, "main") == "John 3:17");
+    }
+
+    [Fact]
+    public async Task Signing_out_ends_the_session_for_good()
+    {
+        await using var f = new ServerFixture();
+        await f.Server.StartAsync();
+        await using var t1 = await SignedIn(f, "pc1", f.Daniel, "2222");
+        var token = t1.Token!;
+        await t1.LogoutAsync();
+        await Task.Delay(100);
+        await f.RestartAsync();
+        await using var t2 = f.Client("pc2");
+        await WaitFor(() => t2.Status == ConnectionStatus.Connected);
+        await t2.SendAsync(new Resume(token));
+        await Task.Delay(300);
+        Assert.Null(t2.User);
     }
 
     [Fact]
