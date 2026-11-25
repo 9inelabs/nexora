@@ -43,6 +43,20 @@ jobs:
           dotnet publish src/Nexora.App/Nexora.App.csproj -c Release -r win-x64 --self-contained true
           -p:Version=${{ steps.version.outputs.value }} -p:DebugType=none -o publish
 
+      - name: Add the recorder (FFmpeg)
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP/ffmpeg.zip"
+          Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip" -OutFile $zip
+          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP/ffmpeg"
+          $bin = Get-ChildItem "$env:RUNNER_TEMP/ffmpeg" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          New-Item -ItemType Directory -Force publish/ffmpeg | Out-Null
+          Copy-Item $bin.FullName publish/ffmpeg/ffmpeg.exe
+          Copy-Item (Join-Path $bin.DirectoryName "ffprobe.exe") publish/ffmpeg/ffprobe.exe
+          Get-ChildItem $bin.Directory.Parent.FullName -Filter LICENSE* | Copy-Item -Destination publish/ffmpeg/
+          & publish/ffmpeg/ffmpeg.exe -hide_banner -version | Select-Object -First 1
+          if (Test-Path publish/libvlc) { Get-ChildItem publish/libvlc } else { Write-Warning "LibVLC folder not found in publish" }
+
       - name: Build the installer (Velopack)
         shell: pwsh
         run: |
@@ -55,6 +69,13 @@ jobs:
           Copy-Item Releases/Nexora-win-Setup.exe out/NEXORA-Setup.exe
           Copy-Item Releases/Nexora-win-Portable.zip out/NEXORA-Portable.zip
           Copy-Item docs/PHASE1-TESTING.md out/PHASE1-TESTING.md
+          Copy-Item docs/PHASE2-TESTING.md out/PHASE2-TESTING.md
+          Copy-Item docs/TESTING-PHASES-3-8.md out/TESTING-PHASES-3-8.md
+          Copy-Item docs/OPERATOR-GUIDE.md out/OPERATOR-GUIDE.md
+          # The files the Live Output PC offers to the other PCs (Settings > Updates).
+          New-Item -ItemType Directory -Force out/NEXORA-Update | Out-Null
+          Copy-Item Releases/releases.win.json out/NEXORA-Update/
+          Copy-Item Releases/*-full.nupkg out/NEXORA-Update/
 
       - name: Upload the installer
         uses: actions/upload-artifact@v4
@@ -71,8 +92,10 @@ jobs:
           name: NEXORA ${{ steps.version.outputs.value }} (test build)
           prerelease: true
           body: |
-            Test build of NEXORA. Download **NEXORA-Setup.exe** below and follow PHASE1-TESTING.md.
+            Test build of NEXORA. Download **NEXORA-Setup.exe** below and follow PHASE1-TESTING.md and TESTING-PHASES-3-8.md.
           files: |
             out/NEXORA-Setup.exe
             out/NEXORA-Portable.zip
             out/PHASE1-TESTING.md
+            out/TESTING-PHASES-3-8.md
+            out/OPERATOR-GUIDE.md
