@@ -170,6 +170,14 @@ public sealed class ScreenView : UserControl
         else if (IsOutput && frame?.Rehearsal == true && Kind == ScreenKind.Audience) next.Children.Add(LogoScreen(branding));
         else BuildAudience(next, frame, branding, Kind == ScreenKind.Broadcast);
 
+        // The church logo in the corner of the recording and stream.
+        if (Kind == ScreenKind.Broadcast && branding.CornerWatermark && !Clean && frame?.Master != MasterMode.Black && LogoBitmap(branding) is { } mark)
+            next.Children.Add(new Image
+            {
+                Source = mark, Width = 150, Height = 84, Opacity = 0.7, Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 48, 56, 0),
+            });
+
         foreach (var r in oldReleases) r();
 
         var old = _canvas.Children.ToList();
@@ -244,7 +252,7 @@ public sealed class ScreenView : UserControl
         var items = f is null ? "" : string.Join("|", f.Items.Select(i => $"{i.Sequence}:{i.Layer}:{i.SourceKey}:{Hash(i.Content)}"));
         var ann = CurrentAnnouncement(f)?.Current(DateTime.UtcNow).Index ?? -1;
         var stage = Kind == ScreenKind.Stage ? $"{StageLayout}/{f?.Booth}" : "";
-        return $"{Kind}/{ScreenName}/{f?.Master}/{f?.Rehearsal}/{IsOutput}/{Clean}/{items}/{ann}/{stage}/{b.ChurchName}/{b.LogoLine}/{b.LogoWhenIdle}/{b.LogoPngBase64?.Length}/{b.LogoPngBase64?.GetHashCode()}";
+        return $"{Kind}/{ScreenName}/{f?.Master}/{f?.Rehearsal}/{IsOutput}/{Clean}/{items}/{ann}/{stage}/{b.ChurchName}/{b.LogoLine}/{b.LogoWhenIdle}/{b.CornerWatermark}/{b.LogoPngBase64?.Length}/{b.LogoPngBase64?.GetHashCode()}";
     }
 
     private static string Hash(SlideContent c) =>

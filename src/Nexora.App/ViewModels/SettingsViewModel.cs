@@ -31,6 +31,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         NavItems.Add(new NavItem("users", "Users & PINs", "users"));
         NavItems.Add(new NavItem("bibles", "Bibles & Scripture", "scripture"));
         NavItems.Add(new NavItem("network", "Network", "network"));
+        AddMorePages();
         Live.PropertyChanged += OnLive;
         S.Bibles.Changed += OnBiblesChanged;
         LoadBranding();
@@ -58,6 +59,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsUsers));
         OnPropertyChanged(nameof(IsNetwork));
         OnPropertyChanged(nameof(IsBibles));
+        OnMorePage(value);
     }
 
     [RelayCommand]

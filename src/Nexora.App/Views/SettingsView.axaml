@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Nexora.App.ViewModels"
              xmlns:c="using:Nexora.App.Controls"
+             xmlns:m="using:Nexora.Core.Model"
              x:Class="Nexora.App.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
   <UserControl.Styles>
@@ -120,7 +121,7 @@
                     <ToggleSwitch Grid.Column="1" IsChecked="{Binding LogoWhenIdle}" OnContent="" OffContent="" />
                   </Grid>
                   <Grid ColumnDefinitions="*,Auto" Classes="row">
-                    <TextBlock Text="Corner watermark on stream (Phase 7)" VerticalAlignment="Center" Classes="faint" />
+                    <TextBlock Text="Small logo in the corner of the recording and stream" VerticalAlignment="Center" />
                     <ToggleSwitch Grid.Column="1" IsChecked="{Binding CornerWatermark}" OnContent="" OffContent="" />
                   </Grid>
                 </StackPanel>
@@ -458,6 +459,245 @@
               </ItemsControl>
             </StackPanel>
           </Border>
+        </StackPanel>
+
+        <!-- ============ Lyrics & CCLI ============ -->
+        <StackPanel IsVisible="{Binding IsLyrics}" Spacing="20">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h1" Text="Lyrics &amp; CCLI" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="The church's CCLI licence, the starting look for songs, and the song usage report." />
+          </StackPanel>
+          <Grid ColumnDefinitions="*,28,*">
+            <Border Classes="card" Padding="18">
+              <StackPanel Spacing="12">
+                <StackPanel>
+                  <TextBlock Classes="label" Text="CCLI licence number" />
+                  <TextBox Text="{Binding CcliLicence}" Watermark="e.g. 1234567" MaxLength="20" />
+                </StackPanel>
+                <CheckBox Content="Show the song's copyright and CCLI line on its first slide" IsChecked="{Binding CopyrightOnFirst}" />
+                <StackPanel>
+                  <TextBlock Classes="label" Text="Starting look for songs" />
+                  <ComboBox ItemsSource="{Binding LyricThemeList}" SelectedItem="{Binding LyricTheme}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="m:ScriptureTheme"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <Grid ColumnDefinitions="*,12,*,12,*">
+                  <StackPanel>
+                    <TextBlock Classes="label" Text="Animation" />
+                    <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.Animations}" SelectedItem="{Binding LyricAnimation}" HorizontalAlignment="Stretch" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <TextBlock Classes="label" Text="Speed (ms)" />
+                    <NumericUpDown Value="{Binding LyricAnimationMs}" Minimum="0" Maximum="3000" Increment="50" FormatString="0" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="4">
+                    <TextBlock Classes="label" Text="Lines per slide" />
+                    <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.LinesChoices}" SelectedItem="{Binding LinesPerSlide}" HorizontalAlignment="Stretch" />
+                  </StackPanel>
+                </Grid>
+                <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Lines per slide 0 keeps each part as typed. A song can still choose its own." />
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <Button Classes="primary" Content="Save" Command="{Binding SaveLyricsCommand}" />
+                  <TextBlock Classes="muted" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding LyricsMessage}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="card" Padding="18">
+              <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="h3" Text="Song usage report" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:SettingsViewModel.Periods}" SelectedItem="{Binding UsagePeriod}" Width="160" />
+                </Grid>
+                <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding UsageSummary}" />
+                <ItemsControl ItemsSource="{Binding Usage}" MaxHeight="360">
+                  <ItemsControl.Template>
+                    <ControlTemplate><ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsPresenter /></ScrollViewer></ControlTemplate>
+                  </ItemsControl.Template>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:UsageRow">
+                      <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="0,8">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <StackPanel Spacing="2">
+                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                            <TextBlock Classes="faint small" Text="{Binding CcliText}" />
+                          </StackPanel>
+                          <TextBlock Grid.Column="1" Classes="mono" Text="{Binding Times, StringFormat='{}{0}×'}" VerticalAlignment="Center" />
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Classes="small" HorizontalAlignment="Left" Command="{Binding ExportUsageCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="download" Width="13" Height="13" /><TextBlock Text="Save as a spreadsheet (CSV)" /></StackPanel>
+                </Button>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </StackPanel>
+
+        <!-- ============ Recording & streaming ============ -->
+        <StackPanel IsVisible="{Binding IsBroadcast}" Spacing="20" MaxWidth="760" HorizontalAlignment="Left">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h1" Text="Recording &amp; streaming" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="The recording and the live stream carry the Broadcast screen, with sound from the mixer. Start and stop them on the Live Output screen." />
+          </StackPanel>
+          <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding EncoderText}" />
+          <Border Classes="card" Padding="18">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h3" Text="Recording" />
+              <StackPanel>
+                <TextBlock Classes="label" Text="Save recordings to" />
+                <Grid ColumnDefinitions="*,8,Auto">
+                  <TextBox Text="{Binding RecordFolder}" />
+                  <Button Grid.Column="2" Content="Choose…" Command="{Binding ChooseRecordFolderCommand}" />
+                </Grid>
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Classes="label" Text="Service name (used in the file name)" />
+                <TextBox Text="{Binding DefaultServiceName}" />
+              </StackPanel>
+              <CheckBox Content="Also record the cameras alone, without words (a clean copy for editing)" IsChecked="{Binding CleanRecording}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="card" Padding="18">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h3" Text="Picture and sound" />
+              <Grid ColumnDefinitions="*,12,*,12,*">
+                <StackPanel>
+                  <TextBlock Classes="label" Text="Size" />
+                  <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.HeightChoices}" SelectedItem="{Binding VideoHeight}" HorizontalAlignment="Stretch" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="label" Text="Frames a second" />
+                  <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.FpsChoices}" SelectedItem="{Binding VideoFps}" HorizontalAlignment="Stretch" />
+                </StackPanel>
+                <StackPanel Grid.Column="4">
+                  <TextBlock Classes="label" Text="Quality (kbps)" />
+                  <NumericUpDown Value="{Binding VideoKbps}" Minimum="1000" Maximum="20000" Increment="500" FormatString="0" />
+                </StackPanel>
+              </Grid>
+              <StackPanel>
+                <TextBlock Classes="label" Text="Sound from" />
+                <ComboBox ItemsSource="{Binding SoundInputs}" SelectedItem="{Binding SoundInput}" HorizontalAlignment="Stretch" />
+                <TextBlock Classes="faint small" TextWrapping="Wrap" Margin="0,4,0,0" Text="Pick the input the sound desk feeds (a USB audio interface or the capture card's audio)." />
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Classes="label" Text="Delay the sound by (ms)" />
+                <NumericUpDown Value="{Binding SoundDelayMs}" Minimum="0" Maximum="2000" Increment="20" FormatString="0" Width="160" HorizontalAlignment="Left" />
+                <TextBlock Classes="faint small" TextWrapping="Wrap" Margin="0,4,0,0" Text="If lips move after the words are heard, add a delay (try 100 to 200 ms with NDI cameras)." />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <Border Classes="card" Padding="18">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h3" Text="Live stream" />
+              <StackPanel>
+                <TextBlock Classes="label" Text="Stream address (RTMP URL)" />
+                <TextBox Text="{Binding StreamUrl}" Watermark="rtmp://a.rtmp.youtube.com/live2" />
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Classes="label" Text="Stream key" />
+                <TextBox Text="{Binding StreamKey}" PasswordChar="•" Watermark="Paste the key from YouTube Studio or Facebook" />
+                <TextBlock Classes="faint small" Margin="0,4,0,0" Text="A key is saved. Leave this empty to keep it." IsVisible="{Binding HasStreamKey}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <Button Classes="primary" Content="Save" Command="{Binding SaveBroadcastCommand}" />
+            <TextBlock Classes="muted" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding BroadcastMessage}" />
+          </StackPanel>
+        </StackPanel>
+
+        <!-- ============ Backups & standby ============ -->
+        <StackPanel IsVisible="{Binding IsBackups}" Spacing="20" MaxWidth="820" HorizontalAlignment="Left">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h1" Text="Backups &amp; standby" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="A backup holds users, settings, songs, themes, announcements, people, imported Bibles and uploaded pictures. Videos and recordings are not included." />
+          </StackPanel>
+          <Border Classes="card" Padding="18">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h3" Text="Backup now" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap" Text="The Live Output PC also saves a backup every night and keeps the last 30." />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Classes="primary" Command="{Binding DownloadBackupCommand}" IsEnabled="{Binding !BackupBusy}">
+                  <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="download" Width="13" Height="13" /><TextBlock Text="Save a backup…" /></StackPanel>
+                </Button>
+                <Button Command="{Binding RestoreFromFileCommand}" IsEnabled="{Binding !BackupBusy}">
+                  <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="upload" Width="13" Height="13" /><TextBlock Text="Restore from a file…" /></StackPanel>
+                </Button>
+              </StackPanel>
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding BackupMessage}" IsVisible="{Binding BackupMessage, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="card" Padding="0" IsVisible="{Binding !IsTerminal}">
+            <StackPanel>
+              <TextBlock Classes="h3" Text="Nightly backups on this PC" Margin="18,14,18,8" />
+              <ItemsControl ItemsSource="{Binding NightlyBackups}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:BackupRow">
+                    <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="18,10">
+                      <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Size}" Classes="faint small mono" VerticalAlignment="Center" Margin="12,0" />
+                        <Button Grid.Column="2" Classes="ghost small" Content="Restore this"
+                                Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).RestoreNightlyCommand}" CommandParameter="{Binding}" />
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="faint small" Margin="18,4,18,14" Text="The first one is saved tonight after 2 AM." IsVisible="{Binding !NightlyBackups.Count}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="card" Padding="18" IsVisible="{Binding IsTerminal}">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h3" Text="If the Live Output PC fails" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding StandbyText}" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap"
+                         Text="This PC can take over as the Live Output PC with that copy. The other terminals find it by themselves. Connect the screens to this PC, then press the button. Only do this if the Live Output PC cannot be started again." />
+              <Button Classes="warn" HorizontalAlignment="Left" Command="{Binding AskPromoteCommand}" IsVisible="{Binding !ConfirmPromote}" IsEnabled="{Binding HasStandby}">
+                <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="live" Width="13" Height="13" /><TextBlock Text="Make this PC the Live Output PC…" /></StackPanel>
+              </Button>
+              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ConfirmPromote}">
+                <Button Classes="onair" Content="Yes, take over now" Command="{Binding PromoteCommand}" IsEnabled="{Binding !BackupBusy}" />
+                <Button Classes="ghost" Content="Cancel" Command="{Binding CancelPromoteCommand}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ============ Updates ============ -->
+        <StackPanel IsVisible="{Binding IsUpdates}" Spacing="20" MaxWidth="760" HorizontalAlignment="Left">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h1" Text="Updates" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="The Live Output PC hands new versions to every PC over the church network. No internet is needed on the terminals." />
+          </StackPanel>
+          <Border Classes="card" Padding="18">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h3" Text="This PC" />
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding UpdateState}" />
+              <Button Classes="primary" HorizontalAlignment="Left" Command="{Binding InstallUpdateCommand}" IsEnabled="{Binding CanInstall}">
+                <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="download" Width="13" Height="13" /><TextBlock Text="Install the offered version" /></StackPanel>
+              </Button>
+              <TextBlock Classes="faint small" TextWrapping="Wrap" Text="A terminal on an older version can still sign in, but cannot be pinned live until it is updated." />
+            </StackPanel>
+          </Border>
+          <Border Classes="card" Padding="18" IsVisible="{Binding !IsTerminal}">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h3" Text="Offer a new version to every PC" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap"
+                         Text="Download the update files (NEXORA-Update folder: releases.win.json and the .nupkg) onto this PC, then choose releases.win.json here." />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Command="{Binding OfferUpdateCommand}" IsEnabled="{Binding !UpdateBusy}">
+                  <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="upload" Width="13" Height="13" /><TextBlock Text="Choose the update files…" /></StackPanel>
+                </Button>
+                <Button Classes="ghost" Command="{Binding RollBackCommand}" IsVisible="{Binding HasPrevious}">
+                  <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="restart" Width="13" Height="13" /><TextBlock Text="{Binding PreviousVersion, StringFormat='Go back to {0}'}" /></StackPanel>
+                </Button>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding UpdateMessage}" IsVisible="{Binding UpdateMessage, Converter={x:Static ObjectConverters.IsNotNull}}" />
         </StackPanel>
       </Panel>
     </ScrollViewer>

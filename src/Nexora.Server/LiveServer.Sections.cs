@@ -136,6 +136,9 @@ public sealed partial class LiveServer
         return true;
     }
 
+    /// <summary>Sends the library again to every PC (for example after a new version is offered).</summary>
+    public void RefreshLibrary() => LibraryChanged();
+
     private void LibraryChanged()
     {
         _libraryCache = null;

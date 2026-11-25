@@ -86,10 +86,39 @@ public sealed class AppServices
         _ = LoadBiblesAsync();
         _sync = new LibrarySync(Client, Bibles, LoadBiblesAsync);
         Client.Start();
+        StartStandby();
+    }
+
+    private CancellationTokenSource? _standby;
+
+    /// <summary>Terminals keep a fresh copy of the Live Output PC's library (every 30 minutes) so they can take over.</summary>
+    private void StartStandby()
+    {
+        _standby?.Cancel();
+        if (Config.Role != PcRole.Terminal || Client is not { } c) return;
+        var cts = _standby = new CancellationTokenSource();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMinutes(2), cts.Token);
+                while (!cts.IsCancellationRequested)
+                {
+                    var age = Backups.StandbyTime is { } t ? DateTime.Now - t : TimeSpan.MaxValue;
+                    // Not during a service: the copy is a few MB and the network is busy then.
+                    if (c.Status == ConnectionStatus.Connected && age > TimeSpan.FromMinutes(29) && !c.Snapshot.CurrentModes.ServiceMode)
+                        await Backups.RefreshStandbyAsync(c);
+                    await Task.Delay(TimeSpan.FromMinutes(5), cts.Token);
+                }
+            }
+            catch (OperationCanceledException) { }
+        });
     }
 
     public async Task StopAsync(bool stopOutput)
     {
+        _standby?.Cancel();
+        _standby = null;
         _sync?.Dispose();
         _sync = null;
         Live.Detach();
