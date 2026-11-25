@@ -1,0 +1,607 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:m="using:Nexora.Core.Model"
+             x:Class="Nexora.App.Views.ScriptureSectionView"
+             x:DataType="vm:ScriptureSectionViewModel">
+  <UserControl.Styles>
+    <Style Selector="TextBox.ref">
+      <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+      <Setter Property="FontSize" Value="24" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="MinHeight" Value="60" />
+      <Setter Property="Padding" Value="48,14,16,14" />
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.verse">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Margin" Value="0,0,0,2" />
+    </Style>
+    <Style Selector="Button.verse.selected">
+      <Setter Property="Background" Value="{StaticResource Surface3}" />
+    </Style>
+    <Style Selector="Button.verse.current">
+      <Setter Property="Background" Value="{StaticResource TintPreview}" />
+    </Style>
+    <Style Selector="Button.verse.showing">
+      <Setter Property="Background" Value="{StaticResource TintLive}" />
+    </Style>
+    <Style Selector="Button.trchip">
+      <Setter Property="Padding" Value="11,6" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="CornerRadius" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+    </Style>
+    <Style Selector="Button.trchip.on">
+      <Setter Property="Background" Value="{StaticResource Accent}" />
+      <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
+    </Style>
+    <Style Selector="Button.trchip.on:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Accent}" />
+      <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
+    </Style>
+    <Style Selector="Button.row">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.row.current">
+      <Setter Property="Background" Value="{StaticResource TintAccent}" />
+    </Style>
+    <Style Selector="ToggleButton.seg">
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.seg:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface4}" />
+      <Setter Property="Foreground" Value="{StaticResource Text1}" />
+    </Style>
+    <Style Selector="TextBlock.flabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.fval">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+      <Setter Property="Foreground" Value="{StaticResource Text3}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+    <Style Selector="Slider">
+      <Setter Property="Margin" Value="0,-8,0,-6" />
+    </Style>
+    <Style Selector="TextBox.hex">
+      <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="Padding" Value="34,5,8,5" />
+    </Style>
+    <Style Selector="TextBlock.sect">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="LetterSpacing" Value="1.2" />
+      <Setter Property="Foreground" Value="{StaticResource Text3}" />
+      <Setter Property="Margin" Value="0,10,0,0" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*" Margin="20,16,20,18">
+    <!-- On-air bars -->
+    <StackPanel Spacing="6" Margin="0,0,0,12">
+      <ItemsControl ItemsSource="{Binding Bars}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:AirBar">
+            <Panel>
+              <Border CornerRadius="10" Padding="14,9" Margin="0,0,0,6" Background="{StaticResource Live}" IsVisible="{Binding IsLive}">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <Ellipse Width="8" Height="8" Fill="White" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Text}" Foreground="White" FontWeight="Bold" LetterSpacing="0.6" />
+                  <TextBlock Text="Enter sends, the arrow keys step, and the screen follows." Foreground="#E6FFFFFF" Margin="10,0,0,0" />
+                </StackPanel>
+              </Border>
+              <Border CornerRadius="10" Padding="14,9" Margin="0,0,0,6" Background="{StaticResource TintWarn}" IsVisible="{Binding IsStandby}">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <Ellipse Width="8" Height="8" Fill="{StaticResource Warn}" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Text}" Foreground="{StaticResource Warn}" FontWeight="Bold" LetterSpacing="0.6" />
+                  <TextBlock Text="Taken down. Keep preparing; nothing reaches this screen until Live Output brings you back." Foreground="{StaticResource Warn}" Opacity="0.85" Margin="10,0,0,0" />
+                </StackPanel>
+              </Border>
+            </Panel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Border CornerRadius="10" Padding="14,9" Background="{StaticResource Surface1}" BorderBrush="{StaticResource Line}" BorderThickness="1" IsVisible="{Binding NotRouted}">
+        <StackPanel Orientation="Horizontal" Spacing="9">
+          <c:Icon Kind="info" Width="16" Height="16" Foreground="{StaticResource Text2}" />
+          <TextBlock Classes="muted" Text="Not on any screen yet. The Live Output operator pins you live when it is your turn. You can prepare and preview now." />
+        </StackPanel>
+      </Border>
+      <Border CornerRadius="10" Padding="14,9" Background="{StaticResource TintWarn}" IsVisible="{Binding IsTrainee}">
+        <TextBlock Foreground="{StaticResource Warn}" FontWeight="SemiBold" Text="Trainee: practice mode. Nothing you send reaches the screens." />
+      </Border>
+    </StackPanel>
+
+    <Grid Grid.Row="1" ColumnDefinitions="430,18,*,18,Auto">
+      <!-- ========== Left: reference box and chapter ========== -->
+      <Grid RowDefinitions="Auto,12,*">
+        <Border Classes="card" Padding="16">
+          <StackPanel Spacing="10">
+            <Panel>
+              <TextBox x:Name="RefBox" Classes="ref" Text="{Binding RefText}" Watermark="jn 3 16" />
+              <c:Icon Kind="search" Width="20" Height="20" Foreground="{StaticResource Text3}" Margin="16,0,0,0"
+                      HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
+            </Panel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{Binding RefMessage}" FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap"
+                         Foreground="{StaticResource PreviewBrush}" IsVisible="{Binding RefOk}" />
+              <TextBlock Text="{Binding RefMessage}" FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap"
+                         Foreground="{StaticResource Warn}" IsVisible="{Binding !RefOk}" />
+              <TextBlock Grid.Column="1" Classes="faint small mono" Text="{Binding LookupTime}" IsVisible="{Binding RefOk}" Margin="8,0,0,0" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding Suggestions}" IsVisible="{Binding HasSuggestions}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:BookChip">
+                  <Button Classes="trchip" Margin="0,0,6,6" Content="{Binding Name}"
+                          Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).PickBookCommand}" CommandParameter="{Binding}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ItemsControl ItemsSource="{Binding Translations}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:TranslationChip">
+                  <Button Classes="trchip" Classes.on="{Binding IsSelected}" Margin="0,0,6,6" Content="{Binding Text}" ToolTip.Tip="{Binding Tip}"
+                          Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).PickTranslationCommand}" CommandParameter="{Binding}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Classes="faint small" Text="Preparing the Bibles on this PC (first start only)…" IsVisible="{Binding Preparing}" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Classes="card" Padding="8,14,8,8">
+          <Grid RowDefinitions="Auto,*">
+            <Grid ColumnDefinitions="*,Auto" Margin="8,0,8,10">
+              <TextBlock Classes="h3" Text="{Binding ChapterTitle}" />
+              <TextBlock Grid.Column="1" Classes="eyebrow" Text="{Binding Translation}" IsVisible="{Binding !SearchMode}" />
+              <TextBlock Grid.Column="1" Classes="faint small" Text="{Binding SearchInfo}" IsVisible="{Binding SearchMode}" />
+            </Grid>
+            <ScrollViewer Grid.Row="1" x:Name="VerseScroll" VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding Verses}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:VerseRow">
+                    <Button Classes="verse" Classes.selected="{Binding IsSelected}" Classes.current="{Binding IsCurrent}" Classes.showing="{Binding IsShowing}"
+                            Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).PickVerseCommand}" CommandParameter="{Binding}">
+                      <Grid ColumnDefinitions="Auto,*">
+                        <TextBlock Text="{Binding Number}" Classes="mono" FontSize="12" Foreground="{StaticResource Accent}" MinWidth="26" Margin="0,2,8,0" VerticalAlignment="Top" />
+                        <TextBlock Grid.Column="1" Text="{Binding Text}" TextWrapping="Wrap" LineHeight="20" FontSize="14" />
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- ========== Middle: preview, controls, pastor's list, history ========== -->
+      <Grid Grid.Column="2" RowDefinitions="Auto,12,*">
+        <Border Classes="card" Padding="16">
+          <StackPanel Spacing="12">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" VerticalAlignment="Center" />
+                <TextBlock Classes="eyebrow" Foreground="{StaticResource PreviewBrush}" Text="PREVIEW" />
+                <TextBlock Classes="faint small" Text="{Binding SlideInfo}" Margin="6,0,0,0" />
+              </StackPanel>
+              <TextBlock Grid.Column="2" Classes="faint small" Text="Enter send  ·  ↑ ↓ step  ·  Esc clear  ·  Alt+1…9 translation" />
+            </Grid>
+            <Border CornerRadius="10" ClipToBounds="True" BorderBrush="{StaticResource PreviewBrush}" BorderThickness="1.5">
+              <c:ScreenView Frame="{Binding PreviewFrame}" Branding="{Binding Branding}" Animate="False" ShowGuides="{Binding ShowGuides}" />
+            </Border>
+            <Grid ColumnDefinitions="Auto,*">
+              <TextBlock Classes="eyebrow" Text="NEXT" VerticalAlignment="Center" Margin="0,0,10,0" />
+              <TextBlock Grid.Column="1" Classes="muted small" Text="{Binding NextLine}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+              <Button Command="{Binding PreviousCommand}" ToolTip.Tip="Previous (↑)">
+                <c:Icon Kind="arrowup" Width="16" Height="16" />
+              </Button>
+              <Button Grid.Column="1" Margin="8,0,0,0" Command="{Binding NextCommand}" ToolTip.Tip="Next (↓)">
+                <c:Icon Kind="arrowdown" Width="16" Height="16" />
+              </Button>
+              <CheckBox Grid.Column="2" Margin="14,0,0,0" IsChecked="{Binding OnePerSlide}" Content="One verse per slide" FontSize="13" />
+              <Button Grid.Column="4" Classes="ghost" Margin="0,0,8,0" Command="{Binding ClearCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                  <c:Icon Kind="x" Width="14" Height="14" />
+                  <TextBlock Text="Clear (Esc)" />
+                </StackPanel>
+              </Button>
+              <Button Grid.Column="5" Classes="primary big" Command="{Binding ShowCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="Send to screen (Enter)" />
+                  <c:Icon Kind="send" Width="15" Height="15" />
+                </StackPanel>
+              </Button>
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding Translations.Count}">
+              <TextBlock Classes="flabel" Text="Side by side with" Margin="0,0,10,0" />
+              <ItemsControl Grid.Column="1" ItemsSource="{Binding SecondChoices}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:TranslationChip">
+                    <Button Classes="trchip" Classes.on="{Binding IsSelected}" Margin="0,0,6,6" Content="{Binding Text}" ToolTip.Tip="{Binding Name}"
+                            Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).PickSecondCommand}" CommandParameter="{Binding}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,12,*">
+          <!-- Pastor's list for the day -->
+          <Border Classes="card" Padding="8,14,8,8">
+            <Grid RowDefinitions="Auto,Auto,*">
+              <Grid ColumnDefinitions="*,Auto,Auto" Margin="8,0,8,8">
+                <StackPanel Spacing="1">
+                  <TextBlock Classes="h3" Text="Pastor's list" />
+                  <TextBlock Classes="faint small" Text="Page Down for the next one" />
+                </StackPanel>
+                <Button Grid.Column="1" Classes="ghost small" Command="{Binding ClearPlanCommand}" IsVisible="{Binding HasPlan}" Margin="0,0,6,0">Clear</Button>
+                <Button Grid.Column="2" Classes="small" Command="{Binding EditPlanCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="plus" Width="13" Height="13" />
+                    <TextBlock Text="Add" />
+                  </StackPanel>
+                </Button>
+              </Grid>
+              <Border Grid.Row="1" Classes="panel" Margin="8,0,8,8" IsVisible="{Binding PlanEditing}">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Type or paste the references from the sermon notes, one per line. Words around them become notes." />
+                  <TextBox Text="{Binding PlanText}" AcceptsReturn="True" MinHeight="90" MaxHeight="200" TextWrapping="Wrap"
+                           Watermark="Psalm 23&#x0a;John 3:16-21 Sermon text&#x0a;Rom 8 28" />
+                  <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                    <Button Classes="ghost small" Command="{Binding CancelPlanCommand}">Cancel</Button>
+                    <Button Classes="primary small" Command="{Binding AddPlanCommand}">Add to the list</Button>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+              <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                  <TextBlock Classes="faint small" Margin="8,4" TextWrapping="Wrap" IsVisible="{Binding !HasPlan}"
+                             Text="Before the service, add the verses the pastor will read. Then just press the next one." />
+                  <ItemsControl ItemsSource="{Binding Plan}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:PlanItem">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <Button Classes="row" Classes.current="{Binding IsCurrent}"
+                                  Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).PickPlanCommand}" CommandParameter="{Binding}">
+                            <Grid ColumnDefinitions="24,*">
+                              <TextBlock Text="{Binding Number}" Classes="mono faint" FontSize="12" VerticalAlignment="Center" />
+                              <StackPanel Grid.Column="1" Spacing="1">
+                                <TextBlock Text="{Binding Reference}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Note}" Classes="faint small" IsVisible="{Binding HasNote}" TextTrimming="CharacterEllipsis" />
+                              </StackPanel>
+                            </Grid>
+                          </Button>
+                          <Button Grid.Column="1" Classes="ghost small" Padding="6" ToolTip.Tip="Remove"
+                                  Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).RemovePlanCommand}" CommandParameter="{Binding}">
+                            <c:Icon Kind="x" Width="12" Height="12" />
+                          </Button>
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </ScrollViewer>
+            </Grid>
+          </Border>
+
+          <!-- History of today -->
+          <Border Grid.Column="2" Classes="card" Padding="8,14,8,8">
+            <Grid RowDefinitions="Auto,*">
+              <StackPanel Spacing="1" Margin="8,0,8,8">
+                <TextBlock Classes="h3" Text="Shown today" />
+                <TextBlock Classes="faint small" Text="One click to show again" />
+              </StackPanel>
+              <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                  <TextBlock Classes="faint small" Margin="8,4" Text="Nothing sent yet today." IsVisible="{Binding !HasHistory}" />
+                  <ItemsControl ItemsSource="{Binding History}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:HistoryItem">
+                        <Button Classes="row" Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).PickHistoryCommand}" CommandParameter="{Binding}">
+                          <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBlock Text="{Binding Reference}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="1" Text="{Binding Translation}" Classes="eyebrow" Margin="8,0" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="{Binding Time}" Classes="faint small mono" VerticalAlignment="Center" />
+                          </Grid>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </ScrollViewer>
+            </Grid>
+          </Border>
+        </Grid>
+      </Grid>
+
+      <!-- ========== Right: style ========== -->
+      <Border Grid.Column="4" Classes="card" Padding="0" Width="360">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <StackPanel Margin="16,14,16,10" Spacing="10">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="h3" Text="Style" VerticalAlignment="Center" />
+              <CheckBox Grid.Column="1" IsChecked="{Binding ShowGuides}" Content="Guides" FontSize="12.5" ToolTip.Tip="Show the safe area and the text box in the preview" />
+            </Grid>
+            <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}" HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="m:ScriptureTheme">
+                  <TextBlock Text="{Binding Name}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
+
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,0,16,0">
+            <StackPanel Spacing="8" DataContext="{Binding Editor}" x:DataType="vm:ThemeEditor" Margin="0,0,0,12">
+              <TextBlock Classes="sect" Text="BACKGROUND" Margin="0" />
+              <UniformGrid Columns="3" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding BgColor}" Content="Colour" />
+                <ToggleButton Classes="seg" IsChecked="{Binding BgGradient}" Content="Gradient" />
+                <ToggleButton Classes="seg" IsChecked="{Binding BgImage}" Content="Picture" />
+              </UniformGrid>
+              <Grid ColumnDefinitions="*,8,*">
+                <Panel>
+                  <TextBox Classes="hex" Text="{Binding BackgroundColor}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding BackgroundBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+                <Panel Grid.Column="2" IsVisible="{Binding IsGradient}">
+                  <TextBox Classes="hex" Text="{Binding GradientTo}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding GradientBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40" IsVisible="{Binding IsGradient}">
+                <TextBlock Classes="flabel" Text="Angle" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="360" Value="{Binding GradientAngle}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding GradientAngle, StringFormat={}{0:0}°}" />
+              </Grid>
+              <StackPanel Spacing="8" IsVisible="{Binding IsImage}">
+                <Button x:Name="PickImage" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <c:Icon Kind="upload" Width="14" Height="14" />
+                    <TextBlock Text="Choose a picture…" />
+                  </StackPanel>
+                </Button>
+                <Grid ColumnDefinitions="90,*,40">
+                  <TextBlock Classes="flabel" Text="Blur" />
+                  <Slider Grid.Column="1" Minimum="0" Maximum="40" Value="{Binding Blur}" />
+                  <TextBlock Grid.Column="2" Classes="fval" Text="{Binding Blur, StringFormat={}{0:0}}" />
+                </Grid>
+              </StackPanel>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Darken" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="0.9" Value="{Binding Darken}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding Darken, StringFormat={}{0:P0}}" />
+              </Grid>
+              <Grid ColumnDefinitions="90,*,8,92">
+                <TextBlock Classes="flabel" Text="Tint" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="0.8" Value="{Binding Tint}" />
+                <Panel Grid.Column="3">
+                  <TextBox Classes="hex" Text="{Binding TintColor}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding TintBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+              </Grid>
+
+              <TextBlock Classes="sect" Text="FONT" />
+              <ComboBox ItemsSource="{x:Static vm:ThemeEditor.Fonts}" SelectedItem="{Binding FontFamily}" HorizontalAlignment="Stretch" MaxDropDownHeight="360" />
+              <Grid ColumnDefinitions="*,8,Auto">
+                <ComboBox ItemsSource="{x:Static vm:ThemeEditor.Weights}" SelectedItem="{Binding SelectedWeight}" HorizontalAlignment="Stretch" />
+                <ToggleButton Grid.Column="2" Classes="seg" IsChecked="{Binding Italic}" Content="Italic" Width="70" />
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Size" />
+                <Slider Grid.Column="1" Minimum="30" Maximum="140" Value="{Binding FontSize}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding FontSize, StringFormat={}{0:0}}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto">
+                <CheckBox IsChecked="{Binding AutoFit}" Content="Shrink to fit" FontSize="13" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" IsVisible="{Binding AutoFit}">
+                  <TextBlock Classes="flabel" Text="not below" />
+                  <NumericUpDown Value="{Binding MinFontSize}" Minimum="20" Maximum="120" Increment="2" FormatString="0" Width="110" />
+                </StackPanel>
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Line spacing" />
+                <Slider Grid.Column="1" Minimum="0.9" Maximum="2.2" Value="{Binding LineSpacing}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding LineSpacing, StringFormat={}{0:0.00}}" />
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Letter spacing" />
+                <Slider Grid.Column="1" Minimum="-2" Maximum="10" Value="{Binding LetterSpacing}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding LetterSpacing, StringFormat={}{0:0.0}}" />
+              </Grid>
+
+              <TextBlock Classes="sect" Text="COLOUR AND EFFECTS" />
+              <Grid ColumnDefinitions="90,*">
+                <TextBlock Classes="flabel" Text="Text" />
+                <Panel Grid.Column="1">
+                  <TextBox Classes="hex" Text="{Binding TextColor}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding TextBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+              </Grid>
+              <Grid ColumnDefinitions="90,*,8,92">
+                <TextBlock Classes="flabel" Text="Outline" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="10" Value="{Binding OutlineWidth}" />
+                <Panel Grid.Column="3">
+                  <TextBox Classes="hex" Text="{Binding OutlineColor}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding OutlineBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+              </Grid>
+              <Grid ColumnDefinitions="90,*,8,92">
+                <TextBlock Classes="flabel" Text="Shadow blur" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="40" Value="{Binding ShadowBlur}" />
+                <Panel Grid.Column="3">
+                  <TextBox Classes="hex" Text="{Binding ShadowColor}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding ShadowBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Shadow distance" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="20" Value="{Binding ShadowDistance}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding ShadowDistance, StringFormat={}{0:0}}" />
+              </Grid>
+              <CheckBox IsChecked="{Binding BoxEnabled}" Content="Box behind the words" FontSize="13" />
+              <StackPanel Spacing="8" IsVisible="{Binding BoxEnabled}">
+                <Grid ColumnDefinitions="90,*,8,92">
+                  <TextBlock Classes="flabel" Text="Box see-through" />
+                  <Slider Grid.Column="1" Minimum="0.1" Maximum="1" Value="{Binding BoxOpacity}" />
+                  <Panel Grid.Column="3">
+                    <TextBox Classes="hex" Text="{Binding BoxColor}" />
+                    <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding BoxBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                  </Panel>
+                </Grid>
+                <Grid ColumnDefinitions="90,*,40">
+                  <TextBlock Classes="flabel" Text="Corners" />
+                  <Slider Grid.Column="1" Minimum="0" Maximum="60" Value="{Binding BoxRadius}" />
+                  <TextBlock Grid.Column="2" Classes="fval" Text="{Binding BoxRadius, StringFormat={}{0:0}}" />
+                </Grid>
+              </StackPanel>
+
+              <TextBlock Classes="sect" Text="LAYOUT" />
+              <UniformGrid Columns="2" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding LayoutFull}" Content="Full screen" />
+                <ToggleButton Classes="seg" IsChecked="{Binding LayoutLower}" Content="Lower third" />
+              </UniformGrid>
+              <UniformGrid Columns="4" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding AlignLeft}" Content="Left" />
+                <ToggleButton Classes="seg" IsChecked="{Binding AlignCenter}" Content="Centre" />
+                <ToggleButton Classes="seg" IsChecked="{Binding AlignRight}" Content="Right" />
+                <ToggleButton Classes="seg" IsChecked="{Binding AlignJustify}" Content="Justify" />
+              </UniformGrid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Side margins" />
+                <Slider Grid.Column="1" Minimum="20" Maximum="500" Value="{Binding MarginX}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding MarginX, StringFormat={}{0:0}}" />
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Top and bottom" />
+                <Slider Grid.Column="1" Minimum="20" Maximum="400" Value="{Binding MarginY}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding MarginY, StringFormat={}{0:0}}" />
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40" IsVisible="{Binding IsLowerThird}">
+                <TextBlock Classes="flabel" Text="Box height" />
+                <Slider Grid.Column="1" Minimum="160" Maximum="700" Value="{Binding LowerThirdHeight}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding LowerThirdHeight, StringFormat={}{0:0}}" />
+              </Grid>
+              <Grid ColumnDefinitions="90,*,40">
+                <TextBlock Classes="flabel" Text="Safe area" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="10" Value="{Binding SafeArea}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding SafeArea, StringFormat={}{0:0}%}" />
+              </Grid>
+              <CheckBox IsChecked="{Binding LowerThirdWithCamera}" Content="Lower third when a camera is live" FontSize="13" />
+
+              <TextBlock Classes="sect" Text="REFERENCE LINE" />
+              <UniformGrid Columns="3" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding RefAbove}" Content="Above" />
+                <ToggleButton Classes="seg" IsChecked="{Binding RefBelow}" Content="Below" />
+                <ToggleButton Classes="seg" IsChecked="{Binding RefHidden}" Content="Hidden" />
+              </UniformGrid>
+              <ComboBox ItemsSource="{x:Static vm:ThemeEditor.Fonts}" SelectedItem="{Binding RefFontFamily}" HorizontalAlignment="Stretch" MaxDropDownHeight="360" />
+              <Grid ColumnDefinitions="90,*,8,92">
+                <TextBlock Classes="flabel" Text="Size" />
+                <Slider Grid.Column="1" Minimum="16" Maximum="80" Value="{Binding RefFontSize}" />
+                <Panel Grid.Column="3">
+                  <TextBox Classes="hex" Text="{Binding RefColor}" />
+                  <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding RefBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+                </Panel>
+              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="14">
+                <CheckBox IsChecked="{Binding RefUppercase}" Content="Capitals" FontSize="13" />
+                <CheckBox IsChecked="{Binding RefShowTranslation}" Content="Show translation" FontSize="13" />
+              </StackPanel>
+
+              <TextBlock Classes="sect" Text="VERSE NUMBERS" />
+              <UniformGrid Columns="3" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding NumSuper}" Content="Small, raised" />
+                <ToggleButton Classes="seg" IsChecked="{Binding NumInline}" Content="In line" />
+                <ToggleButton Classes="seg" IsChecked="{Binding NumHidden}" Content="Hidden" />
+              </UniformGrid>
+              <Panel>
+                <TextBox Classes="hex" Text="{Binding VerseNumberColor}" />
+                <Border Width="18" Height="18" CornerRadius="5" Margin="9,0,0,0" HorizontalAlignment="Left" Background="{Binding NumberBrush}" BorderBrush="{StaticResource Line2}" BorderThickness="1" />
+              </Panel>
+
+              <TextBlock Classes="sect" Text="TRANSITION" />
+              <UniformGrid Columns="3" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding TrCut}" Content="Cut" />
+                <ToggleButton Classes="seg" IsChecked="{Binding TrFade}" Content="Fade" />
+                <ToggleButton Classes="seg" IsChecked="{Binding TrSlide}" Content="Slide in" />
+              </UniformGrid>
+              <Grid ColumnDefinitions="90,*,48">
+                <TextBlock Classes="flabel" Text="Speed" />
+                <Slider Grid.Column="1" Minimum="100" Maximum="1500" Value="{Binding TransitionMs}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding TransitionMs, StringFormat={}{0:0} ms}" />
+              </Grid>
+            </StackPanel>
+          </ScrollViewer>
+
+          <Border Grid.Row="2" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="16,12" IsVisible="{Binding MayEditThemes}">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,8,*">
+                <Button Classes="primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding SaveThemeCommand}" Content="Save theme" />
+                <Button Grid.Column="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ResetThemeCommand}" Content="Undo changes" />
+              </Grid>
+              <Grid ColumnDefinitions="*,8,Auto">
+                <TextBox Text="{Binding NewThemeName}" Watermark="New theme name" />
+                <Button Grid.Column="2" Command="{Binding SaveThemeAsNewCommand}" Content="Save as new" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                <Button x:Name="ExportTheme" Classes="ghost small" Content="Export…" />
+                <Button Grid.Column="1" x:Name="ImportTheme" Classes="ghost small" Content="Import…" Margin="6,0,0,0" />
+                <Button Grid.Column="3" Classes="ghost small" Command="{Binding DeleteThemeCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="trash" Width="12" Height="12" />
+                    <TextBlock Text="Delete" />
+                  </StackPanel>
+                </Button>
+              </Grid>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

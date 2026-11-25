@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Nexora.Core.Bible;
 using Nexora.Core.Live;
 using Nexora.Core.Model;
 using Nexora.Core.Net;
@@ -24,6 +25,10 @@ public sealed class LiveServerOptions
     public required Func<string> ServerName { get; init; }
     public string Version { get; init; } = "0.0.0";
     public string? LogsDir { get; init; }
+    /// <summary>Master copies of imported Bibles (.nxbible), served to every PC. Null turns file sharing off.</summary>
+    public string? BiblesDir { get; init; }
+    /// <summary>Master copies of uploaded media (backgrounds), served to every PC.</summary>
+    public string? MediaDir { get; init; }
 }
 
 /// <summary>
@@ -138,8 +143,157 @@ public sealed class LiveServer : IAsyncDisposable
             return;
         }
 
+        if (ctx.Request.Path.StartsWithSegments(Wire.LibraryPath, out var rest))
+        {
+            await HandleLibraryAsync(ctx, rest.Value ?? "");
+            return;
+        }
+
         ctx.Response.ContentType = "text/plain";
         await ctx.Response.WriteAsync($"NEXORA Live Output · {_options.ServerName()} · {_options.Version}");
+    }
+
+    // ---------- Library files (HTTP) ----------
+
+    private string? LibraryDir(string kind) => kind switch
+    {
+        "bibles" => _options.BiblesDir,
+        "media" => _options.MediaDir,
+        _ => null,
+    };
+
+    private static bool SafeName(string name) =>
+        name.Length is > 0 and <= 120 && name.All(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_') && !name.StartsWith('.');
+
+    private async Task HandleLibraryAsync(HttpContext ctx, string rest)
+    {
+        var parts = rest.Trim('/').Split('/');
+        if (parts.Length != 2 || LibraryDir(parts[0]) is not { } dir || !SafeName(parts[1]))
+        {
+            ctx.Response.StatusCode = 404;
+            return;
+        }
+        var kind = parts[0];
+        var name = parts[1];
+
+        if (HttpMethods.IsGet(ctx.Request.Method))
+        {
+            if (ctx.Request.Headers[Wire.CodeHeader].ToString().Trim() != _options.PairingCode().Trim())
+            {
+                ctx.Response.StatusCode = 403;
+                return;
+            }
+            var path = Path.Combine(dir, name);
+            if (!File.Exists(path))
+            {
+                ctx.Response.StatusCode = 404;
+                return;
+            }
+            ctx.Response.ContentType = "application/octet-stream";
+            await ctx.Response.SendFileAsync(path);
+            return;
+        }
+
+        if (!HttpMethods.IsPost(ctx.Request.Method))
+        {
+            ctx.Response.StatusCode = 405;
+            return;
+        }
+
+        // Uploads need a signed-in user with the right role.
+        var token = ctx.Request.Headers[Wire.TokenHeader].ToString();
+        var user = _tokens.TryGetValue(token, out var uid) ? _store.User(uid) : null;
+        var allowed = user is not null && !user.IsTrainee && (kind == "bibles"
+            ? user.IsAdmin
+            : user.IsAdmin || user.Roles.HasFlag(Role.Scripture) || user.Roles.HasFlag(Role.Lyrics) || user.Roles.HasFlag(Role.Announcements));
+        if (!allowed)
+        {
+            ctx.Response.StatusCode = 403;
+            await ctx.Response.WriteAsync("Your role cannot add files to the library.");
+            return;
+        }
+        if (ctx.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+            limit.MaxRequestBodySize = 200L * 1024 * 1024;
+
+        Directory.CreateDirectory(dir);
+        var tmp = Path.Combine(dir, "." + Guid.NewGuid().ToString("N") + ".upload");
+        try
+        {
+            await using (var fs = File.Create(tmp)) await ctx.Request.Body.CopyToAsync(fs);
+            string final;
+            if (kind == "bibles")
+            {
+                var info = BibleFile.ReadInfo(tmp);
+                if (info is null)
+                {
+                    ctx.Response.StatusCode = 400;
+                    await ctx.Response.WriteAsync("That is not a NEXORA Bible file.");
+                    return;
+                }
+                final = BibleImport.CleanAbbrev(info.Abbrev) + BibleFile.Extension;
+                _log.Write($"{user!.Name} added the {info.Abbrev} Bible ({info.Name})");
+            }
+            else
+            {
+                // Media files are named by their content, so the same picture is stored once.
+                var ext = Path.GetExtension(name).ToLowerInvariant();
+                if (ext is not (".png" or ".jpg" or ".jpeg" or ".webp" or ".bmp" or ".gif" or ".ttf" or ".otf" or ".mp4" or ".mov"))
+                {
+                    ctx.Response.StatusCode = 400;
+                    await ctx.Response.WriteAsync("That kind of file is not supported.");
+                    return;
+                }
+                final = BibleImport.Hash(await File.ReadAllBytesAsync(tmp)) + ext;
+                _log.Write($"{user!.Name} uploaded {name} as {final}");
+            }
+            File.Move(tmp, Path.Combine(dir, final), overwrite: true);
+            ctx.Response.ContentType = "text/plain";
+            await ctx.Response.WriteAsync(final);
+            _libraryCache = null;
+            BroadcastLibrary();
+        }
+        finally
+        {
+            try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+        }
+    }
+
+    private LibraryInfo? _libraryCache;
+    private readonly Dictionary<string, (DateTime Modified, long Size, string Hash)> _hashes = new();
+
+    private LibraryInfo Library()
+    {
+        if (_libraryCache is { } cached) return cached;
+        var bibles = new List<LibraryFile>();
+        var media = new List<LibraryFile>();
+        if (_options.BiblesDir is { } bd && Directory.Exists(bd))
+            foreach (var f in Directory.GetFiles(bd, "*" + BibleFile.Extension))
+                if (BibleFile.ReadInfo(f) is { } info)
+                    bibles.Add(new LibraryFile(Path.GetFileName(f), HashOf(f), new FileInfo(f).Length, $"{info.Abbrev}|{info.Name}"));
+        if (_options.MediaDir is { } md && Directory.Exists(md))
+            foreach (var f in Directory.GetFiles(md).Where(f => !Path.GetFileName(f).StartsWith('.')))
+                media.Add(new LibraryFile(Path.GetFileName(f), Path.GetFileNameWithoutExtension(f), new FileInfo(f).Length, Path.GetFileName(f)));
+        var lib = new LibraryInfo(_store.ScriptureThemes, _store.ScriptureSettings, bibles, media);
+        _libraryCache = lib;
+        return lib;
+    }
+
+    private string HashOf(string path)
+    {
+        var fi = new FileInfo(path);
+        lock (_hashes)
+        {
+            if (_hashes.TryGetValue(path, out var h) && h.Modified == fi.LastWriteTimeUtc && h.Size == fi.Length) return h.Hash;
+            var hash = BibleImport.Hash(File.ReadAllBytes(path));
+            _hashes[path] = (fi.LastWriteTimeUtc, fi.Length, hash);
+            return hash;
+        }
+    }
+
+    private void BroadcastLibrary()
+    {
+        var json = Wire.Serialize(Library());
+        foreach (var s in _sessions.Values.Where(x => x.Hello is not null)) s.SendRaw(json);
     }
 
     private async Task RunSessionAsync(Session s, CancellationToken aborted)
@@ -218,6 +372,10 @@ public sealed class LiveServer : IAsyncDisposable
             case DeleteUser du: OnDeleteUser(s, du); break;
             case SaveBranding sb: OnSaveBranding(s, sb); break;
             case SaveScreens ss: OnSaveScreens(s, ss); break;
+            case SaveScriptureTheme st: OnSaveTheme(s, st); break;
+            case DeleteScriptureTheme dt: OnDeleteTheme(s, dt); break;
+            case SaveScriptureSettings ssx: OnSaveScriptureSettings(s, ssx); break;
+            case RemoveBible rb: OnRemoveBible(s, rb); break;
         }
     }
 
@@ -233,6 +391,7 @@ public sealed class LiveServer : IAsyncDisposable
         s.Hello = h;
         s.Send(new Welcome(ServerId, _options.ServerName(), _options.Version, s.Id));
         s.Send(PublicInfo());
+        s.Send(Library());
         if (h.Kind == ClientKind.OutputEngine)
         {
             lock (_gate) s.Send(new SnapshotMessage(_live.Snapshot(Clients())));
@@ -467,6 +626,62 @@ public sealed class LiveServer : IAsyncDisposable
         BroadcastSnapshot();
     }
 
+    private static bool MayEditThemes(UserInfo u) => !u.IsTrainee && (u.IsAdmin || u.Roles.HasFlag(Role.Scripture));
+
+    private void OnSaveTheme(Session s, SaveScriptureTheme m)
+    {
+        if (!MayEditThemes(s.User!)) { s.Send(new Notice("Your role cannot change Scripture themes.", true)); return; }
+        var t = m.Theme;
+        if (string.IsNullOrWhiteSpace(t.Id) || string.IsNullOrWhiteSpace(t.Name)) { s.Send(new Notice("A theme needs a name.", true)); return; }
+        var list = _store.ScriptureThemes.ToList();
+        var i = list.FindIndex(x => x.Id == t.Id);
+        if (i >= 0) list[i] = t; else list.Add(t);
+        if (list.Count > 60) { s.Send(new Notice("Up to 60 themes are supported.", true)); return; }
+        _store.ScriptureThemes = list;
+        _libraryCache = null;
+        _log.Write($"{s.User!.Name} saved the Scripture theme {t.Name}");
+        BroadcastLibrary();
+    }
+
+    private void OnDeleteTheme(Session s, DeleteScriptureTheme m)
+    {
+        if (!MayEditThemes(s.User!)) return;
+        var list = _store.ScriptureThemes.Where(x => x.Id != m.ThemeId).ToList();
+        if (list.Count == 0) { s.Send(new Notice("Keep at least one theme.", true)); return; }
+        _store.ScriptureThemes = list;
+        var settings = _store.ScriptureSettings;
+        if (settings.DefaultThemeId == m.ThemeId) _store.ScriptureSettings = settings with { DefaultThemeId = list[0].Id };
+        _libraryCache = null;
+        BroadcastLibrary();
+    }
+
+    private void OnSaveScriptureSettings(Session s, SaveScriptureSettings m)
+    {
+        if (!s.User!.IsAdmin) return;
+        _store.ScriptureSettings = m.Settings;
+        _libraryCache = null;
+        _log.Write($"{s.User.Name} set the default translation to {m.Settings.DefaultTranslation}");
+        BroadcastLibrary();
+    }
+
+    private void OnRemoveBible(Session s, RemoveBible m)
+    {
+        if (!s.User!.IsAdmin || _options.BiblesDir is not { } dir) return;
+        var path = Path.Combine(dir, BibleImport.CleanAbbrev(m.Abbrev) + BibleFile.Extension);
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch (IOException ex)
+        {
+            s.Send(new Notice("Could not remove it: " + ex.Message, true));
+            return;
+        }
+        _libraryCache = null;
+        _log.Write($"{s.User.Name} removed the {m.Abbrev} Bible");
+        BroadcastLibrary();
+    }
+
     // ---------- Sessions ----------
 
     private void OnSessionClosed(Session s)
@@ -526,7 +741,8 @@ public sealed class LiveServer : IAsyncDisposable
     }
 
     private static SlideContent Sanitize(SlideContent c) => new(
-        Trim(c.Text, 2000) ?? "", Trim(c.Caption, 200), Trim(c.Label, 120));
+        Trim(c.Text, 6000) ?? "", Trim(c.Caption, 200), Trim(c.Label, 120),
+        c.Scripture is { } sc && sc.Columns.Count <= 3 && sc.Columns.All(col => col.Verses.Count <= 200) ? sc : null);
 
     private static string? Trim(string? s, int max) => s is null ? null : s.Length <= max ? s : s[..max];
 

@@ -66,6 +66,11 @@ public sealed class ScreenView : UserControl
         if (change.Property == FrameProperty || change.Property == KindProperty ||
             change.Property == BrandingProperty || change.Property == ScreenNameProperty)
             Rebuild();
+        else if (change.Property == ShowGuidesProperty)
+        {
+            _signature = "";
+            Rebuild();
+        }
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -100,29 +105,52 @@ public sealed class ScreenView : UserControl
         else BuildAudience(next, frame, branding);
 
         var old = _canvas.Children.ToList();
-        if (!Animate || old.Count == 0)
+        // A Scripture theme chooses its own transition; everything else cross-fades.
+        var theme = Kind == ScreenKind.Audience ? frame?.Items.LastOrDefault(i => i.Content.Scripture is not null)?.Content.Scripture?.Theme : null;
+        var kind = theme?.Transition ?? TransitionKind.Fade;
+        var ms = Math.Clamp(theme?.TransitionMs ?? 220, 0, 3000);
+        if (!Animate || old.Count == 0 || kind == TransitionKind.Cut || ms < 20)
         {
             _canvas.Children.Clear();
             _canvas.Children.Add(next);
             return;
         }
 
-        // Cross-fade: new content fades in over the old, then the old is removed.
+        // New content fades (or slides) in over the old, then the old is removed.
         next.Opacity = 0;
-        next.Transitions = [new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(220) }];
+        var duration = TimeSpan.FromMilliseconds(ms);
+        next.Transitions = [new DoubleTransition { Property = OpacityProperty, Duration = duration, Easing = new Avalonia.Animation.Easings.CubicEaseOut() }];
+        if (kind == TransitionKind.Slide)
+        {
+            var shift = new TranslateTransform(90, 0)
+            {
+                Transitions = [new DoubleTransition { Property = TranslateTransform.XProperty, Duration = duration, Easing = new Avalonia.Animation.Easings.CubicEaseOut() }],
+            };
+            next.RenderTransform = shift;
+            Dispatcher.UIThread.Post(() => shift.X = 0, DispatcherPriority.Render);
+        }
         _canvas.Children.Add(next);
         Dispatcher.UIThread.Post(() => next.Opacity = 1, DispatcherPriority.Render);
         DispatcherTimer.RunOnce(() =>
         {
             foreach (var o in old) _canvas.Children.Remove(o);
-        }, TimeSpan.FromMilliseconds(260));
+        }, duration + TimeSpan.FromMilliseconds(60));
     }
 
     private string Signature(ScreenFrame? f, Branding b)
     {
-        var items = f is null ? "" : string.Join("|", f.Items.Select(i => $"{i.Sequence}:{i.Layer}:{i.Content.Text}:{i.Content.Caption}"));
+        var items = f is null ? "" : string.Join("|", f.Items.Select(i => $"{i.Sequence}:{i.Layer}:{i.Content.Text}:{i.Content.Caption}:{ScriptureKey(i.Content.Scripture)}"));
         return $"{Kind}/{ScreenName}/{f?.Master}/{items}/{b.ChurchName}/{b.LogoLine}/{b.LogoWhenIdle}/{b.LogoPngBase64?.Length}/{b.LogoPngBase64?.GetHashCode()}";
     }
+
+    private static string ScriptureKey(ScriptureSlide? s) =>
+        s is null ? "" : System.Text.Json.JsonSerializer.Serialize(s, Nexora.Core.Protocol.Wire.Options).GetHashCode().ToString();
+
+    /// <summary>Show the safe-area and text-box guides (theme editing previews only).</summary>
+    public static readonly StyledProperty<bool> ShowGuidesProperty =
+        AvaloniaProperty.Register<ScreenView, bool>(nameof(ShowGuides));
+
+    public bool ShowGuides { get => GetValue(ShowGuidesProperty); set => SetValue(ShowGuidesProperty, value); }
 
     // ---------- Audience look ----------
 
@@ -145,7 +173,11 @@ public sealed class ScreenView : UserControl
         foreach (var cam in items.Where(i => i.Layer == Layer.Camera).TakeLast(1))
             root.Children.Add(TestPattern(cam.Content));
 
-        var text = items.Where(i => i.Layer is Layer.Scripture or Layer.Lyrics).ToList();
+        var hasCam = items.Any(i => i.Layer == Layer.Camera);
+        foreach (var sc in items.Where(i => i.Layer is Layer.Scripture or Layer.Lyrics && i.Content.Scripture is not null))
+            root.Children.Add(ScriptureRenderer.Build(sc.Content.Scripture!, hasCam, ShowGuides));
+
+        var text = items.Where(i => i.Layer is Layer.Scripture or Layer.Lyrics && i.Content.Scripture is null).ToList();
         if (text.Count > 0)
         {
             var hasCamera = items.Any(i => i.Layer == Layer.Camera);

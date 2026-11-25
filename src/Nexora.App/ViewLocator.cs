@@ -14,6 +14,7 @@ public sealed class ViewLocator : IDataTemplate
         [typeof(SectionPickerViewModel)] = () => new Views.SectionPickerView(),
         [typeof(ShellViewModel)] = () => new Views.ShellView(),
         [typeof(TestSlideSectionViewModel)] = () => new Views.TestSlideSectionView(),
+        [typeof(ScriptureSectionViewModel)] = () => new Views.ScriptureSectionView(),
         [typeof(LiveOutputViewModel)] = () => new Views.LiveOutputView(),
         [typeof(SettingsViewModel)] = () => new Views.SettingsView(),
         [typeof(StartupErrorViewModel)] = () => new Views.StartupErrorView(),

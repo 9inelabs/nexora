@@ -1,6 +1,7 @@
 using System.Reflection;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Nexora.Core.Bible;
 using Nexora.Core.Config;
 using Nexora.Core.Model;
 using Nexora.Core.Net;
@@ -31,6 +32,15 @@ public sealed class AppServices
     /// <summary>UI-thread view of the link, the live picture and the signed-in user.</summary>
     public LiveModel Live { get; } = new();
 
+    /// <summary>Every Bible translation on this PC.</summary>
+    public BibleLibrary Bibles { get; } = new(Path.Combine(AppContext.BaseDirectory, "Bibles"), AppPaths.BiblesDir);
+
+    private Task? _biblesLoading;
+    private LibrarySync? _sync;
+
+    /// <summary>Prepares the bundled translations in the background (a few seconds on first start).</summary>
+    public Task LoadBiblesAsync() => _biblesLoading ??= Task.Run(Bibles.Load);
+
     public bool IsLiveOutputPc => Config.Role == PcRole.LiveOutput;
 
     public void ReloadConfig() => Config = ThisPcConfig.Load();
@@ -55,6 +65,8 @@ public sealed class AppServices
                 ServerName = () => Config.PcName,
                 Version = Version,
                 LogsDir = AppPaths.LogsDir,
+                BiblesDir = AppPaths.LibraryBiblesDir,
+                MediaDir = AppPaths.LibraryMediaDir,
             });
             await Server.StartAsync();
             Output ??= new OutputEngineHost();
@@ -63,11 +75,15 @@ public sealed class AppServices
 
         Client = new NexoraClient(ResolveUrl, () => new Hello(Config.PairingCode, Config.PcId, Config.PcName, ClientKind.Terminal, Version));
         Live.Attach(Client);
+        _ = LoadBiblesAsync();
+        _sync = new LibrarySync(Client, Bibles, LoadBiblesAsync);
         Client.Start();
     }
 
     public async Task StopAsync(bool stopOutput)
     {
+        _sync?.Dispose();
+        _sync = null;
         Live.Detach();
         if (Client is not null) await Client.DisposeAsync();
         Client = null;
@@ -124,8 +140,12 @@ public sealed partial class LiveModel : ObservableObject
     [ObservableProperty] private PublicInfo? _info;
     [ObservableProperty] private LiveSnapshot _snapshot = LiveSnapshot.Empty;
     [ObservableProperty] private UserInfo? _user;
+    [ObservableProperty] private LibraryInfo? _library;
 
     public event Action<Notice>? Notice;
+
+    /// <summary>Shows a short message at the bottom of the window.</summary>
+    public void RaiseToast(string text, bool isError = false) => Notice?.Invoke(new Notice(text, isError));
 
     public NexoraClient? Client => _client;
     public Branding Branding => Info?.Branding ?? Branding.Default;
@@ -164,6 +184,7 @@ public sealed partial class LiveModel : ObservableObject
         c.UserChanged += OnClientUser;
         c.LatencyChanged += OnClientLatency;
         c.NoticeReceived += OnClientNotice;
+        c.LibraryChanged += OnClientLibrary;
     }
 
     public void Detach()
@@ -175,6 +196,7 @@ public sealed partial class LiveModel : ObservableObject
         c.UserChanged -= OnClientUser;
         c.LatencyChanged -= OnClientLatency;
         c.NoticeReceived -= OnClientNotice;
+        c.LibraryChanged -= OnClientLibrary;
         _client = null;
         AppServices.OnUi(() =>
         {
@@ -199,4 +221,14 @@ public sealed partial class LiveModel : ObservableObject
     private void OnClientUser() => AppServices.OnUi(() => User = _client?.User);
     private void OnClientLatency() => AppServices.OnUi(() => LatencyMs = _client?.LatencyMs ?? -1);
     private void OnClientNotice(Notice n) => AppServices.OnUi(() => Notice?.Invoke(n));
+    private void OnClientLibrary() => AppServices.OnUi(() => Library = _client?.Library);
+
+    public IReadOnlyList<ScriptureTheme> ScriptureThemes => Library?.Themes is { Count: > 0 } t ? t : ScriptureTheme.BuiltIn;
+    public ScriptureSettings ScriptureSettings => Library?.Scripture ?? ScriptureSettings.Default;
+
+    partial void OnLibraryChanged(LibraryInfo? value)
+    {
+        OnPropertyChanged(nameof(ScriptureThemes));
+        OnPropertyChanged(nameof(ScriptureSettings));
+    }
 }

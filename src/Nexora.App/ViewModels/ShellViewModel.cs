@@ -19,7 +19,8 @@ public sealed partial class ShellViewModel : ViewModelBase
         _main = main;
         _sections = sections;
         foreach (var k in sections)
-            Pages.Add(new RailItem(Icons.ForSection(k), Sections.Get(k).Title, new TestSlideSectionViewModel(k)));
+            Pages.Add(new RailItem(Icons.ForSection(k), Sections.Get(k).Title,
+                k == SectionKind.Scripture ? new ScriptureSectionViewModel() : new TestSlideSectionViewModel(k)));
         if (liveOutput || (sections.Count == 0 && !settings && Live.User?.MayRunLiveOutput == true))
             Pages.Insert(0, new RailItem("live", "Live Output", new LiveOutputViewModel()));
         if (Live.User?.IsAdmin == true)

@@ -61,8 +61,8 @@ public sealed record ScriptureTheme
     public ScriptureLayout Layout { get; init; } = ScriptureLayout.FullScreen;
     public double MarginX { get; init; } = 140;
     public double MarginY { get; init; } = 110;
-    /// <summary>Distance from the top of the screen to the lower-third box (lower-third layout).</summary>
-    public double LowerThirdHeight { get; init; } = 360;
+    /// <summary>Height of the text box at the bottom of the screen (lower-third layout).</summary>
+    public double LowerThirdHeight { get; init; } = 330;
     public TextAlign Align { get; init; } = TextAlign.Center;
     /// <summary>Percent of the screen kept clear at every edge for projectors that cut the edges.</summary>
     public double SafeArea { get; init; } = 3;
@@ -121,7 +121,11 @@ public sealed record ScriptureSettings(string DefaultTranslation, string Default
 }
 
 /// <summary>One verse, or the part of a long verse that fits on this slide.</summary>
-public sealed record VerseText(int Chapter, int Verse, string Text, bool ShowNumber = true);
+/// <param name="ThroughVerse">Set when the translation prints several verses as one (NLT Numbers 1:20-21).</param>
+public sealed record VerseText(int Chapter, int Verse, string Text, bool ShowNumber = true, int? ThroughVerse = null)
+{
+    public string Number => ThroughVerse is { } t && t != Verse ? $"{Verse}-{t}" : Verse.ToString();
+}
 
 /// <summary>The verses of one translation on a slide. Side-by-side slides have two columns.</summary>
 public sealed record ScriptureColumn(string Translation, IReadOnlyList<VerseText> Verses);

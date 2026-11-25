@@ -34,6 +34,8 @@ public sealed class ServerFixture : IAsyncDisposable
     {
         Port = Port, Announce = false, PairingCode = () => Code, ServerName = () => "TEST-LIVE", Version = "test",
         LogsDir = Path.Combine(Dir, "logs"),
+        BiblesDir = Path.Combine(Dir, "library", "bibles"),
+        MediaDir = Path.Combine(Dir, "library", "media"),
     });
 
     public async Task RestartAsync()
