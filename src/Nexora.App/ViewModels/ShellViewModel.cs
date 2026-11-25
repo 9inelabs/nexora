@@ -42,6 +42,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         SectionKind.Announcements => new AnnouncementsSectionViewModel(),
         SectionKind.LowerThirds => new LowerThirdsSectionViewModel(),
         SectionKind.Countdown => new CountdownSectionViewModel(),
+        SectionKind.Camera => new CameraSectionViewModel(),
         _ => new TestSlideSectionViewModel(k),
     };
 

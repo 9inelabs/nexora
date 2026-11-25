@@ -125,20 +125,28 @@ public static class VideoFeeds
 /// <summary>Draws a feed, filling the area (cropping) or fitting inside it.</summary>
 public sealed class VideoView : Control
 {
+    public static readonly StyledProperty<VideoFeed?> FeedProperty = AvaloniaProperty.Register<VideoView, VideoFeed?>(nameof(Feed));
+
     private VideoFeed? _feed;
 
     public bool Fill { get; set; } = true;
 
     public VideoFeed? Feed
     {
-        get => _feed;
-        set
-        {
-            if (_feed is not null) _feed.Updated -= InvalidateVisual;
-            _feed = value;
-            if (_feed is not null && this.IsAttachedToVisualTree()) _feed.Updated += InvalidateVisual;
-            InvalidateVisual();
-        }
+        get => GetValue(FeedProperty);
+        set => SetValue(FeedProperty, value);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property != FeedProperty) return;
+        if (_feed is not null) _feed.Updated -= InvalidateVisual;
+        _feed = change.GetNewValue<VideoFeed?>();
+        if (_feed is not null && this.IsAttachedToVisualTree()) _feed.Updated += InvalidateVisual;
+        _faded = false;
+        Opacity = 1;
+        InvalidateVisual();
     }
 
     /// <summary>
