@@ -57,6 +57,20 @@ jobs:
           & publish/ffmpeg/ffmpeg.exe -hide_banner -version | Select-Object -First 1
           if (Test-Path publish/libvlc) { Get-ChildItem publish/libvlc } else { Write-Warning "LibVLC folder not found in publish" }
 
+      - name: Check the recorder works with this FFmpeg
+        shell: cmd
+        run: |
+          set FF=publish\ffmpeg\ffmpeg.exe
+          rem The same arguments NEXORA uses for a recording without a sound device.
+          %FF% -hide_banner -loglevel error -f lavfi -i color=black:s=1280x720:r=30 -frames:v 60 -f rawvideo -pix_fmt bgra - | %FF% -hide_banner -loglevel error -nostats -progress pipe:1 -stats_period 1 -y -f rawvideo -pix_fmt bgra -s 1280x720 -r 30 -thread_queue_size 64 -i pipe:0 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 -shortest -map 0:v -map 1:a -c:v libx264 -preset veryfast -tune zerolatency -b:v 6000k -maxrate 6000k -bufsize 12000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 160k -ar 48000 -movflags +frag_keyframe+empty_moov+default_base_moof -f mp4 "%RUNNER_TEMP%\silent.mp4" > nul
+          if errorlevel 1 exit /b 1
+          echo Silent recording OK
+          rem What FFmpeg says when the chosen sound device is not there (for the error message).
+          %FF% -hide_banner -loglevel error -f dshow -thread_queue_size 1024 -audio_buffer_size 50 -i "audio=Microphone (No Such Device)" -t 1 -f null - 2>&1
+          %FF% -hide_banner -loglevel error -f dshow -i "audio=Line In: Rear" -t 1 -f null - 2>&1
+          %FF% -hide_banner -loglevel error -f dshow -list_devices true -i dummy 2>&1
+          exit /b 0
+
       - name: Build the installer (Velopack)
         shell: pwsh
         run: |
