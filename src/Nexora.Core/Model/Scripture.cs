@@ -6,7 +6,7 @@ public enum ScriptureLayout { FullScreen, LowerThird }
 
 public enum RefPosition { Above, Below, Hidden }
 
-public enum BackgroundKind { Color, Gradient, Image }
+public enum BackgroundKind { Color, Gradient, Image, Video }
 
 public enum TransitionKind { Cut, Fade, Slide }
 
@@ -28,6 +28,8 @@ public sealed record ScriptureTheme
     public int GradientAngle { get; init; } = 135;
     /// <summary>An uploaded image, by its media file name.</summary>
     public string? ImageId { get; init; }
+    /// <summary>A looping video behind the words: a built-in loop (nexora-v01.mp4) by its file name.</summary>
+    public string? VideoId { get; init; }
     /// <summary>0 to 0.9: darkens the background so the words stay readable.</summary>
     public double Darken { get; init; } = 0.35;
     public double Blur { get; init; }

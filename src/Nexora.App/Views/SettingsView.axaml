@@ -670,11 +670,21 @@
         <StackPanel IsVisible="{Binding IsUpdates}" Spacing="20" MaxWidth="760" HorizontalAlignment="Left">
           <StackPanel Spacing="6">
             <TextBlock Classes="h1" Text="Updates" />
-            <TextBlock Classes="muted" TextWrapping="Wrap" Text="The Live Output PC hands new versions to every PC over the church network. No internet is needed on the terminals." />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="Update the Live Output PC with one press. It hands the new version to every PC over the church network, and terminals update by themselves when nobody is signed in on them. No internet is needed on the terminals. Users, songs, settings and media are kept." />
           </StackPanel>
+          <Border Classes="card" Padding="18" IsVisible="{Binding !IsTerminal}">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h3" Text="Update NEXORA" />
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding OnlineState}" />
+              <Button Classes="primary" HorizontalAlignment="Left" Command="{Binding UpdateOnlineCommand}" IsEnabled="{Binding !UpdateBusy}">
+                <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="download" Width="13" Height="13" /><TextBlock Text="Update NEXORA" /></StackPanel>
+              </Button>
+              <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Needs internet on this PC. It downloads the newest version, offers it to every PC, installs it here and restarts NEXORA. Do it outside a service." />
+            </StackPanel>
+          </Border>
           <Border Classes="card" Padding="18">
             <StackPanel Spacing="12">
-              <TextBlock Classes="h3" Text="This PC" />
+              <TextBlock Classes="h3" Text="Version offered on the church network" />
               <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding UpdateState}" />
               <Button Classes="primary" HorizontalAlignment="Left" Command="{Binding InstallUpdateCommand}" IsEnabled="{Binding CanInstall}">
                 <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="download" Width="13" Height="13" /><TextBlock Text="Install the offered version" /></StackPanel>
@@ -684,7 +694,7 @@
           </Border>
           <Border Classes="card" Padding="18" IsVisible="{Binding !IsTerminal}">
             <StackPanel Spacing="12">
-              <TextBlock Classes="h3" Text="Offer a new version to every PC" />
+              <TextBlock Classes="h3" Text="No internet? Update from files" />
               <TextBlock Classes="muted small" TextWrapping="Wrap"
                          Text="Download the update files (NEXORA-Update folder: releases.win.json and the .nupkg) onto this PC, then choose releases.win.json here." />
               <StackPanel Orientation="Horizontal" Spacing="8">

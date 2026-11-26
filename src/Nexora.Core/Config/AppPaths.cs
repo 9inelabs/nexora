@@ -44,6 +44,8 @@ public static class AppPaths
     public static string LocalDir => Ensure(Path.Combine(Root, "local"));
     /// <summary>Videos and pictures in the Live Output PC's media list, copied here so a network drop cannot stop them.</summary>
     public static string VideosDir => Ensure(Path.Combine(Root, "videos"));
+    /// <summary>The pictures and video loops that come with NEXORA (in the install folder, the same on every PC).</summary>
+    public static string BuiltInBackgroundsDir => Path.Combine(AppContext.BaseDirectory, "Backgrounds");
     /// <summary>Automatic and manual backups.</summary>
     public static string BackupsDir => Ensure(Path.Combine(Root, "backups"));
     /// <summary>Update packages the Live Output PC offers to the other PCs.</summary>

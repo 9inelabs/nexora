@@ -169,9 +169,15 @@ public sealed class ScreenView : UserControl
         _releases.Clear();
 
         var next = new Panel { Width = W, Height = H };
-        if (Kind == ScreenKind.Stage) BuildStage(next, frame, branding);
-        else if (IsOutput && frame?.Rehearsal == true && Kind == ScreenKind.Audience) next.Children.Add(LogoScreen(branding));
-        else BuildAudience(next, frame, branding, Kind == ScreenKind.Broadcast);
+        // Output windows play video backgrounds; one decoder per loop is shared, so a new verse does not restart it.
+        ScriptureRenderer.VideoLoop = LiveVideo ? LoopLayer : null;
+        try
+        {
+            if (Kind == ScreenKind.Stage) BuildStage(next, frame, branding);
+            else if (IsOutput && frame?.Rehearsal == true && Kind == ScreenKind.Audience) next.Children.Add(LogoScreen(branding));
+            else BuildAudience(next, frame, branding, Kind == ScreenKind.Broadcast);
+        }
+        finally { ScriptureRenderer.VideoLoop = null; }
 
         // The church logo in the corner of the recording and stream.
         if (Kind == ScreenKind.Broadcast && branding.CornerWatermark && !Clean && frame?.Master != MasterMode.Black && LogoBitmap(branding) is { } mark)
@@ -356,6 +362,19 @@ public sealed class ScreenView : UserControl
                 root.Children.Add(OverlayRenderer.LowerThird(new LowerThirdShow(plain.Content.Text, plain.Content.Caption ?? "", null,
                     LowerThirdStyle.Bar, "#E9C77E", OverlayAnimation.Fade, 0, now), false));
         }
+    }
+
+    private Control? LoopLayer(string? file)
+    {
+        if (BackgroundLoops.PathOf(file) is null) return null;
+        var feed = BackgroundLoops.Acquire(file!);
+        _releases.Add(() => BackgroundLoops.Release(file!));
+        var panel = new Panel { Width = W, Height = H };
+        // The still sits underneath until the first frame arrives.
+        if (MediaImages.Get(Path.ChangeExtension(file!, ".jpg")) is { } still)
+            panel.Children.Add(new Image { Source = still, Stretch = Stretch.UniformToFill, Width = W, Height = H });
+        panel.Children.Add(new VideoView { Feed = feed, Fill = true, Width = W, Height = H });
+        return panel;
     }
 
     private Control CameraLayer(SlideContent c)

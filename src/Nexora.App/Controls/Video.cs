@@ -454,6 +454,37 @@ public static class MediaSync
 }
 
 /// <summary>A feed that never shows a picture, with the reason.</summary>
+/// <summary>Video backgrounds behind Scripture and Lyrics: silent, looping for ever, one decoder per file.</summary>
+public static class BackgroundLoops
+{
+    private static string Key(string file) => "loop:" + file;
+
+    public static string? PathOf(string? file)
+    {
+        if (string.IsNullOrWhiteSpace(file) || file.Contains('/') || file.Contains('\\') || file.Contains("..")) return null;
+        foreach (var dir in new[] { Nexora.Core.Config.AppPaths.BuiltInBackgroundsDir, Nexora.Core.Config.AppPaths.MediaDir, Nexora.Core.Config.AppPaths.VideosDir })
+        {
+            var p = Path.Combine(dir, file);
+            if (File.Exists(p)) return p;
+        }
+        return null;
+    }
+
+    public static VideoFeed Acquire(string file) => VideoFeeds.Acquire(Key(file), () =>
+    {
+        if (PathOf(file) is not { } path) return new MissingFeed("The background video is missing on this PC: " + file);
+        try
+        {
+            var feed = new VlcFeed(path, [":input-repeat=65535", ":no-audio"], mute: true);
+            feed.Play();
+            return feed;
+        }
+        catch (Exception ex) { return new MissingFeed(ex.Message); }
+    });
+
+    public static void Release(string file) => VideoFeeds.Release(Key(file));
+}
+
 public sealed class MissingFeed : VideoFeed
 {
     public MissingFeed(string problem) => Problem = problem;

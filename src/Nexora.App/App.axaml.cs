@@ -14,6 +14,9 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // Logos and pictures are shrunk a lot on screen; smooth scaling keeps their edges clean.
+        Avalonia.Controls.Image.SourceProperty.Changed.AddClassHandler<Avalonia.Controls.Image>((img, _) =>
+            Avalonia.Media.RenderOptions.SetBitmapInterpolationMode(img, Avalonia.Media.Imaging.BitmapInterpolationMode.MediumQuality)); // mipmaps: clean when shrunk a lot
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             if (Program.IsOutputEngine)

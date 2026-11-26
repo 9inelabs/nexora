@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Nexora.App.Services;
 using Nexora.App.Controls;
 using Nexora.Core.Model;
 
@@ -21,6 +23,7 @@ public sealed partial class ThemeEditor : ObservableObject
     [ObservableProperty] private string _gradientTo = "#1B2B4A";
     [ObservableProperty] private double _gradientAngle = 135;
     [ObservableProperty] private string? _imageId;
+    [ObservableProperty] private string? _videoId;
     [ObservableProperty] private double _darken;
     [ObservableProperty] private double _blur;
     [ObservableProperty] private string _tintColor = "#1B2B4A";
@@ -89,6 +92,8 @@ public sealed partial class ThemeEditor : ObservableObject
     public bool BgColor { get => Background == BackgroundKind.Color; set { if (value) Background = BackgroundKind.Color; } }
     public bool BgGradient { get => Background == BackgroundKind.Gradient; set { if (value) Background = BackgroundKind.Gradient; } }
     public bool BgImage { get => Background == BackgroundKind.Image; set { if (value) Background = BackgroundKind.Image; } }
+    public bool BgVideo { get => Background == BackgroundKind.Video; set { if (value) Background = BackgroundKind.Video; } }
+    public bool IsVideo => Background == BackgroundKind.Video;
     public bool IsGradient => Background == BackgroundKind.Gradient;
     public bool IsImage => Background == BackgroundKind.Image;
     public bool HasImage => !string.IsNullOrEmpty(ImageId);
@@ -124,13 +129,32 @@ public sealed partial class ThemeEditor : ObservableObject
     public IBrush NumberBrush => ScriptureRenderer.Brush(VerseNumberColor);
     public IBrush TintBrush => ScriptureRenderer.Brush(TintColor);
 
+    /// <summary>The pictures and video loops that come with NEXORA.</summary>
+    public static IReadOnlyList<BuiltInBackground> BuiltInPictures => BuiltInBackgrounds.Pictures;
+    public static IReadOnlyList<BuiltInBackground> BuiltInLoops => BuiltInBackgrounds.Loops;
+    public bool HasBuiltInPictures => BuiltInPictures.Count > 0;
+    public bool HasBuiltInLoops => BuiltInLoops.Count > 0;
+
+    public string PictureName => ImageId is null ? "No picture chosen" : BuiltInBackgrounds.Find(ImageId)?.Title ?? ImageId;
+    public string LoopName => VideoId is null ? "Choose a loop below" : BuiltInBackgrounds.Find(VideoId)?.Title ?? VideoId;
+
+    /// <summary>Uses a built-in picture or loop. Turns up Darken a little if it is off, so the words stay readable.</summary>
+    [RelayCommand]
+    private void UseBuiltIn(BuiltInBackground? b)
+    {
+        if (b is null) return;
+        if (b.IsVideo) { VideoId = b.File; Background = BackgroundKind.Video; }
+        else { ImageId = b.File; Background = BackgroundKind.Image; }
+        if (Darken < 0.2) Darken = 0.35;
+    }
+
     public void Load(ScriptureTheme t)
     {
         _loading = true;
         Id = t.Id;
         Name = t.Name;
         Background = t.Background; BackgroundColor = t.BackgroundColor; GradientTo = t.GradientTo; GradientAngle = t.GradientAngle;
-        ImageId = t.ImageId; Darken = t.Darken; Blur = t.Blur; TintColor = t.TintColor; Tint = t.Tint;
+        ImageId = t.ImageId; VideoId = t.VideoId; Darken = t.Darken; Blur = t.Blur; TintColor = t.TintColor; Tint = t.Tint;
         FontFamily = t.FontFamily; FontWeight = t.FontWeight; Italic = t.Italic; LetterSpacing = t.LetterSpacing; LineSpacing = t.LineSpacing;
         FontSize = t.FontSize; AutoFit = t.AutoFit; MinFontSize = t.MinFontSize;
         TextColor = t.TextColor; OutlineColor = t.OutlineColor; OutlineWidth = t.OutlineWidth;
@@ -149,7 +173,7 @@ public sealed partial class ThemeEditor : ObservableObject
     {
         Id = Id, Name = string.IsNullOrWhiteSpace(Name) ? "Theme" : Name.Trim(),
         Background = Background, BackgroundColor = Hex(BackgroundColor), GradientTo = Hex(GradientTo), GradientAngle = (int)GradientAngle,
-        ImageId = ImageId, Darken = Darken, Blur = Blur, TintColor = Hex(TintColor), Tint = Tint,
+        ImageId = ImageId, VideoId = VideoId, Darken = Darken, Blur = Blur, TintColor = Hex(TintColor), Tint = Tint,
         FontFamily = FontFamily, FontWeight = FontWeight, Italic = Italic, LetterSpacing = LetterSpacing, LineSpacing = LineSpacing,
         FontSize = FontSize, AutoFit = AutoFit, MinFontSize = Math.Min(MinFontSize, FontSize),
         TextColor = Hex(TextColor), OutlineColor = Hex(OutlineColor), OutlineWidth = OutlineWidth,
@@ -178,8 +202,8 @@ public sealed partial class ThemeEditor : ObservableObject
         switch (e.PropertyName)
         {
             case nameof(Background):
-                OnPropertyChanged(nameof(BgColor)); OnPropertyChanged(nameof(BgGradient)); OnPropertyChanged(nameof(BgImage));
-                OnPropertyChanged(nameof(IsGradient)); OnPropertyChanged(nameof(IsImage));
+                OnPropertyChanged(nameof(BgColor)); OnPropertyChanged(nameof(BgGradient)); OnPropertyChanged(nameof(BgImage)); OnPropertyChanged(nameof(BgVideo));
+                OnPropertyChanged(nameof(IsGradient)); OnPropertyChanged(nameof(IsImage)); OnPropertyChanged(nameof(IsVideo));
                 break;
             case nameof(Layout):
                 OnPropertyChanged(nameof(LayoutFull)); OnPropertyChanged(nameof(LayoutLower)); OnPropertyChanged(nameof(IsLowerThird));
@@ -197,7 +221,8 @@ public sealed partial class ThemeEditor : ObservableObject
                 OnPropertyChanged(nameof(TrCut)); OnPropertyChanged(nameof(TrFade)); OnPropertyChanged(nameof(TrSlide));
                 break;
             case nameof(FontWeight): OnPropertyChanged(nameof(SelectedWeight)); break;
-            case nameof(ImageId): OnPropertyChanged(nameof(HasImage)); break;
+            case nameof(ImageId): OnPropertyChanged(nameof(HasImage)); OnPropertyChanged(nameof(PictureName)); break;
+            case nameof(VideoId): OnPropertyChanged(nameof(LoopName)); break;
             case nameof(TextColor): OnPropertyChanged(nameof(TextBrush)); break;
             case nameof(BackgroundColor): OnPropertyChanged(nameof(BackgroundBrush)); break;
             case nameof(GradientTo): OnPropertyChanged(nameof(GradientBrush)); break;
@@ -208,7 +233,7 @@ public sealed partial class ThemeEditor : ObservableObject
             case nameof(VerseNumberColor): OnPropertyChanged(nameof(NumberBrush)); break;
             case nameof(TintColor): OnPropertyChanged(nameof(TintBrush)); break;
         }
-        if (e.PropertyName is nameof(Name) || e.PropertyName.EndsWith("Brush") || e.PropertyName.StartsWith("Is") || e.PropertyName == nameof(HasImage)) return;
+        if (e.PropertyName is nameof(Name) or nameof(PictureName) or nameof(LoopName) || e.PropertyName.EndsWith("Brush") || e.PropertyName.StartsWith("Is") || e.PropertyName == nameof(HasImage)) return;
         Changed?.Invoke();
     }
 

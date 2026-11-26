@@ -53,6 +53,8 @@ public sealed class AppServices
         Discovery ??= new DiscoveryListener();
     }
 
+    private static bool _checkedOnline;
+
     public async Task StartAsync()
     {
         await StopAsync(stopOutput: false);
@@ -75,9 +77,19 @@ public sealed class AppServices
                 ConfigFile = AppPaths.ConfigFile,
             });
             Server.RestoreRequested += path => Dispatcher.UIThread.Post(() => _ = RestoreAsync(path));
+            await Task.Run(Updater.OfferOwnVersionIfNewer);
             await Server.StartAsync();
             Output ??= new OutputEngineHost();
             Output.Start();
+            if (!_checkedOnline)
+            {
+                _checkedOnline = true;
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(30));
+                    await Updater.TellIfNewerOnlineAsync();
+                });
+            }
         }
 
         Client = new NexoraClient(ResolveUrl, () => new Hello(Config.PairingCode, Config.PcId, Config.PcName, ClientKind.Terminal, Version));
@@ -310,8 +322,11 @@ public sealed partial class LiveModel : ObservableObject
     /// <summary>Recording, streaming and health, sent by the output engine every second (outside the snapshot).</summary>
     public EngineStatus Engine => _engineStatus ?? Snapshot.Engine ?? new EngineStatus();
 
+    partial void OnUserChanged(UserInfo? value) => Updater.MaybeUpdateByItself();
+
     partial void OnLibraryChanged(LibraryInfo? value)
     {
+        Updater.MaybeUpdateByItself();
         OnPropertyChanged(nameof(ScriptureThemes));
         OnPropertyChanged(nameof(ScriptureSettings));
     }

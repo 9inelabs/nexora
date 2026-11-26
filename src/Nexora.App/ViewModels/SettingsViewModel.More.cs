@@ -351,7 +351,7 @@ public sealed partial class SettingsViewModel
     private void LoadUpdates()
     {
         UpdateMessage = null;
-        foreach (var n in new[] { nameof(ThisVersion), nameof(OfferedVersion), nameof(UpdateOffered), nameof(UpdateState), nameof(CanInstall), nameof(HasPrevious), nameof(PreviousVersion) })
+        foreach (var n in new[] { nameof(ThisVersion), nameof(OfferedVersion), nameof(UpdateOffered), nameof(UpdateState), nameof(CanInstall), nameof(HasPrevious), nameof(PreviousVersion), nameof(OnlineState) })
             OnPropertyChanged(n);
     }
 
@@ -359,32 +359,22 @@ public sealed partial class SettingsViewModel
     [RelayCommand]
     private async Task InstallUpdate()
     {
-        if (Live.Modes.ServiceMode) { UpdateMessage = "Service mode is on. Update after the service."; return; }
-        string source;
-        if (S.IsLiveOutputPc) source = AppPaths.UpdatesDir;
-        else if (Live.Client?.ServerHttpRoot is { } root) source = new Uri(root, "updates/").ToString();
-        else { UpdateMessage = "Not connected to the Live Output PC."; return; }
         UpdateBusy = true;
-        UpdateMessage = "Checking…";
-        try
-        {
-            IUpdateSource src = S.IsLiveOutputPc ? new SimpleFileSource(new DirectoryInfo(source)) : new SimpleWebSource(source);
-            var mgr = new UpdateManager(src, new UpdateOptions { AllowVersionDowngrade = true });
-            if (!mgr.IsInstalled) { UpdateMessage = "This copy of NEXORA was not installed with the installer, so it cannot update itself."; return; }
-            var info = await mgr.CheckForUpdatesAsync();
-            if (info is null) { UpdateMessage = "Already up to date."; return; }
-            UpdateMessage = $"Downloading NEXORA {info.TargetFullRelease.Version}…";
-            await mgr.DownloadUpdatesAsync(info, p => Dispatcher.UIThread.Post(() => UpdateMessage = $"Downloading NEXORA {info.TargetFullRelease.Version}… {p}%"));
-            UpdateMessage = "Installing. NEXORA restarts in a moment.";
-            await S.StopAsync(stopOutput: true);
-            mgr.ApplyUpdatesAndRestart(info.TargetFullRelease);
-        }
-        catch (Exception ex)
-        {
-            AppLog.Write("Update: " + ex);
-            UpdateMessage = "Update failed: " + ex.Message;
-        }
+        try { UpdateMessage = await Updater.InstallOfferedAsync(m => Dispatcher.UIThread.Post(() => UpdateMessage = m)); }
         finally { UpdateBusy = false; }
+    }
+
+    public string OnlineState => Updater.AvailableOnline is { } v
+        ? $"NEXORA {v} is available online. This PC runs {ThisVersion}."
+        : $"This PC runs NEXORA {ThisVersion}. Press the button to look for a newer version online.";
+
+    /// <summary>Live Output PC: get the newest version from the internet, give it to every PC, and install it here.</summary>
+    [RelayCommand]
+    private async Task UpdateOnline()
+    {
+        UpdateBusy = true;
+        try { UpdateMessage = await Updater.UpdateFromInternetAsync(m => Dispatcher.UIThread.Post(() => UpdateMessage = m)); }
+        finally { UpdateBusy = false; OnPropertyChanged(nameof(OnlineState)); }
     }
 
     /// <summary>Live Output PC: offer a new version to every PC from the update files (releases.win.json and the .nupkg).</summary>
@@ -410,22 +400,9 @@ public sealed partial class SettingsViewModel
             }
             UpdateBusy = true;
             UpdateMessage = $"Offering NEXORA {full.Version}…";
-            var updates = AppPaths.UpdatesDir;
-            await Task.Run(() =>
-            {
-                // Keep what was offered before, so it can be offered again (rollback).
-                var prev = Path.Combine(updates, "previous");
-                if (File.Exists(Path.Combine(updates, "offered.txt")))
-                {
-                    if (Directory.Exists(prev)) Directory.Delete(prev, true);
-                    Directory.CreateDirectory(prev);
-                    foreach (var f in Directory.GetFiles(updates)) File.Move(f, Path.Combine(prev, Path.GetFileName(f)));
-                }
-                File.Copy(json, Path.Combine(updates, Path.GetFileName(json)), true);
-                File.Copy(Path.Combine(dir, full.File), Path.Combine(updates, full.File), true);
-                File.WriteAllText(Path.Combine(updates, "offered.txt"), full.Version);
-            });
-            UpdateMessage = $"Every PC is now offered NEXORA {full.Version}. Update this PC too (Install below), then each terminal from its own Settings › Updates.";
+            var text = await File.ReadAllTextAsync(json);
+            await Task.Run(() => Updater.Offer(full.Version, Path.Combine(dir, full.File), text));
+            UpdateMessage = $"Every PC is now offered NEXORA {full.Version}. Press Install on this PC. Terminals update by themselves when nobody is signed in on them.";
             S.Server?.RefreshLibrary();
         }
         catch (Exception ex) { UpdateMessage = "Could not offer the update: " + ex.Message; }

@@ -57,6 +57,18 @@ jobs:
           & publish/ffmpeg/ffmpeg.exe -hide_banner -version | Select-Object -First 1
           if (Test-Path publish/libvlc) { Get-ChildItem publish/libvlc } else { Write-Warning "LibVLC folder not found in publish" }
 
+      - name: Keep the downloaded backgrounds between builds
+        uses: actions/cache@v4
+        with:
+          path: .bgcache
+          key: backgrounds-${{ hashFiles('assets/backgrounds/backgrounds.json', 'scripts/fetch_backgrounds.py') }}
+
+      - name: Add the built-in backgrounds (pictures and video loops)
+        shell: pwsh
+        run: |
+          python scripts/fetch_backgrounds.py assets/backgrounds/backgrounds.json publish/Backgrounds .bgcache publish/ffmpeg/ffmpeg.exe publish/ffmpeg/ffprobe.exe
+          if ($LASTEXITCODE -ne 0) { throw "Could not prepare the backgrounds" }
+
       - name: Check the recorder works with this FFmpeg
         shell: cmd
         run: |
@@ -80,9 +92,15 @@ jobs:
         shell: pwsh
         run: |
           dotnet tool install -g vpk --version 1.2.161
+          # The last release's package lets vpk make a small "delta" update, so PCs download only what changed.
+          vpk download github --repoUrl https://github.com/${{ github.repository }} --pre --token ${{ secrets.GITHUB_TOKEN }} --outputDir Releases
+          if ($LASTEXITCODE -ne 0) { Write-Warning "No earlier release to make a small update from; this one is a full download." }
+          $global:LASTEXITCODE = 0
           vpk pack --packId Nexora --packVersion ${{ steps.version.outputs.value }} --packDir publish `
             --mainExe Nexora.exe --packTitle NEXORA --packAuthors NEXORA `
             --icon src/Nexora.App/Assets/nexora.ico --outputDir Releases
+          # Keep only this version's full package (the earlier one was only needed to make the delta).
+          Get-ChildItem Releases/*-full.nupkg | Where-Object { $_.Name -notlike "*-${{ steps.version.outputs.value }}-full.nupkg" } | Remove-Item
           Get-ChildItem Releases
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item Releases/Nexora-win-Setup.exe out/NEXORA-Setup.exe
@@ -91,6 +109,7 @@ jobs:
           Copy-Item docs/PHASE2-TESTING.md out/PHASE2-TESTING.md
           Copy-Item docs/TESTING-PHASES-3-8.md out/TESTING-PHASES-3-8.md
           Copy-Item docs/OPERATOR-GUIDE.md out/OPERATOR-GUIDE.md
+          Copy-Item publish/Backgrounds/CREDITS.txt out/BACKGROUNDS-CREDITS.txt
           # The files the Live Output PC offers to the other PCs (Settings > Updates).
           New-Item -ItemType Directory -Force update/NEXORA-Update | Out-Null
           Copy-Item Releases/releases.win.json update/NEXORA-Update/
@@ -104,6 +123,7 @@ jobs:
           path: |
             out/NEXORA-Setup.exe
             out/*.md
+            out/*.txt
           retention-days: 30
 
       - name: Upload the LAN update files
@@ -122,7 +142,10 @@ jobs:
           prerelease: true
           body: |
             Test build of NEXORA. Download **NEXORA-Setup.exe** below and follow PHASE1-TESTING.md and TESTING-PHASES-3-8.md.
+          # releases.win.json and the packages let "Update NEXORA" find and download this version.
           files: |
+            Releases/releases.win.json
+            Releases/*.nupkg
             out/NEXORA-Setup.exe
             out/NEXORA-Portable.zip
             out/PHASE1-TESTING.md

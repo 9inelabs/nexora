@@ -45,6 +45,24 @@ A one-page guide for Sunday. Keep a printed copy at the media desk.
    **Apply changes to the running timer**.
 6. The Live Output operator can take the timer down on the Stage Monitor like any terminal.
 
+## Backgrounds for Scripture and Lyrics
+
+NEXORA comes with 19 pictures and 21 video loops (skies, sunrises, crosses, forests, stars and soft lights).
+
+1. In **Scripture** or **Lyrics**, open **Style**.
+2. Under **Background**, press **Picture** or **Video**, then press a small picture to use it.
+3. Turn **Darken** up or down so the words stay easy to read.
+
+Video loops play on the screens. Previews on the terminals show a still, so they stay fast. You can still use your own picture with **Use your own picture…**. The credits list is in BACKGROUNDS-CREDITS.txt next to the installer.
+
+## Updating NEXORA
+
+1. On the **Live Output PC**, outside a service: **Settings › Updates › Update NEXORA**. It needs internet on that PC. NEXORA downloads the new version, offers it to every PC and restarts.
+2. **Terminals** update by themselves the next time nobody is signed in on them. To update one straight away: **Settings › Updates › Install the offered version**.
+3. Users, songs, settings and media are kept. **Go back to …** on the Live Output PC offers the previous version again if a new one misbehaves.
+
+No internet on the Live Output PC? Copy the NEXORA-Update folder onto it and use **No internet? Update from files**.
+
 ## If something goes wrong
 
 | What you see | What to do |

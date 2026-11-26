@@ -2,9 +2,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Nexora.App.ViewModels"
              xmlns:c="using:Nexora.App.Controls"
+             xmlns:svc="using:Nexora.App.Services"
              x:Class="Nexora.App.Views.ThemeEditorPanel"
              x:DataType="vm:ThemeEditor">
   <UserControl.Styles>
+    <Style Selector="Button.tile">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
     <Style Selector="ToggleButton.seg">
       <Setter Property="Padding" Value="10,6" />
       <Setter Property="MinHeight" Value="30" />
@@ -53,10 +61,11 @@
   </UserControl.Styles>
   <StackPanel Spacing="8">
               <TextBlock Classes="sect" Text="BACKGROUND" Margin="0" />
-              <UniformGrid Columns="3" ColumnSpacing="4">
+              <UniformGrid Columns="4" ColumnSpacing="4">
                 <ToggleButton Classes="seg" IsChecked="{Binding BgColor}" Content="Colour" />
                 <ToggleButton Classes="seg" IsChecked="{Binding BgGradient}" Content="Gradient" />
                 <ToggleButton Classes="seg" IsChecked="{Binding BgImage}" Content="Picture" />
+                <ToggleButton Classes="seg" IsChecked="{Binding BgVideo}" Content="Video" />
               </UniformGrid>
               <Grid ColumnDefinitions="*,8,*">
                 <Panel>
@@ -73,11 +82,44 @@
                 <Slider Grid.Column="1" Minimum="0" Maximum="360" Value="{Binding GradientAngle}" />
                 <TextBlock Grid.Column="2" Classes="fval" Text="{Binding GradientAngle, StringFormat={}{0:0}°}" />
               </Grid>
+              <StackPanel Spacing="8" IsVisible="{Binding IsVideo}">
+                <TextBlock Classes="flabel" Text="{Binding LoopName}" TextTrimming="CharacterEllipsis" />
+                <ItemsControl ItemsSource="{x:Static vm:ThemeEditor.BuiltInLoops}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="svc:BuiltInBackground">
+                      <Button Classes="tile" ToolTip.Tip="{Binding Tooltip}"
+                              Command="{Binding $parent[ItemsControl].((vm:ThemeEditor)DataContext).UseBuiltInCommand}" CommandParameter="{Binding}">
+                        <Image Source="{Binding Thumbnail}" Width="88" Height="50" Stretch="UniformToFill" />
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Classes="flabel" TextWrapping="Wrap" IsVisible="{Binding !HasBuiltInLoops}"
+                           Text="The video loops come with the installer. Reinstall NEXORA to get them." />
+                <TextBlock Classes="flabel" TextWrapping="Wrap" Text="The loop plays on the screens. Previews show a still." />
+              </StackPanel>
               <StackPanel Spacing="8" IsVisible="{Binding IsImage}">
+                <TextBlock Classes="flabel" Text="{Binding PictureName}" TextTrimming="CharacterEllipsis" />
+                <ItemsControl ItemsSource="{x:Static vm:ThemeEditor.BuiltInPictures}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="svc:BuiltInBackground">
+                      <Button Classes="tile" ToolTip.Tip="{Binding Tooltip}"
+                              Command="{Binding $parent[ItemsControl].((vm:ThemeEditor)DataContext).UseBuiltInCommand}" CommandParameter="{Binding}">
+                        <Image Source="{Binding Thumbnail}" Width="88" Height="50" Stretch="UniformToFill" />
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <Button x:Name="PickImage" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <c:Icon Kind="upload" Width="14" Height="14" />
-                    <TextBlock Text="Choose a picture…" />
+                    <TextBlock Text="Use your own picture…" />
                   </StackPanel>
                 </Button>
                 <Grid ColumnDefinitions="90,*,40">

@@ -248,6 +248,12 @@ public static class ScriptureRenderer
 
     // ---------- Background ----------
 
+    /// <summary>
+    /// Set by an output window while it builds a screen: gives the playing loop for a video background.
+    /// Left null, a video background shows its still picture.
+    /// </summary>
+    public static Func<string?, Control?>? VideoLoop { get; set; }
+
     public static Control Background(ScriptureTheme t)
     {
         var panel = new Panel { Width = W, Height = H, Background = Brush("#0C0C0E") };
@@ -271,6 +277,13 @@ public static class ScriptureRenderer
                     }
                     panel.Children.Add(img);
                 }
+                else panel.Background = Brush(t.BackgroundColor);
+                break;
+            case BackgroundKind.Video:
+                // Output windows play the loop; previews show its still, so they stay light.
+                if (VideoLoop?.Invoke(t.VideoId) is { } loop) panel.Children.Add(loop);
+                else if (t.VideoId is { } v && MediaImages.Get(Path.ChangeExtension(v, ".jpg")) is { } still)
+                    panel.Children.Add(new Image { Source = still, Stretch = Stretch.UniformToFill, Width = W, Height = H });
                 else panel.Background = Brush(t.BackgroundColor);
                 break;
         }
@@ -363,7 +376,7 @@ public static class MediaImages
     public static string? PathOf(string? name)
     {
         if (string.IsNullOrWhiteSpace(name) || name.Contains('/') || name.Contains('\\') || name.Contains("..")) return null;
-        foreach (var dir in new[] { AppPaths.MediaDir, AppPaths.LibraryMediaDir })
+        foreach (var dir in new[] { AppPaths.MediaDir, AppPaths.LibraryMediaDir, AppPaths.BuiltInBackgroundsDir })
         {
             var p = Path.Combine(dir, name);
             if (File.Exists(p)) return p;
