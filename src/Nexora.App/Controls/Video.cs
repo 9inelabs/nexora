@@ -131,6 +131,9 @@ public sealed class VideoView : Control
 
     public bool Fill { get; set; } = true;
 
+    /// <summary>Draw nothing (not black) until a frame arrives, so what is underneath shows.</summary>
+    public bool ClearWhenEmpty { get; set; }
+
     public VideoFeed? Feed
     {
         get => GetValue(FeedProperty);
@@ -188,6 +191,7 @@ public sealed class VideoView : Control
     {
         var bmp = _feed?.Bitmap;
         var bounds = new Rect(Bounds.Size);
+        if (bmp is null && ClearWhenEmpty) return;
         context.FillRectangle(Brushes.Black, bounds);
         if (bmp is null) return;
         var src = new Rect(0, 0, bmp.PixelSize.Width, bmp.PixelSize.Height);
