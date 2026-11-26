@@ -15,7 +15,8 @@ namespace Nexora.App.Controls;
 /// </summary>
 public static class ScriptureRenderer
 {
-    public const double W = ScreenView.W, H = ScreenView.H;
+    public static double W => CanvasSize.W;
+    public static double H => CanvasSize.H;
     private const double ColumnGap = 90;
     private const double BoxPadX = 48, BoxPadY = 34;
     private const double RefGap = 28;

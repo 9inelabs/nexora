@@ -216,6 +216,7 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ScreenEdit">
                 <Border Classes="panel" Margin="0,0,0,12" Padding="16">
+                  <StackPanel>
                   <Grid ColumnDefinitions="2*,14,2*,14,2*,14,Auto,14,Auto">
                     <StackPanel>
                       <TextBlock Classes="label" Text="Name" />
@@ -240,6 +241,50 @@
                       <c:Icon Kind="trash" Width="16" Height="16" />
                     </Button>
                   </Grid>
+                  <StackPanel Spacing="10" Margin="0,14,0,0">
+                    <Grid ColumnDefinitions="2*,14,*,14,*,14,Auto">
+                      <StackPanel>
+                        <TextBlock Classes="label" Text="Screen shape" />
+                        <ComboBox SelectedIndex="{Binding ShapeIndex}" ItemsSource="{x:Static vm:ScreenEdit.ShapeOptions}" HorizontalAlignment="Stretch" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="2" IsVisible="{Binding IsCustomShape}">
+                        <TextBlock Classes="label" Text="Width (pixels)" />
+                        <NumericUpDown Value="{Binding PixelWidth}" Minimum="16" Maximum="16384" Increment="1" FormatString="0" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="4" IsVisible="{Binding IsCustomShape}">
+                        <TextBlock Classes="label" Text="Height (pixels)" />
+                        <NumericUpDown Value="{Binding PixelHeight}" Minimum="16" Maximum="16384" Increment="1" FormatString="0" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="6">
+                        <TextBlock Classes="label" Text="Test pattern" ToolTip.Tip="Shows a grid, the edges and a circle on this screen to check the fit on the wall. Save screens to show it." />
+                        <ToggleSwitch IsChecked="{Binding TestPattern}" OnContent="" OffContent="" />
+                      </StackPanel>
+                    </Grid>
+                    <TextBlock Classes="faint small" TextWrapping="Wrap" Text="{Binding ShapeNote}" />
+                    <Grid ColumnDefinitions="*,14,*">
+                      <CheckBox IsChecked="{Binding UseArea}" Content="Use only part of the display" ToolTip.Tip="For an LED processor that reads one area of the HDMI picture." />
+                      <CheckBox Grid.Column="2" IsChecked="{Binding StretchToFill}" Content="Stretch to fill the display" ToolTip.Tip="For an LED processor that squeezes the whole HDMI picture onto the wall. The layout still follows the screen shape above." />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,14,*,14,*,14,*" IsVisible="{Binding UseArea}">
+                      <StackPanel>
+                        <TextBlock Classes="label" Text="From left (pixels)" />
+                        <NumericUpDown Value="{Binding AreaX}" Minimum="0" Maximum="16384" Increment="1" FormatString="0" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="2">
+                        <TextBlock Classes="label" Text="From top (pixels)" />
+                        <NumericUpDown Value="{Binding AreaY}" Minimum="0" Maximum="16384" Increment="1" FormatString="0" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="4">
+                        <TextBlock Classes="label" Text="Width (pixels)" />
+                        <NumericUpDown Value="{Binding AreaWidth}" Minimum="16" Maximum="16384" Increment="1" FormatString="0" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="6">
+                        <TextBlock Classes="label" Text="Height (pixels)" />
+                        <NumericUpDown Value="{Binding AreaHeight}" Minimum="16" Maximum="16384" Increment="1" FormatString="0" />
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                  </StackPanel>
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

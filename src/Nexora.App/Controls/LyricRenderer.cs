@@ -15,7 +15,8 @@ namespace Nexora.App.Controls;
 /// </summary>
 public static class LyricRenderer
 {
-    private const double W = ScreenView.W, H = ScreenView.H;
+    private static double W => CanvasSize.W;
+    private static double H => CanvasSize.H;
     private const double BoxPadX = 48, BoxPadY = 34;
 
     /// <summary>The look of a lyric theme as a lower third (for the camera and the stream).</summary>

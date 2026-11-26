@@ -114,7 +114,7 @@ public sealed class OutputEngine
 
         foreach (var screen in screens)
         {
-            if (_windows.TryGetValue(screen.Id, out var w) && w.Display != screen.Display)
+            if (_windows.TryGetValue(screen.Id, out var w) && (w.Display != screen.Display || w.Placement != OutputWindow.PlacementOf(screen)))
             {
                 w.CloseQuietly();
                 _windows.Remove(screen.Id);
@@ -138,6 +138,10 @@ public sealed class OutputEngine
             w.Title = $"NEXORA · {screen.Name}";
             w.View.Kind = screen.Kind;
             w.View.ScreenName = screen.Name;
+            var (cw, ch) = screen.Canvas();
+            w.View.Shape = screen.Kind == ScreenKind.Broadcast ? default : new Size(cw, ch);
+            w.View.TestPattern = screen.TestPattern && screen.Kind != ScreenKind.Broadcast;
+            w.View.StretchToFill = screen.StretchToFill && screen.Kind != ScreenKind.Broadcast;
             w.View.StageLayout = _stage;
             var frame = _snapshot.FrameFor(screen.Id);
             w.View.Frame = frame;
@@ -242,7 +246,7 @@ public sealed class OutputEngine
         if (rtb is null || rtb.PixelSize.Width != w || rtb.PixelSize.Height != h)
         {
             rtb?.Dispose();
-            rtb = new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize(w, h), new Vector(96.0 * w / ScreenView.W, 96.0 * h / ScreenView.H));
+            rtb = new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize(w, h), new Vector(96.0 * w / 1920, 96.0 * h / 1080));
         }
         rtb.Render(canvas);
         unsafe
@@ -363,6 +367,9 @@ public sealed class OutputWindow : Window
     }
 
     public int Display { get; }
+    /// <summary>Where on its display the window was put, to notice a change.</summary>
+    public string Placement { get; private set; } = "";
+    public static string PlacementOf(ScreenInfo s) => s.HasArea ? $"{s.AreaX},{s.AreaY},{s.AreaWidth},{s.AreaHeight}" : "full";
     public bool Broadcast { get; }
     public ScreenView View { get; }
     public ScreenView? CleanView { get; }
@@ -372,7 +379,23 @@ public sealed class OutputWindow : Window
     public void ShowOn(ScreenInfo screen)
     {
         var displays = OrderedDisplays(Screens.All);
-        if (screen.Display > 0 && screen.Display <= displays.Count)
+        Placement = PlacementOf(screen);
+        if (screen.Display > 0 && screen.Display <= displays.Count && screen.HasArea)
+        {
+            // Only part of the display: the LED processor reads this area of the signal.
+            var d = displays[screen.Display - 1];
+            SystemDecorations = SystemDecorations.None;
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Position = new PixelPoint(d.Bounds.X + screen.AreaX, d.Bounds.Y + screen.AreaY);
+            Width = screen.AreaWidth / d.Scaling;
+            Height = screen.AreaHeight / d.Scaling;
+            Topmost = true;
+            CanResize = false;
+            Cursor = new Cursor(StandardCursorType.None);
+            Show();
+            Position = new PixelPoint(d.Bounds.X + screen.AreaX, d.Bounds.Y + screen.AreaY);
+        }
+        else if (screen.Display > 0 && screen.Display <= displays.Count)
         {
             var d = displays[screen.Display - 1];
             SystemDecorations = SystemDecorations.None;

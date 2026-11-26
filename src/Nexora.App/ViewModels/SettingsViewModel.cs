@@ -567,7 +567,66 @@ public sealed partial class ScreenEdit : ObservableObject
         _kindIndex = s.Kind == ScreenKind.Stage ? 1 : 0;
         _displayIndex = s.Display;
         _oneTextSource = s.OneTextSource;
+        _pixelWidth = s.PixelWidth > 0 ? s.PixelWidth : 1920;
+        _pixelHeight = s.PixelHeight > 0 ? s.PixelHeight : 1080;
+        _shapeIndex = Array.FindIndex(Presets, p => p.W * _pixelHeight == p.H * _pixelWidth && p.W > 0);
+        if (_shapeIndex < 0) _shapeIndex = Presets.Length - 1;
+        _useArea = s.HasArea;
+        _areaX = s.AreaX;
+        _areaY = s.AreaY;
+        _areaWidth = s.HasArea ? s.AreaWidth : 1920;
+        _areaHeight = s.HasArea ? s.AreaHeight : 1080;
+        _stretchToFill = s.StretchToFill;
+        _testPattern = s.TestPattern;
     }
+
+    private static readonly (string Name, int W, int H)[] Presets =
+    [
+        ("Wide 16:9 (1920 × 1080)", 1920, 1080),
+        ("4:3 (1440 × 1080)", 1440, 1080),
+        ("Square 1:1", 1080, 1080),
+        ("Tall 9:16 (portrait)", 1080, 1920),
+        ("Custom pixel size", 0, 0),
+    ];
+
+    public static IReadOnlyList<string> ShapeOptions { get; } = Presets.Select(p => p.Name).ToList();
+
+    [ObservableProperty] private int _shapeIndex;
+    [ObservableProperty] private decimal _pixelWidth;
+    [ObservableProperty] private decimal _pixelHeight;
+    [ObservableProperty] private bool _useArea;
+    [ObservableProperty] private decimal _areaX;
+    [ObservableProperty] private decimal _areaY;
+    [ObservableProperty] private decimal _areaWidth;
+    [ObservableProperty] private decimal _areaHeight;
+    [ObservableProperty] private bool _stretchToFill;
+    [ObservableProperty] private bool _testPattern;
+
+    public bool IsCustomShape => ShapeIndex == Presets.Length - 1;
+
+    partial void OnShapeIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsCustomShape));
+        if (value >= 0 && value < Presets.Length && Presets[value].W > 0)
+        {
+            PixelWidth = Presets[value].W;
+            PixelHeight = Presets[value].H;
+        }
+    }
+
+    /// <summary>What the picture looks like in words, under the shape choice.</summary>
+    public string ShapeNote
+    {
+        get
+        {
+            var (w, h) = ScreenInfo.CanvasFor((int)PixelWidth, (int)PixelHeight);
+            var shape = Math.Abs(w - h) < 1 ? "square" : w > h ? $"{w / h:0.##} times as wide as tall" : $"{h / w:0.##} times as tall as wide";
+            return $"Words, pictures and videos are laid out for a {shape} picture.";
+        }
+    }
+
+    partial void OnPixelWidthChanged(decimal value) => OnPropertyChanged(nameof(ShapeNote));
+    partial void OnPixelHeightChanged(decimal value) => OnPropertyChanged(nameof(ShapeNote));
 
     public string Id { get; }
     public bool IsNewScreen { get; init; }
@@ -580,10 +639,19 @@ public sealed partial class ScreenEdit : ObservableObject
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.PropertyName != nameof(Dirty)) Dirty = true;
+        if (e.PropertyName is not (nameof(Dirty) or nameof(ShapeNote) or nameof(IsCustomShape))) Dirty = true;
     }
 
-    public ScreenInfo ToInfo(int order) => new(Id, Name.Trim(), KindIndex == 1 ? ScreenKind.Stage : ScreenKind.Audience, Math.Max(0, DisplayIndex), OneTextSource, order);
+    public ScreenInfo ToInfo(int order)
+    {
+        int pw = (int)Math.Clamp(PixelWidth, 16, 16384), ph = (int)Math.Clamp(PixelHeight, 16, 16384);
+        var wide = pw * 1080 == ph * 1920;
+        return new(Id, Name.Trim(), KindIndex == 1 ? ScreenKind.Stage : ScreenKind.Audience, Math.Max(0, DisplayIndex), OneTextSource, order,
+            PixelWidth: wide ? 0 : pw, PixelHeight: wide ? 0 : ph,
+            AreaX: UseArea ? (int)AreaX : 0, AreaY: UseArea ? (int)AreaY : 0,
+            AreaWidth: UseArea ? (int)Math.Max(16, AreaWidth) : 0, AreaHeight: UseArea ? (int)Math.Max(16, AreaHeight) : 0,
+            TestPattern: TestPattern, StretchToFill: StretchToFill);
+    }
 }
 
 public sealed partial class UserEdit : ObservableObject

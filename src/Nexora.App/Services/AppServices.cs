@@ -333,6 +333,9 @@ public sealed partial class LiveModel : ObservableObject
 
     partial void OnSnapshotChanged(LiveSnapshot value)
     {
+        // Previews and slide splitting follow the shape of the main audience screen.
+        if (value.Screens.FirstOrDefault(s => s.Kind == ScreenKind.Audience) is { } a) Controls.CanvasSize.Audience = a.Canvas();
+        if (value.Screens.FirstOrDefault(s => s.Kind == ScreenKind.Stage) is { } st) Controls.CanvasSize.Stage = st.Canvas();
         OnPropertyChanged(nameof(Modes));
         OnPropertyChanged(nameof(Engine));
     }

@@ -147,7 +147,36 @@ public sealed record ScreenInfo(
     int Display,
     /// <summary>When on, pinning Scripture live takes Lyrics down on this screen and the reverse.</summary>
     bool OneTextSource,
-    int Order);
+    int Order,
+    /// <summary>The picture's size in pixels, as the screen or LED processor wants it. 0 = 1920×1080 (16:9).</summary>
+    int PixelWidth = 0,
+    int PixelHeight = 0,
+    /// <summary>The part of the display to fill, in the display's own pixels. Width 0 = the whole display.</summary>
+    int AreaX = 0,
+    int AreaY = 0,
+    int AreaWidth = 0,
+    int AreaHeight = 0,
+    /// <summary>Shows a test pattern instead of the content, to line the picture up on the wall.</summary>
+    bool TestPattern = false,
+    /// <summary>
+    /// Stretch the picture to the whole window even if the shapes differ. For an LED processor that takes a
+    /// 16:9 signal and squeezes it onto a wall of another shape: lay out in the wall's shape, send it stretched.
+    /// </summary>
+    bool StretchToFill = false)
+{
+    /// <summary>The layout canvas for this screen: the screen's shape with its shorter side 1080, so text sizes stay the same.</summary>
+    public (double Width, double Height) Canvas() => CanvasFor(PixelWidth, PixelHeight);
+
+    public static (double Width, double Height) CanvasFor(int pixelWidth, int pixelHeight)
+    {
+        if (pixelWidth <= 0 || pixelHeight <= 0) return (1920, 1080);
+        var aspect = (double)pixelWidth / pixelHeight;
+        aspect = Math.Clamp(aspect, 0.2, 5);
+        return aspect >= 1 ? (Math.Round(1080 * aspect), 1080) : (1080, Math.Round(1080 / aspect));
+    }
+
+    public bool HasArea => AreaWidth > 0 && AreaHeight > 0;
+}
 
 /// <summary>
 /// A piece of content a terminal sends. Text and Caption are always filled (the Stage Monitor and
