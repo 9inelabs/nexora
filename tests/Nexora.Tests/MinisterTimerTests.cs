@@ -90,6 +90,8 @@ public class MinisterTimerTests
 
         var show = new MinisterTimerShow("Guest Minister", "Sermon", 1800, true, 1800);
         await c.SendContentAsync(SectionKind.MinisterTimer, new SlideContent("Guest Minister", Minister: show));
+        // The first snapshot (with the screen list) can arrive a moment after sign-in.
+        await WaitFor(() => c.Snapshot.Screens.Any(s => s.Kind == ScreenKind.Stage));
         var stage = c.Snapshot.Screens.First(s => s.Kind == ScreenKind.Stage).Id;
         await WaitFor(() => c.Snapshot.FrameFor(stage)?.Items.Any(i => i.Content.Minister is { EndsUtc: not null }) == true);
         var sent = c.Snapshot.FrameFor(stage)!.Items.First(i => i.Content.Minister is not null).Content.Minister!;
