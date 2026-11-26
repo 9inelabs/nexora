@@ -61,14 +61,19 @@ jobs:
         shell: cmd
         run: |
           set FF=publish\ffmpeg\ffmpeg.exe
-          rem The same arguments NEXORA uses for a recording without a sound device.
-          %FF% -hide_banner -loglevel error -f lavfi -i color=black:s=1280x720:r=30 -frames:v 60 -f rawvideo -pix_fmt bgra - | %FF% -hide_banner -loglevel error -nostats -progress pipe:1 -stats_period 1 -y -f rawvideo -pix_fmt bgra -s 1280x720 -r 30 -thread_queue_size 64 -i pipe:0 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 -shortest -map 0:v -map 1:a -c:v libx264 -preset veryfast -tune zerolatency -b:v 6000k -maxrate 6000k -bufsize 12000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 160k -ar 48000 -movflags +frag_keyframe+empty_moov+default_base_moof -f mp4 "%RUNNER_TEMP%\silent.mp4" > nul
+          rem Make two seconds of raw frames first, then feed them to FFmpeg the way NEXORA does,
+          rem so a refusal by the encoder fails this step (and the build) instead of a church's recording.
+          %FF% -hide_banner -loglevel error -y -f lavfi -i color=black:s=1280x720:r=30 -frames:v 60 -f rawvideo -pix_fmt bgra "%RUNNER_TEMP%\frames.raw"
           if errorlevel 1 exit /b 1
+          rem The same arguments NEXORA uses for a recording without a sound device.
+          %FF% -hide_banner -loglevel error -nostats -progress pipe:1 -stats_period 1 -y -f rawvideo -pix_fmt bgra -s 1280x720 -r 30 -i pipe:0 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 -shortest -map 0:v -map 1:a -c:v libx264 -preset veryfast -tune zerolatency -b:v 6000k -maxrate 6000k -bufsize 12000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 160k -ar 48000 -movflags +frag_keyframe+empty_moov+default_base_moof -f mp4 "%RUNNER_TEMP%\silent.mp4" < "%RUNNER_TEMP%\frames.raw" > nul
+          if errorlevel 1 (echo The bundled FFmpeg refused NEXORA's recording settings & exit /b 1)
+          for %%F in ("%RUNNER_TEMP%\silent.mp4") do if %%~zF LSS 1000 (echo The test recording is empty & exit /b 1)
           echo Silent recording OK
-          rem What FFmpeg says when the chosen sound device is not there (for the error message).
-          %FF% -hide_banner -loglevel error -f dshow -thread_queue_size 1024 -audio_buffer_size 50 -i "audio=Microphone (No Such Device)" -t 1 -f null - 2>&1
-          %FF% -hide_banner -loglevel error -f dshow -i "audio=Line In: Rear" -t 1 -f null - 2>&1
-          %FF% -hide_banner -loglevel error -f dshow -list_devices true -i dummy 2>&1
+          rem The input options NEXORA uses for a sound device must still be accepted (a missing device is fine here).
+          %FF% -hide_banner -loglevel error -f dshow -audio_buffer_size 50 -i "audio=No Such Device" -t 1 -f null - > "%RUNNER_TEMP%\dshow.txt" 2>&1
+          type "%RUNNER_TEMP%\dshow.txt"
+          findstr /i /c:"Option not found" /c:"cannot be applied" /c:"Error parsing options" "%RUNNER_TEMP%\dshow.txt" && (echo The bundled FFmpeg refused NEXORA's sound settings & exit /b 1)
           exit /b 0
 
       - name: Build the installer (Velopack)
