@@ -27,6 +27,23 @@ A one-page guide for Sunday. Keep a printed copy at the media desk.
 | Lyrics | **→ / ←** next and back, **V**+number verse, **C** chorus, **B** bridge, **E** ending, **F1** blank, **F2** logo, **Esc** clear, **Ctrl+↓** next song |
 | Lower Thirds | **F1 to F8** today's people |
 | Camera Switcher | **1 to 8** preview, **Shift+number** straight to air, **Space** cut, **Enter** auto |
+| Minister Timer | **Space** start or pause, **+ / −** a minute, **R** restart, **Esc** stop and take off the screen |
+
+## Minister Timer (guest ministers)
+
+1. Open **Minister Timer** on a terminal. Type the minister's name and what they are doing
+   (Sermon, Exhortation), and set their minutes with **− / +** or 5, 10, 15, 20, 30, 45.
+2. Before the service, press **Add this minister to today** for each one. In the service,
+   tap a name on the left to load their time.
+3. Press **Start and send live**. The timer goes straight to the Stage Monitor; the
+   audience screens never show it.
+4. It is **green** at the start, **yellow** from 10 minutes left and **red** from 5 minutes
+   left (change both with − / +). From 3 minutes left it says *Please start to close*.
+   At zero it shows **TIME IS UP** and counts in minus (−2:14) on a dark red screen.
+5. **Full screen** fills the Stage Monitor. **Bar over the lyrics** shows a coloured band
+   at the top so the words stay visible. Change it while running with
+   **Apply changes to the running timer**.
+6. The Live Output operator can take the timer down on the Stage Monitor like any terminal.
 
 ## If something goes wrong
 

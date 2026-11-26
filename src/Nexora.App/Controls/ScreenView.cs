@@ -78,6 +78,7 @@ public sealed class ScreenView : UserControl
     private TextBlock? _clock;
     private DispatcherTimer? _ticker;
     private readonly List<OverlayRenderer.CountdownParts> _countdowns = [];
+    private readonly List<MinisterRenderer.Parts> _ministers = [];
     private readonly List<Action> _releases = [];
     private int _announcementIndex = -1;
     private readonly List<(TextBlock Text, MediaPlay Play)> _mediaLeft = [];
@@ -131,6 +132,7 @@ public sealed class ScreenView : UserControl
         var now = DateTime.UtcNow;
         if (_clock is not null) _clock.Text = ClockText(DateTime.Now);
         foreach (var c in _countdowns) OverlayRenderer.Update(c, now);
+        foreach (var m in _ministers) m.Update(now);
         foreach (var (text, play) in _mediaLeft) text.Text = MediaTimeText(play, now);
         // An announcement loop moves on by itself.
         if (_announcementIndex >= 0 && CurrentAnnouncement(Frame) is { } a && a.Current(now).Index != _announcementIndex) Rebuild();
@@ -156,6 +158,7 @@ public sealed class ScreenView : UserControl
         _signature = sig;
         _clock = null;
         _countdowns.Clear();
+        _ministers.Clear();
         _mediaLeft.Clear();
         _announcementIndex = -1;
         var previous = _shown;
@@ -566,7 +569,29 @@ public sealed class ScreenView : UserControl
         var now = DateTime.UtcNow;
         var items = frame?.Items ?? [];
 
-        var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*"), Margin = new Thickness(80, 54, 80, 60) };
+        // The Minister Timer: the whole screen, or a band across the top with the words underneath.
+        var minister = items.LastOrDefault(i => i.Content.Minister is not null)?.Content.Minister;
+        if (minister is not null)
+        {
+            if (minister.Look == MinisterLook.FullScreen)
+            {
+                var full = MinisterRenderer.FullScreen(minister, layout.Use24Hour, now);
+                _ministers.Add(full);
+                root.Children.Add(full.Root);
+                return;
+            }
+            var bar = MinisterRenderer.Bar(minister, layout.Use24Hour, now);
+            _ministers.Add(bar);
+            var outer = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Width = W, Height = H };
+            outer.Children.Add(bar.Root);
+            var host = new Panel();
+            Grid.SetRow(host, 1);
+            outer.Children.Add(host);
+            root.Children.Add(outer);
+            root = host;
+        }
+
+        var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*"), Margin = new Thickness(80, minister is null ? 54 : 30, 80, 60) };
         root.Children.Add(grid);
 
         // Top bar: clock, countdown, screen name.

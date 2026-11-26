@@ -64,6 +64,7 @@ public static class Icons
         ["announcements"] = "M11 5 L6 9 H2 V15 H6 L11 19 Z M15.5 8.5 A5 5 0 0 1 15.5 15.5 M19 5 A10 10 0 0 1 19 19",
         ["lowerthirds"] = "M4 4 H20 A2 2 0 0 1 22 6 V18 A2 2 0 0 1 20 20 H4 A2 2 0 0 1 2 18 V6 A2 2 0 0 1 4 4 Z M6 15 H14 M6 12 H10",
         ["countdown"] = "M10 2 H14 M12 14 L15 11 M12 6 A8 8 0 1 0 12 22 A8 8 0 1 0 12 6 Z",
+        ["minister"] = "M12 8 V12 L14.5 14.5 M12 4 A8 8 0 1 0 12 20 A8 8 0 1 0 12 4 Z M5 3 L2 6 M19 3 L22 6",
         ["live"] = "M4.9 19.1 C1 15.2 1 8.8 4.9 4.9 M7.8 16.2 C5.5 13.9 5.5 10.1 7.8 7.7 M16.2 7.8 C18.5 10.1 18.5 13.9 16.2 16.3 M19.1 4.9 C23 8.8 23 15.1 19.1 19 M12 10 A2 2 0 1 0 12 14 A2 2 0 1 0 12 10 Z",
         ["settings"] = "M12 9 A3 3 0 1 0 12 15 A3 3 0 1 0 12 9 Z M12 2 V4.5 M12 19.5 V22 M4.9 4.9 L6.7 6.7 M17.3 17.3 L19.1 19.1 M2 12 H4.5 M19.5 12 H22 M4.9 19.1 L6.7 17.3 M17.3 6.7 L19.1 4.9",
         ["signout"] = "M15 3 H19 A2 2 0 0 1 21 5 V19 A2 2 0 0 1 19 21 H15 M10 17 L15 12 L10 7 M15 12 H3",
@@ -127,6 +128,7 @@ public static class Icons
         Nexora.Core.Model.SectionKind.Announcements => "announcements",
         Nexora.Core.Model.SectionKind.LowerThirds => "lowerthirds",
         Nexora.Core.Model.SectionKind.Countdown => "countdown",
+        Nexora.Core.Model.SectionKind.MinisterTimer => "minister",
         _ => "square",
     };
 }

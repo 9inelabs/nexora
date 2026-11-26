@@ -99,6 +99,13 @@ public sealed partial class LiveServer
                 _store.CountdownPresets = m.Presets.Take(40).ToList();
                 LibraryChanged();
                 break;
+            case SaveMinisters m:
+                if (!MayOperate(s.User!, Role.Countdown)) { Deny(s); return; }
+                _store.Ministers = m.Ministers.Take(40)
+                    .Select(x => x with { Name = x.Name.Length > 120 ? x.Name[..120] : x.Name, Purpose = x.Purpose.Length > 120 ? x.Purpose[..120] : x.Purpose, Minutes = Math.Clamp(x.Minutes, 1, 360) })
+                    .ToList();
+                LibraryChanged();
+                break;
             case SaveStage m:
                 if (!MayOperate(s.User!, Role.Countdown) && !s.User!.MayRunLiveOutput) { Deny(s); return; }
                 _store.StageLayout = m.Layout;

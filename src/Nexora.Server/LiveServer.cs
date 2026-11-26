@@ -292,7 +292,7 @@ public sealed partial class LiveServer : IAsyncDisposable
             _store.Themes(ThemeKind.Lyrics), _store.LyricsSettings, _store.SongsVersion, _store.SongList,
             _store.Themes(ThemeKind.Announcements), _store.Announcements, _store.People, _store.TodayPeople,
             _store.LowerThirdDefaults, _store.CountdownPresets, _store.StageLayout, _store.SermonPoints,
-            OfferedVersion(), !string.IsNullOrWhiteSpace(_store.Broadcast.StreamUrl));
+            OfferedVersion(), !string.IsNullOrWhiteSpace(_store.Broadcast.StreamUrl), _store.Ministers);
         _libraryCache = lib;
         return lib;
     }
@@ -796,6 +796,19 @@ public sealed partial class LiveServer : IAsyncDisposable
                 : now.AddSeconds(countdown.RemainingSeconds);
             countdown = countdown with { EndsUtc = ends };
         }
+        var minister = c.Minister;
+        if (minister is { Running: true, EndsUtc: { } mEnds } && Math.Abs((mEnds - now).TotalHours) < 24)
+        {
+            // Already running on this PC's clock.
+        }
+        else if (minister is { Running: true })
+            minister = minister with { EndsUtc = now.AddSeconds(minister.RemainingSeconds) };
+        if (minister is not null)
+            minister = minister with
+            {
+                Name = Trim(minister.Name, 120)!, Purpose = Trim(minister.Purpose, 120)!,
+                AllowedSeconds = Math.Clamp(minister.AllowedSeconds, 0, 6 * 3600),
+            };
         var lyrics = c.Lyrics is { } ly && ly.Lines.Count <= 40 ? ly with { Lines = ly.Lines.Select(l => Trim(l, 400)!).ToList() } : null;
         return new SlideContent(
             Trim(c.Text, 6000) ?? "", Trim(c.Caption, 200), Trim(c.Label, 120),
@@ -808,7 +821,8 @@ public sealed partial class LiveServer : IAsyncDisposable
             countdown,
             c.Points is { } pts && pts.Points.Count <= 100 ? pts : null,
             null, // media comes only from the Live Output operator
-            c.Camera);
+            c.Camera,
+            minister);
     }
 
     private static string? Trim(string? s, int max) => s is null ? null : s.Length <= max ? s : s[..max];

@@ -116,6 +116,11 @@ public sealed class LiveState
     {
         if (!_sources.TryGetValue(key, out var src)) return;
         src.Current = content;
+        // The Minister Timer goes straight to the Stage Monitor the first time it is sent. If the
+        // Live Output operator later takes it down there, that choice is kept.
+        if (src.Section == SectionKind.MinisterTimer && content is not null)
+            foreach (var stage in _screens.Where(s => s.Kind == ScreenKind.Stage))
+                src.Routes.TryAdd(stage.Id, RouteState.Live);
         foreach (var (screenId, state) in src.Routes)
         {
             if (state != RouteState.Live) continue;
