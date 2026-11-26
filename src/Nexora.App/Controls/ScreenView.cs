@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Nexora.App.Services;
 using Nexora.Core.Config;
 using Nexora.Core.Model;
 
@@ -220,8 +221,9 @@ public sealed class ScreenView : UserControl
             _canvas.Children.Add(next);
             return;
         }
-        // Output windows play video backgrounds; one decoder per loop is shared, so a new verse does not restart it.
-        ScriptureRenderer.VideoLoop = LiveVideo ? LoopLayer : null;
+        // Video backgrounds play on the screens and in the previews; one decoder per loop is shared in each
+        // program, so a new verse does not restart it and several previews cost no more than one.
+        ScriptureRenderer.VideoLoop = LoopLayer;
         try
         {
             if (Kind == ScreenKind.Stage) BuildStage(next, frame, branding);
@@ -464,14 +466,20 @@ public sealed class ScreenView : UserControl
 
     private Control? LoopLayer(string? file)
     {
-        if (BackgroundLoops.PathOf(file) is null) return null;
+        if (BackgroundLoops.PathOf(file) is null)
+        {
+            AppLog.Write("Background loop not found: " + file);
+            return null;
+        }
         var feed = BackgroundLoops.Acquire(file!);
         _releases.Add(() => BackgroundLoops.Release(file!));
+        if (feed.Problem is { } problem) AppLog.Write($"Background loop {file}: {problem}");
         var panel = new Panel { Width = W, Height = H };
         // The still sits underneath until the first frame arrives.
         if (MediaImages.Get(Path.ChangeExtension(file!, ".jpg")) is { } still)
             panel.Children.Add(new Image { Source = still, Stretch = Stretch.UniformToFill, Width = W, Height = H });
-        panel.Children.Add(new VideoView { Feed = feed, Fill = true, Width = W, Height = H });
+        // Clear until the first frame, so the still shows instead of black while the loop starts (or if it cannot play).
+        panel.Children.Add(new VideoView { Feed = feed, Fill = true, Width = W, Height = H, ClearWhenEmpty = true, HoldOnLoss = TimeSpan.Zero });
         return panel;
     }
 
