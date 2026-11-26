@@ -1,0 +1,251 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:v="using:Nexora.App.Views"
+             xmlns:sys="using:System"
+             x:Class="Nexora.App.Views.MinisterTimerSectionView"
+             x:DataType="vm:MinisterTimerSectionViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.row">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.preset">
+      <Setter Property="MinWidth" Value="54" />
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+    </Style>
+    <Style Selector="Button.step">
+      <Setter Property="Width" Value="40" />
+      <Setter Property="Height" Value="40" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.minstep">
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ToggleButton.seg">
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.seg:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface4}" />
+      <Setter Property="Foreground" Value="{StaticResource Text1}" />
+    </Style>
+    <Style Selector="TextBlock.flabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*" Margin="20,16,20,18">
+    <v:AirStrip />
+    <Grid Grid.Row="1" ColumnDefinitions="280,16,*,16,420">
+
+      <!-- Today's ministers -->
+      <Border Classes="card" Padding="8,14,8,8">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <Grid ColumnDefinitions="*,Auto" Margin="8,0,8,10">
+            <StackPanel Spacing="1">
+              <TextBlock Classes="h3" Text="Today's ministers" />
+              <TextBlock Classes="faint small" Text="Pick one to load their time" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="ghost small" Command="{Binding ClearMinistersCommand}" IsVisible="{Binding MayEdit}" Content="Clear" VerticalAlignment="Top" />
+          </Grid>
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Ministers}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:MinisterRow">
+                  <Grid ColumnDefinitions="*,Auto,Auto">
+                    <Button Classes="row" Command="{Binding $parent[UserControl].((vm:MinisterTimerSectionViewModel)DataContext).SelectMinisterCommand}" CommandParameter="{Binding}">
+                      <StackPanel Spacing="2">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                          <Border Classes="chip live" IsVisible="{Binding OnNow}" Padding="6,1">
+                            <TextBlock Text="ON NOW" FontSize="10" />
+                          </Border>
+                        </StackPanel>
+                        <TextBlock Classes="faint small" Text="{Binding Detail}" />
+                      </StackPanel>
+                    </Button>
+                    <Button Grid.Column="1" Classes="ghost small" Padding="6" ToolTip.Tip="Save the name and time on the left to this minister"
+                            Command="{Binding $parent[UserControl].((vm:MinisterTimerSectionViewModel)DataContext).UpdateMinisterCommand}" CommandParameter="{Binding}">
+                      <c:Icon Kind="check" Width="12" Height="12" />
+                    </Button>
+                    <Button Grid.Column="2" Classes="ghost small" Padding="6" ToolTip.Tip="Remove from today"
+                            Command="{Binding $parent[UserControl].((vm:MinisterTimerSectionViewModel)DataContext).RemoveMinisterCommand}" CommandParameter="{Binding}">
+                      <c:Icon Kind="x" Width="12" Height="12" />
+                    </Button>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          <Button Grid.Row="2" Margin="8,8,8,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding AddMinisterCommand}" IsVisible="{Binding MayEdit}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <c:Icon Kind="plus" Width="12" Height="12" />
+              <TextBlock Text="Add this minister to today" />
+            </StackPanel>
+          </Button>
+        </Grid>
+      </Border>
+
+      <!-- Setting up the time -->
+      <Border Grid.Column="2" Classes="card" Padding="20,16">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="16">
+            <TextBlock Classes="h3" Text="Minister" />
+            <Grid ColumnDefinitions="*,12,*">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="flabel" Text="Name" />
+                <TextBox Text="{Binding Name}" Watermark="Guest Minister" />
+              </StackPanel>
+              <StackPanel Grid.Column="2" Spacing="6">
+                <TextBlock Classes="flabel" Text="What for" />
+                <TextBox Text="{Binding Purpose}" Watermark="Sermon, Exhortation, Testimony" />
+              </StackPanel>
+            </Grid>
+
+            <Border Height="1" Background="{StaticResource Line}" />
+            <TextBlock Classes="h3" Text="Time allowed" />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button Classes="step" Command="{Binding FewerMinutesCommand}" Content="−" />
+              <Border Background="{StaticResource Surface2}" CornerRadius="10" Padding="18,4" MinWidth="150">
+                <TextBlock Text="{Binding MinutesText}" FontFamily="{StaticResource FontMono}" FontSize="30" FontWeight="Bold" HorizontalAlignment="Center" />
+              </Border>
+              <Button Classes="step" Command="{Binding MoreMinutesCommand}" Content="+" />
+            </StackPanel>
+            <ItemsControl ItemsSource="{x:Static vm:MinisterTimerSectionViewModel.Presets}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="sys:Int32">
+                  <Button Classes="preset" Margin="0,0,8,8" Content="{Binding}"
+                          Command="{Binding $parent[UserControl].((vm:MinisterTimerSectionViewModel)DataContext).UsePresetCommand}" CommandParameter="{Binding}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Height="1" Background="{StaticResource Line}" />
+            <TextBlock Classes="h3" Text="Colours" />
+            <c:ColourBar Green="{Binding GreenShare}" Yellow="{Binding YellowShare}" Red="{Binding RedShare}" Height="14" />
+            <StackPanel Spacing="10">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Ellipse Width="10" Height="10" Fill="#3DD68C" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding GreenRule}" VerticalAlignment="Center" />
+              </StackPanel>
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <Ellipse Width="10" Height="10" Fill="#F0B44C" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding YellowRule}" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                  <Button Classes="minstep" Command="{Binding LessYellowCommand}" Content="−" />
+                  <Button Classes="minstep" Command="{Binding MoreYellowCommand}" Content="+" />
+                </StackPanel>
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <Ellipse Width="10" Height="10" Fill="#FF5A5F" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding RedRule}" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                  <Button Classes="minstep" Command="{Binding LessRedCommand}" Content="−" />
+                  <Button Classes="minstep" Command="{Binding MoreRedCommand}" Content="+" />
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+            <CheckBox IsChecked="{Binding CountOver}" Content="Keep counting in minus after zero (−2:14)" />
+            <CheckBox IsChecked="{Binding Flash}" Content="Flash gently when time is up" />
+
+            <Border Height="1" Background="{StaticResource Line}" />
+            <TextBlock Classes="h3" Text="On the Stage Monitor" />
+            <UniformGrid Columns="2" ColumnSpacing="6">
+              <ToggleButton Classes="seg" IsChecked="{Binding FullScreen}" Content="Full screen" />
+              <ToggleButton Classes="seg" IsChecked="{Binding BarLook}" Content="Bar over the lyrics" />
+            </UniformGrid>
+            <Button Classes="ghost" HorizontalAlignment="Right" Command="{Binding ApplyCommand}" IsVisible="{Binding HasTimer}" Content="Apply changes to the running timer" />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <!-- Preview and controls -->
+      <Border Grid.Column="4" Classes="card" Padding="16">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="12">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" VerticalAlignment="Center" />
+                <TextBlock Classes="eyebrow" Foreground="{StaticResource PreviewBrush}" Text="STAGE MONITOR" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Classes="faint small" Text="{Binding StateText}" />
+            </Grid>
+            <Border CornerRadius="10" ClipToBounds="True" BorderBrush="{StaticResource Line2}" BorderThickness="1">
+              <c:ScreenView Frame="{Binding PreviewFrame}" Kind="Stage" Branding="{Binding Branding}" Animate="False" />
+            </Border>
+            <StackPanel Spacing="0" HorizontalAlignment="Center">
+              <TextBlock Text="{Binding TimeText}" FontFamily="{StaticResource FontMono}" FontSize="64" FontWeight="Bold" Foreground="{Binding TimeBrush}" HorizontalAlignment="Center" />
+              <TextBlock Classes="faint small" Text="{Binding MessageText}" HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <Button Classes="primary big" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding StartCommand}" IsVisible="{Binding !HasTimer}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <c:Icon Kind="play" Width="14" Height="14" />
+                <TextBlock Text="Start and send live" />
+              </StackPanel>
+            </Button>
+            <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding HasTimer}">
+              <Button Classes="big" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding PauseCommand}" IsVisible="{Binding Running}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <c:Icon Kind="pause" Width="13" Height="13" />
+                  <TextBlock Text="Pause" />
+                </StackPanel>
+              </Button>
+              <Button Classes="primary big" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ResumeCommand}" IsVisible="{Binding !Running}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <c:Icon Kind="play" Width="13" Height="13" />
+                  <TextBlock Text="Resume" />
+                </StackPanel>
+              </Button>
+              <Button Grid.Column="2" Classes="big" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding RestartCommand}" Content="{Binding RestartText}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding HasTimer}">
+              <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding AddMinuteCommand}" Content="+1 minute" />
+              <Button Grid.Column="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding RemoveMinuteCommand}" Content="−1 minute" />
+            </Grid>
+            <Button Classes="takedown" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding StopCommand}" IsVisible="{Binding HasTimer}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <c:Icon Kind="stop" Width="13" Height="13" />
+                <TextBlock Text="Stop and take off the screen" />
+              </StackPanel>
+            </Button>
+            <TextBlock Classes="faint small" TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center"
+                       Text="Space start or pause · + − a minute · R restart · Esc stop" />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

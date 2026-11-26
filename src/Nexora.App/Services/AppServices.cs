@@ -303,6 +303,7 @@ public sealed partial class LiveModel : ObservableObject
     public LowerThirdDefaults LowerThirdDefaults => Library?.LowerThirds ?? LowerThirdDefaults.Default;
     public IReadOnlyList<CountdownPreset> CountdownPresets => Library?.CountdownPresets ?? [];
     public StageLayout StageLayout => Library?.Stage ?? StageLayout.Default;
+    public IReadOnlyList<MinisterEntry> Ministers => Library?.Ministers ?? [];
     public IReadOnlyList<string> SermonPoints => Library?.SermonPoints ?? [];
     public SongList SongList => Library?.SongList is { } l && l.Date == SongList.Today ? l : new SongList(SongList.Today, []);
     public LiveModes Modes => Snapshot.CurrentModes;

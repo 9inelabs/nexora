@@ -318,7 +318,7 @@
                     <CheckBox Content="Camera Switcher" IsChecked="{Binding Camera}" />
                     <CheckBox Content="Announcements" IsChecked="{Binding Announcements}" />
                     <CheckBox Content="Lower Thirds" IsChecked="{Binding LowerThirds}" />
-                    <CheckBox Content="Countdown" IsChecked="{Binding Countdown}" />
+                    <CheckBox Content="Countdown and Minister Timer" IsChecked="{Binding Countdown}" />
                     <CheckBox Content="Trainee (practice only)" IsChecked="{Binding Trainee}" />
                   </UniformGrid>
                 </StackPanel>

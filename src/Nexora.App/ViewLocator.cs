@@ -19,6 +19,7 @@ public sealed class ViewLocator : IDataTemplate
         [typeof(AnnouncementsSectionViewModel)] = () => new Views.AnnouncementsSectionView(),
         [typeof(LowerThirdsSectionViewModel)] = () => new Views.LowerThirdsSectionView(),
         [typeof(CountdownSectionViewModel)] = () => new Views.CountdownSectionView(),
+        [typeof(MinisterTimerSectionViewModel)] = () => new Views.MinisterTimerSectionView(),
         [typeof(CameraSectionViewModel)] = () => new Views.CameraSectionView(),
         [typeof(LiveOutputViewModel)] = () => new Views.LiveOutputView(),
         [typeof(SettingsViewModel)] = () => new Views.SettingsView(),

@@ -39,6 +39,7 @@ namespace Nexora.Core.Protocol;
 [JsonDerivedType(typeof(SavePeople), "savePeople")]
 [JsonDerivedType(typeof(SaveCountdownPresets), "saveCountdowns")]
 [JsonDerivedType(typeof(SaveStage), "saveStage")]
+[JsonDerivedType(typeof(SaveMinisters), "saveMinisters")]
 [JsonDerivedType(typeof(SetModes), "setModes")]
 [JsonDerivedType(typeof(MediaCommand), "media")]
 [JsonDerivedType(typeof(CameraCommand), "camera")]
@@ -132,6 +133,9 @@ public sealed record SavePeople(IReadOnlyList<Person> People, IReadOnlyList<stri
 
 public sealed record SaveCountdownPresets(IReadOnlyList<CountdownPreset> Presets) : Message;
 
+/// <summary>Today's list of ministers for the Minister Timer.</summary>
+public sealed record SaveMinisters(IReadOnlyList<MinisterEntry> Ministers) : Message;
+
 /// <summary>The Stage Monitor zones and the pastor's points for the day.</summary>
 public sealed record SaveStage(StageLayout Layout, IReadOnlyList<string> SermonPoints) : Message;
 
@@ -200,7 +204,8 @@ public sealed record LibraryInfo(
     IReadOnlyList<string>? SermonPoints = null,
     /// <summary>The NEXORA version the Live Output PC offers to every PC.</summary>
     string? OfferedVersion = null,
-    bool StreamingConfigured = false) : Message;
+    bool StreamingConfigured = false,
+    IReadOnlyList<MinisterEntry>? Ministers = null) : Message;
 
 public static class Wire
 {

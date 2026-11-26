@@ -110,6 +110,23 @@ new one has a problem.
 **Settings › Lyrics & CCLI:** enter your CCLI licence number. The song usage report counts
 each song once per day it went live; **Save as a spreadsheet** for CCLI reporting.
 
+## Minister Timer
+
+1. On a terminal, sign in and tick **Minister Timer**. Set *Guest Minister · Sermon* and
+   **10** minutes, then press **Start and send live**.
+   - The Stage Monitor shows the big timer at once with a yellow border (10:00 is yellow).
+   - The Main Audience Screen and the recording show nothing new.
+2. Press **+1 minute** twice: it turns green. Press **−1 minute** until under 5:00: red.
+   Under 3:00 it says *Please start to close*.
+3. Keep pressing **−1 minute** past zero: dark red screen, **TIME IS UP**, minus time, and
+   the digits flash gently.
+4. Pick **Bar over the lyrics** and press **Apply changes to the running timer**. Put a song
+   on the Stage Monitor: the band sits on top and the words show underneath.
+5. Unplug the terminal's network cable for a minute: the timer keeps counting on the
+   Stage Monitor. Plug it back: the terminal shows the same time.
+6. **Pause**, **Resume**, **R** (restart) and **Esc** (stop and take off) all work.
+7. Add three ministers to today's list, sign in on a second terminal: the same list shows.
+
 ## What was not tested before this build
 
 These need real church equipment and were not tried on the build machine:

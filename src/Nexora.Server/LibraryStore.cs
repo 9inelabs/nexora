@@ -363,6 +363,12 @@ public sealed class LibraryStore : IDisposable
         new("worship", "Worship", CountdownMode.Duration, 25 * 60, null, 120, true, CountdownLook.StageOnly, ZeroAction.None),
     ];
 
+    public IReadOnlyList<MinisterEntry> Ministers
+    {
+        get => Get<List<MinisterEntry>>("ministers") ?? [];
+        set => Set("ministers", value);
+    }
+
     public StageLayout StageLayout
     {
         get => Get<StageLayout>("stageLayout") ?? StageLayout.Default;

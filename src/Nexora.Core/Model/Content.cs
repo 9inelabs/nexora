@@ -191,6 +191,99 @@ public sealed record StageLayout(
     public static StageLayout Default => new();
 }
 
+// ---------------- Minister Timer ----------------
+
+/// <summary>How the Minister Timer shows on the Stage Monitor.</summary>
+public enum MinisterLook { FullScreen, Bar }
+
+/// <summary>The colour the timer is in: green, then yellow, then red, then over time (still red).</summary>
+public enum MinisterColour { Green, Yellow, Red, Over }
+
+/// <summary>
+/// The guest minister's timer. Like <see cref="CountdownShow"/> it runs on the Live Output PC's clock:
+/// the terminal sends the seconds left and the Live Output PC sets <see cref="EndsUtc"/>.
+/// </summary>
+public sealed record MinisterTimerShow(
+    string Name,
+    string Purpose,
+    /// <summary>The whole time the minister was given, for the progress bar.</summary>
+    int AllowedSeconds,
+    bool Running,
+    /// <summary>Seconds left, used while paused and to start the timer. Negative when over time.</summary>
+    double RemainingSeconds,
+    int YellowAtSeconds = 600,
+    int RedAtSeconds = 300,
+    bool CountOver = true,
+    bool Flash = true,
+    MinisterLook Look = MinisterLook.FullScreen,
+    /// <summary>Set by the Live Output PC.</summary>
+    DateTime? EndsUtc = null)
+{
+    /// <summary>From this many seconds left the stage shows "Please start to close".</summary>
+    public const int CloseAtSeconds = 180;
+
+    public double Remaining(DateTime utcNow) => Running && EndsUtc is { } e ? (e - utcNow).TotalSeconds : RemainingSeconds;
+
+    /// <summary>Whole seconds left, rounded up while counting down (so 0:01 shows until the very end).</summary>
+    public int Seconds(DateTime utcNow)
+    {
+        var r = Remaining(utcNow);
+        return r >= 0 ? (int)Math.Ceiling(r) : -(int)Math.Floor(-r);
+    }
+
+    public MinisterColour Colour(DateTime utcNow)
+    {
+        var s = Seconds(utcNow);
+        if (s < 0 || (s == 0 && Remaining(utcNow) < 0)) return MinisterColour.Over;
+        if (s <= RedAtSeconds) return MinisterColour.Red;
+        if (s <= YellowAtSeconds) return MinisterColour.Yellow;
+        return MinisterColour.Green;
+    }
+
+    public bool IsOver(DateTime utcNow) => Colour(utcNow) == MinisterColour.Over;
+
+    public string Text(DateTime utcNow)
+    {
+        var s = Seconds(utcNow);
+        if (s >= 0) return CountdownShow.Format(s);
+        return CountOver ? "\u2212" + CountdownShow.Format(-s) : "0:00";
+    }
+
+    /// <summary>How much of the time is left, 0 to 1, for the bar.</summary>
+    public double Fraction(DateTime utcNow) => AllowedSeconds <= 0 ? 0 : Math.Clamp(Remaining(utcNow) / AllowedSeconds, 0, 1);
+
+    /// <summary>The line under the digits.</summary>
+    public string Message(DateTime utcNow, DateTime localNow, bool use24Hour)
+    {
+        var s = Seconds(utcNow);
+        var c = Colour(utcNow);
+        if (c == MinisterColour.Over)
+        {
+            var over = -s;
+            return over <= 0 ? "Time is up" : "Over by " + Spoken(over);
+        }
+        if (c == MinisterColour.Red && s <= CloseAtSeconds) return "Please start to close";
+        if (!Running) return Remaining(utcNow) >= AllowedSeconds ? $"of {CountdownShow.Format(AllowedSeconds)}" : $"Paused · {Spoken(s)} left";
+        var ends = localNow.AddSeconds(Remaining(utcNow));
+        return $"of {CountdownShow.Format(AllowedSeconds)} · ends {(use24Hour ? ends.ToString("HH:mm") : ends.ToString("h:mm tt"))}";
+    }
+
+    /// <summary>"2 minutes 14 seconds".</summary>
+    public static string Spoken(int seconds)
+    {
+        seconds = Math.Abs(seconds);
+        var m = seconds / 60;
+        var sec = seconds % 60;
+        var parts = new List<string>();
+        if (m > 0) parts.Add(m == 1 ? "1 minute" : $"{m} minutes");
+        if (sec > 0 || m == 0) parts.Add(sec == 1 ? "1 second" : $"{sec} seconds");
+        return string.Join(" ", parts);
+    }
+}
+
+/// <summary>A minister on today's list, set up before the service.</summary>
+public sealed record MinisterEntry(string Id, string Name, string Purpose, int Minutes);
+
 // ---------------- Media (video playback in Live Output) ----------------
 
 public enum MediaKind { Video, Image }

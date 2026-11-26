@@ -28,6 +28,8 @@ public enum SectionKind
     Countdown,
     /// <summary>Video and pictures played by the Live Output operator (not a terminal section).</summary>
     Media,
+    /// <summary>A big green, yellow and red timer on the Stage Monitor for a guest minister.</summary>
+    MinisterTimer,
 }
 
 /// <summary>Live Output layers, bottom to top (plan section 11).</summary>
@@ -92,6 +94,7 @@ public static class Sections
         new(SectionKind.Announcements, "Announcements", "Notice slides and loops before and after service.", Role.Announcements, Layer.Overlays, false),
         new(SectionKind.LowerThirds, "Lower Thirds", "Minister names and titles over cameras.", Role.LowerThirds, Layer.Overlays, false),
         new(SectionKind.Countdown, "Countdown", "Timers, sermon points and the Stage Monitor.", Role.Countdown, Layer.Overlays, false),
+        new(SectionKind.MinisterTimer, "Minister Timer", "A big timer on the Stage Monitor so ministers keep to time.", Role.Countdown, Layer.Overlays, false),
         new(SectionKind.Media, "Media", "Videos and pictures played on Live Output.", Role.LiveOutput, Layer.Media, false, Pickable: false),
     ];
 
@@ -165,11 +168,12 @@ public sealed record SlideContent(
     CountdownShow? Countdown = null,
     SermonPoints? Points = null,
     MediaPlay? Media = null,
-    CameraFeed? Camera = null)
+    CameraFeed? Camera = null,
+    MinisterTimerShow? Minister = null)
 {
     /// <summary>True when the content shows nothing (a blanked lyric slide).</summary>
     public bool IsBlank => Text.Length == 0 && Scripture is null && Lyrics is null && !Logo && Announcement is null &&
-        LowerThird is null && Countdown is null && Points is null && Media is null && Camera is null;
+        LowerThird is null && Countdown is null && Points is null && Media is null && Camera is null && Minister is null;
 }
 
 public sealed record LayerItem(
