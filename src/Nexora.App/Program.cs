@@ -16,6 +16,12 @@ internal static class Program
         VelopackApp.Build().Run();
 
         IsOutputEngine = args.Contains("--output-engine");
+        if (args.Contains("--audio-engine"))
+        {
+            // NEX-Audio's sound engine: no window, runs until asked to stop.
+            AppDomain.CurrentDomain.UnhandledException += (_, e) => AppLog.Write("Audio engine unhandled: " + e.ExceptionObject);
+            return Nexora.Audio.Engine.EngineProcess.Run(Nexora.Core.Config.AppPaths.Root, m => AppLog.Write(m));
+        }
         AppDomain.CurrentDomain.UnhandledException += (_, e) => AppLog.Write("Unhandled: " + e.ExceptionObject);
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {

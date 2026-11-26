@@ -44,6 +44,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         SectionKind.Countdown => new CountdownSectionViewModel(),
         SectionKind.MinisterTimer => new MinisterTimerSectionViewModel(),
         SectionKind.Camera => new CameraSectionViewModel(),
+        SectionKind.Audio => new NexAudioViewModel(),
         _ => new TestSlideSectionViewModel(k),
     };
 

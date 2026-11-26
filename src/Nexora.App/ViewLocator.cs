@@ -21,6 +21,7 @@ public sealed class ViewLocator : IDataTemplate
         [typeof(CountdownSectionViewModel)] = () => new Views.CountdownSectionView(),
         [typeof(MinisterTimerSectionViewModel)] = () => new Views.MinisterTimerSectionView(),
         [typeof(CameraSectionViewModel)] = () => new Views.CameraSectionView(),
+        [typeof(NexAudioViewModel)] = () => new Views.NexAudioView(),
         [typeof(LiveOutputViewModel)] = () => new Views.LiveOutputView(),
         [typeof(SettingsViewModel)] = () => new Views.SettingsView(),
         [typeof(StartupErrorViewModel)] = () => new Views.StartupErrorView(),

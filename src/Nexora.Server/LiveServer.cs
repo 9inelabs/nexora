@@ -507,7 +507,8 @@ public sealed partial class LiveServer : IAsyncDisposable
                 }
 
             s.Sections = allowed;
-            foreach (var kind in allowed)
+            // Sections such as NEX-Audio work on their own PC and never feed a screen.
+            foreach (var kind in allowed.Where(k => Sections.Get(k).ToScreens))
             {
                 var src = _live.RegisterSource(s.Hello!.PcId, s.Hello.PcName, kind, s.User!.Name);
                 _sourceOwner[src.Key] = s.Id;

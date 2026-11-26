@@ -129,7 +129,7 @@ public sealed partial class FirstRunViewModel : ViewModelBase
                 store.Branding = b with { ChurchName = ChurchName.Trim(), Address = Address.Trim() };
                 if (NeedsAdmin)
                     store.SaveUser(new UserInfo(Guid.NewGuid().ToString("N")[..10], AdminName.Trim(), UserInfo.MakeInitials(AdminName),
-                    Role.Admin | Role.LiveOutput | Role.Scripture | Role.Lyrics | Role.Camera | Role.Announcements | Role.LowerThirds | Role.Countdown,
+                    Role.Admin | Role.LiveOutput | Role.Scripture | Role.Lyrics | Role.Camera | Role.Announcements | Role.LowerThirds | Role.Countdown | Role.Audio,
                     "Studio manager"), AdminPin);
             }
             var cfg = S.Config;
