@@ -46,7 +46,7 @@
   <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="50,30,50,30" MaxWidth="1240">
     <!-- Header -->
     <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
-      <Image Source="avares://Nexora/Assets/nexora-lockup-white.png" Height="30" VerticalAlignment="Center" />
+      <c:NexoraLogo Foreground="{StaticResource Text1}" Height="30" VerticalAlignment="Center" />
       <Border Grid.Column="1" Classes="chip" Margin="20,0,0,0" Background="{StaticResource Surface2}">
         <TextBlock Text="{Binding ChurchName}" FontWeight="SemiBold" />
       </Border>

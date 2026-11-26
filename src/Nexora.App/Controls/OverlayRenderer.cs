@@ -12,7 +12,8 @@ namespace Nexora.App.Controls;
 /// <summary>Announcement slides, lower thirds and countdowns on the 1920×1080 canvas.</summary>
 public static class OverlayRenderer
 {
-    private const double W = ScreenView.W, H = ScreenView.H;
+    private static double W => CanvasSize.W;
+    private static double H => CanvasSize.H;
     private static readonly FontFamily Ui = new("avares://Nexora/Assets/Fonts#Manrope");
     private static readonly FontFamily Display = new("avares://Nexora/Assets/Fonts#Sora");
     public static readonly FontFamily Mono = new("avares://Nexora/Assets/Fonts#JetBrains Mono");

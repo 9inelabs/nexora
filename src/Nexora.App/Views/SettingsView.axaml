@@ -216,6 +216,7 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ScreenEdit">
                 <Border Classes="panel" Margin="0,0,0,12" Padding="16">
+                  <StackPanel>
                   <Grid ColumnDefinitions="2*,14,2*,14,2*,14,Auto,14,Auto">
                     <StackPanel>
                       <TextBlock Classes="label" Text="Name" />
@@ -240,6 +241,50 @@
                       <c:Icon Kind="trash" Width="16" Height="16" />
                     </Button>
                   </Grid>
+                  <StackPanel Spacing="10" Margin="0,14,0,0">
+                    <Grid ColumnDefinitions="2*,14,*,14,*,14,Auto">
+                      <StackPanel>
+                        <TextBlock Classes="label" Text="Screen shape" />
+                        <ComboBox SelectedIndex="{Binding ShapeIndex}" ItemsSource="{x:Static vm:ScreenEdit.ShapeOptions}" HorizontalAlignment="Stretch" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="2" IsVisible="{Binding IsCustomShape}">
+                        <TextBlock Classes="label" Text="Width (pixels)" />
+                        <NumericUpDown Value="{Binding PixelWidth}" Minimum="16" Maximum="16384" Increment="1" FormatString="0" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="4" IsVisible="{Binding IsCustomShape}">
+                        <TextBlock Classes="label" Text="Height (pixels)" />
+                        <NumericUpDown Value="{Binding PixelHeight}" Minimum="16" Maximum="16384" Increment="1" FormatString="0" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="6">
+                        <TextBlock Classes="label" Text="Test pattern" ToolTip.Tip="Shows a grid, the edges and a circle on this screen to check the fit on the wall. Save screens to show it." />
+                        <ToggleSwitch IsChecked="{Binding TestPattern}" OnContent="" OffContent="" />
+                      </StackPanel>
+                    </Grid>
+                    <TextBlock Classes="faint small" TextWrapping="Wrap" Text="{Binding ShapeNote}" />
+                    <Grid ColumnDefinitions="*,14,*">
+                      <CheckBox IsChecked="{Binding UseArea}" Content="Use only part of the display" ToolTip.Tip="For an LED processor that reads one area of the HDMI picture." />
+                      <CheckBox Grid.Column="2" IsChecked="{Binding StretchToFill}" Content="Stretch to fill the display" ToolTip.Tip="For an LED processor that squeezes the whole HDMI picture onto the wall. The layout still follows the screen shape above." />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,14,*,14,*,14,*" IsVisible="{Binding UseArea}">
+                      <StackPanel>
+                        <TextBlock Classes="label" Text="From left (pixels)" />
+                        <NumericUpDown Value="{Binding AreaX}" Minimum="0" Maximum="16384" Increment="1" FormatString="0" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="2">
+                        <TextBlock Classes="label" Text="From top (pixels)" />
+                        <NumericUpDown Value="{Binding AreaY}" Minimum="0" Maximum="16384" Increment="1" FormatString="0" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="4">
+                        <TextBlock Classes="label" Text="Width (pixels)" />
+                        <NumericUpDown Value="{Binding AreaWidth}" Minimum="16" Maximum="16384" Increment="1" FormatString="0" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="6">
+                        <TextBlock Classes="label" Text="Height (pixels)" />
+                        <NumericUpDown Value="{Binding AreaHeight}" Minimum="16" Maximum="16384" Increment="1" FormatString="0" />
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                  </StackPanel>
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -670,11 +715,21 @@
         <StackPanel IsVisible="{Binding IsUpdates}" Spacing="20" MaxWidth="760" HorizontalAlignment="Left">
           <StackPanel Spacing="6">
             <TextBlock Classes="h1" Text="Updates" />
-            <TextBlock Classes="muted" TextWrapping="Wrap" Text="The Live Output PC hands new versions to every PC over the church network. No internet is needed on the terminals." />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="Update the Live Output PC with one press. It hands the new version to every PC over the church network, and terminals update by themselves when nobody is signed in on them. No internet is needed on the terminals. Users, songs, settings and media are kept." />
           </StackPanel>
+          <Border Classes="card" Padding="18" IsVisible="{Binding !IsTerminal}">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h3" Text="Update NEXORA" />
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding OnlineState}" />
+              <Button Classes="primary" HorizontalAlignment="Left" Command="{Binding UpdateOnlineCommand}" IsEnabled="{Binding !UpdateBusy}">
+                <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="download" Width="13" Height="13" /><TextBlock Text="Update NEXORA" /></StackPanel>
+              </Button>
+              <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Needs internet on this PC. It downloads the newest version, offers it to every PC, installs it here and restarts NEXORA. Do it outside a service." />
+            </StackPanel>
+          </Border>
           <Border Classes="card" Padding="18">
             <StackPanel Spacing="12">
-              <TextBlock Classes="h3" Text="This PC" />
+              <TextBlock Classes="h3" Text="Version offered on the church network" />
               <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding UpdateState}" />
               <Button Classes="primary" HorizontalAlignment="Left" Command="{Binding InstallUpdateCommand}" IsEnabled="{Binding CanInstall}">
                 <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="download" Width="13" Height="13" /><TextBlock Text="Install the offered version" /></StackPanel>
@@ -684,7 +739,7 @@
           </Border>
           <Border Classes="card" Padding="18" IsVisible="{Binding !IsTerminal}">
             <StackPanel Spacing="12">
-              <TextBlock Classes="h3" Text="Offer a new version to every PC" />
+              <TextBlock Classes="h3" Text="No internet? Update from files" />
               <TextBlock Classes="muted small" TextWrapping="Wrap"
                          Text="Download the update files (NEXORA-Update folder: releases.win.json and the .nupkg) onto this PC, then choose releases.win.json here." />
               <StackPanel Orientation="Horizontal" Spacing="8">

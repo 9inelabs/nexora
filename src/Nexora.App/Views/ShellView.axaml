@@ -8,7 +8,7 @@
     <!-- Side rail -->
     <Border Background="{StaticResource Ground}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
       <Grid RowDefinitions="Auto,*,Auto" Margin="0,16">
-        <Image Source="avares://Nexora/Assets/nexora-mark-white.png" Width="32" HorizontalAlignment="Center" Margin="0,4,0,22" />
+        <c:NexoraLogo Part="Mark" Foreground="{StaticResource Text1}" Width="32" HorizontalAlignment="Center" Margin="0,4,0,22" />
         <StackPanel Grid.Row="1" Spacing="8">
           <ItemsControl ItemsSource="{Binding Pages}">
             <ItemsControl.ItemTemplate>

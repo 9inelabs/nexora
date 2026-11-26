@@ -13,7 +13,8 @@ namespace Nexora.App.Controls;
 /// </summary>
 public static class MinisterRenderer
 {
-    private const double W = ScreenView.W, H = ScreenView.H;
+    private static double W => CanvasSize.W;
+    private static double H => CanvasSize.H;
     private static readonly FontFamily Ui = new("avares://Nexora/Assets/Fonts#Manrope");
     private static readonly FontFamily Mono = new("avares://Nexora/Assets/Fonts#JetBrains Mono");
 
@@ -119,7 +120,7 @@ public static class MinisterRenderer
         var name = new TextBlock
         {
             Text = title.Length == 0 ? "Minister" : title, FontFamily = Ui, FontWeight = FontWeight.SemiBold, FontSize = 51, Foreground = Title,
-            HorizontalAlignment = HorizontalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 1600,
+            HorizontalAlignment = HorizontalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = W - 320,
         };
         var badge = new Border
         {
@@ -134,9 +135,10 @@ public static class MinisterRenderer
             FontFamily = Mono, FontWeight = FontWeight.Medium, FontSize = 440, LetterSpacing = -15,
             HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, -20, 0, -40),
         };
-        column.Children.Add(time);
+        // On a narrow (square or portrait) screen the digits shrink to fit.
+        column.Children.Add(new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, MaxWidth = W - 120, Child = time });
 
-        const double barWidth = 1350;
+        var barWidth = Math.Min(1350, W * 0.8);
         var fill = new Border { Height = 24, HorizontalAlignment = HorizontalAlignment.Left, CornerRadius = new CornerRadius(12) };
         column.Children.Add(new Border
         {

@@ -7,3 +7,4 @@ Releases/
 .idea/
 TestResults/
 *.swp
+.bgcache/

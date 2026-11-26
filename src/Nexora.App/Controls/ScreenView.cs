@@ -52,6 +52,30 @@ public sealed class ScreenView : UserControl
     public static readonly StyledProperty<bool> CleanProperty =
         AvaloniaProperty.Register<ScreenView, bool>(nameof(Clean));
 
+    /// <summary>This screen's own shape (an output window sets it from its screen's settings). Empty: follow the screen list.</summary>
+    public static readonly StyledProperty<Size> ShapeProperty =
+        AvaloniaProperty.Register<ScreenView, Size>(nameof(Shape));
+
+    /// <summary>Shows the test pattern instead of the content.</summary>
+    public static readonly StyledProperty<bool> TestPatternProperty =
+        AvaloniaProperty.Register<ScreenView, bool>(nameof(TestPattern));
+
+    public static readonly StyledProperty<bool> StretchToFillProperty =
+        AvaloniaProperty.Register<ScreenView, bool>(nameof(StretchToFill));
+
+    public bool StretchToFill { get => GetValue(StretchToFillProperty); set => SetValue(StretchToFillProperty, value); }
+
+    public Size Shape { get => GetValue(ShapeProperty); set => SetValue(ShapeProperty, value); }
+    public bool TestPattern { get => GetValue(TestPatternProperty); set => SetValue(TestPatternProperty, value); }
+
+    /// <summary>The canvas this view lays out on: the recording is always 16:9; otherwise its own or its screen's shape.</summary>
+    public (double W, double H) CanvasFor()
+    {
+        if (Kind == ScreenKind.Broadcast) return (1920, 1080);
+        if (Shape.Width > 0 && Shape.Height > 0) return (Shape.Width, Shape.Height);
+        return Kind == ScreenKind.Stage ? CanvasSize.Stage : CanvasSize.Audience;
+    }
+
     public ScreenFrame? Frame { get => GetValue(FrameProperty); set => SetValue(FrameProperty, value); }
     public ScreenKind Kind { get => GetValue(KindProperty); set => SetValue(KindProperty, value); }
     public Branding? Branding { get => GetValue(BrandingProperty); set => SetValue(BrandingProperty, value); }
@@ -63,7 +87,8 @@ public sealed class ScreenView : UserControl
     public StageLayout? StageLayout { get => GetValue(StageLayoutProperty); set => SetValue(StageLayoutProperty, value); }
     public bool Clean { get => GetValue(CleanProperty); set => SetValue(CleanProperty, value); }
 
-    public const double W = 1920, H = 1080;
+    public static double W => CanvasSize.W;
+    public static double H => CanvasSize.H;
     private static readonly IBrush OutputBlack = new SolidColorBrush(Color.Parse("#0C0C0E"));
     private static readonly IBrush OutputAccent = new SolidColorBrush(Color.Parse("#E9C77E"));
     private static readonly IBrush Dim = new SolidColorBrush(Color.Parse("#8A8D94"));
@@ -73,6 +98,7 @@ public sealed class ScreenView : UserControl
     private static readonly FontFamily Mono = new("avares://Nexora/Assets/Fonts#JetBrains Mono");
 
     private readonly Panel _canvas;
+    private readonly Viewbox _box;
     private string _signature = "";
     private ScreenFrame? _shown;
     private TextBlock? _clock;
@@ -88,8 +114,8 @@ public sealed class ScreenView : UserControl
 
     public ScreenView()
     {
-        _canvas = new Panel { Width = W, Height = H, Background = OutputBlack, ClipToBounds = true };
-        Content = new Viewbox { Stretch = Stretch.Uniform, Child = _canvas };
+        _canvas = new Panel { Width = 1920, Height = 1080, Background = OutputBlack, ClipToBounds = true };
+        Content = _box = new Viewbox { Stretch = Stretch.Uniform, Child = _canvas };
         ClipToBounds = true;
     }
 
@@ -101,8 +127,9 @@ public sealed class ScreenView : UserControl
         base.OnPropertyChanged(change);
         if (change.Property == FrameProperty || change.Property == KindProperty || change.Property == BrandingProperty ||
             change.Property == ScreenNameProperty || change.Property == StageLayoutProperty || change.Property == CleanProperty ||
-            change.Property == IsOutputProperty)
+            change.Property == IsOutputProperty || change.Property == ShapeProperty || change.Property == TestPatternProperty)
             Rebuild();
+        else if (change.Property == StretchToFillProperty) _box.Stretch = StretchToFill ? Stretch.Fill : Stretch.Uniform;
         else if (change.Property == ShowGuidesProperty || change.Property == LiveVideoProperty)
         {
             _signature = "";
@@ -129,6 +156,8 @@ public sealed class ScreenView : UserControl
 
     private void Tick()
     {
+        var (cw, ch) = CanvasFor();
+        using var scope = CanvasSize.Use(cw, ch);
         var now = DateTime.UtcNow;
         if (_clock is not null) _clock.Text = ClockText(DateTime.Now);
         foreach (var c in _countdowns) OverlayRenderer.Update(c, now);
@@ -150,6 +179,20 @@ public sealed class ScreenView : UserControl
 
     private void Rebuild()
     {
+        // Everything below lays out in this screen's own shape.
+        var (cw, ch) = CanvasFor();
+        using var scope = CanvasSize.Use(cw, ch);
+        if (_canvas.Width != cw || _canvas.Height != ch)
+        {
+            _canvas.Width = cw;
+            _canvas.Height = ch;
+            _signature = "";
+        }
+        RebuildCore();
+    }
+
+    private void RebuildCore()
+    {
         if (!this.IsAttachedToVisualTree() && _canvas.Children.Count > 0) return;
         var frame = Frame;
         var branding = Branding ?? Core.Model.Branding.Default;
@@ -169,9 +212,23 @@ public sealed class ScreenView : UserControl
         _releases.Clear();
 
         var next = new Panel { Width = W, Height = H };
-        if (Kind == ScreenKind.Stage) BuildStage(next, frame, branding);
-        else if (IsOutput && frame?.Rehearsal == true && Kind == ScreenKind.Audience) next.Children.Add(LogoScreen(branding));
-        else BuildAudience(next, frame, branding, Kind == ScreenKind.Broadcast);
+        if (TestPattern)
+        {
+            next.Children.Add(TestPatternLayer());
+            foreach (var r in oldReleases) r();
+            _canvas.Children.Clear();
+            _canvas.Children.Add(next);
+            return;
+        }
+        // Output windows play video backgrounds; one decoder per loop is shared, so a new verse does not restart it.
+        ScriptureRenderer.VideoLoop = LiveVideo ? LoopLayer : null;
+        try
+        {
+            if (Kind == ScreenKind.Stage) BuildStage(next, frame, branding);
+            else if (IsOutput && frame?.Rehearsal == true && Kind == ScreenKind.Audience) next.Children.Add(LogoScreen(branding));
+            else BuildAudience(next, frame, branding, Kind == ScreenKind.Broadcast);
+        }
+        finally { ScriptureRenderer.VideoLoop = null; }
 
         // The church logo in the corner of the recording and stream.
         if (Kind == ScreenKind.Broadcast && branding.CornerWatermark && !Clean && frame?.Master != MasterMode.Black && LogoBitmap(branding) is { } mark)
@@ -255,7 +312,7 @@ public sealed class ScreenView : UserControl
         var items = f is null ? "" : string.Join("|", f.Items.Select(i => $"{i.Sequence}:{i.Layer}:{i.SourceKey}:{Hash(i.Content)}"));
         var ann = CurrentAnnouncement(f)?.Current(DateTime.UtcNow).Index ?? -1;
         var stage = Kind == ScreenKind.Stage ? $"{StageLayout}/{f?.Booth}" : "";
-        return $"{Kind}/{ScreenName}/{f?.Master}/{f?.Rehearsal}/{IsOutput}/{Clean}/{items}/{ann}/{stage}/{b.ChurchName}/{b.LogoLine}/{b.LogoWhenIdle}/{b.CornerWatermark}/{b.LogoPngBase64?.Length}/{b.LogoPngBase64?.GetHashCode()}";
+        return $"{W}x{H}/{TestPattern}/{Kind}/{ScreenName}/{f?.Master}/{f?.Rehearsal}/{IsOutput}/{Clean}/{items}/{ann}/{stage}/{b.ChurchName}/{b.LogoLine}/{b.LogoWhenIdle}/{b.CornerWatermark}/{b.LogoPngBase64?.Length}/{b.LogoPngBase64?.GetHashCode()}";
     }
 
     private static string Hash(SlideContent c) =>
@@ -358,6 +415,66 @@ public sealed class ScreenView : UserControl
         }
     }
 
+    /// <summary>A pattern to line the picture up on an LED wall: the edges, a grid, the centre and the size.</summary>
+    private Control TestPatternLayer()
+    {
+        var canvas = new Canvas { Width = W, Height = H, Background = OutputBlack };
+        var grid = new SolidColorBrush(Color.Parse("#3A3D44"));
+        for (double x = 0; x <= W; x += 120)
+            canvas.Children.Add(new Avalonia.Controls.Shapes.Line { StartPoint = new Point(x, 0), EndPoint = new Point(x, H), Stroke = grid, StrokeThickness = 2 });
+        for (double y = 0; y <= H; y += 120)
+            canvas.Children.Add(new Avalonia.Controls.Shapes.Line { StartPoint = new Point(0, y), EndPoint = new Point(W, y), Stroke = grid, StrokeThickness = 2 });
+        // Diagonals and a circle: a stretched picture shows as an oval.
+        var line = new SolidColorBrush(Color.Parse("#6B6F78"));
+        canvas.Children.Add(new Avalonia.Controls.Shapes.Line { StartPoint = new Point(0, 0), EndPoint = new Point(W, H), Stroke = line, StrokeThickness = 2 });
+        canvas.Children.Add(new Avalonia.Controls.Shapes.Line { StartPoint = new Point(W, 0), EndPoint = new Point(0, H), Stroke = line, StrokeThickness = 2 });
+        var d = Math.Min(W, H) * 0.8;
+        var circle = new Avalonia.Controls.Shapes.Ellipse { Width = d, Height = d, Stroke = OutputAccent, StrokeThickness = 6 };
+        Avalonia.Controls.Canvas.SetLeft(circle, (W - d) / 2);
+        Avalonia.Controls.Canvas.SetTop(circle, (H - d) / 2);
+        canvas.Children.Add(circle);
+        // Edges: red outside line, so a cut-off edge is easy to see.
+        canvas.Children.Add(new Border { Width = W, Height = H, BorderBrush = new SolidColorBrush(Color.Parse("#FF3B3B")), BorderThickness = new Thickness(12) });
+        // Colour bars along the bottom.
+        string[] bars = ["#FFFFFF", "#FFD400", "#00D8FF", "#00D84A", "#E600E6", "#FF2A2A", "#1E3CFF", "#000000"];
+        var barW = (W - 240) / bars.Length;
+        for (var i = 0; i < bars.Length; i++)
+        {
+            var b = new Border { Width = barW, Height = 90, Background = new SolidColorBrush(Color.Parse(bars[i])) };
+            Avalonia.Controls.Canvas.SetLeft(b, 120 + i * barW);
+            Avalonia.Controls.Canvas.SetTop(b, H - 210);
+            canvas.Children.Add(b);
+        }
+        var label = new Border
+        {
+            Background = new SolidColorBrush(Color.Parse("#E60C0C0E")), CornerRadius = new CornerRadius(14), Padding = new Thickness(36, 18),
+            Child = new StackPanel
+            {
+                Spacing = 6,
+                Children =
+                {
+                    new TextBlock { Text = (ScreenName ?? "Screen").ToUpperInvariant(), FontFamily = Ui, FontWeight = FontWeight.Bold, FontSize = 44, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center },
+                    new TextBlock { Text = W >= H ? $"Shape {W / H:0.##} : 1" : $"Shape 1 : {H / W:0.##}", FontFamily = Mono, FontSize = 32, Foreground = OutputAccent, HorizontalAlignment = HorizontalAlignment.Center },
+                    new TextBlock { Text = "Red line = the edge of the picture", FontFamily = Ui, FontSize = 26, Foreground = Dim, HorizontalAlignment = HorizontalAlignment.Center },
+                },
+            },
+        };
+        return new Panel { Width = W, Height = H, Children = { canvas, new Panel { Children = { label }, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } } };
+    }
+
+    private Control? LoopLayer(string? file)
+    {
+        if (BackgroundLoops.PathOf(file) is null) return null;
+        var feed = BackgroundLoops.Acquire(file!);
+        _releases.Add(() => BackgroundLoops.Release(file!));
+        var panel = new Panel { Width = W, Height = H };
+        // The still sits underneath until the first frame arrives.
+        if (MediaImages.Get(Path.ChangeExtension(file!, ".jpg")) is { } still)
+            panel.Children.Add(new Image { Source = still, Stretch = Stretch.UniformToFill, Width = W, Height = H });
+        panel.Children.Add(new VideoView { Feed = feed, Fill = true, Width = W, Height = H });
+        return panel;
+    }
+
     private Control CameraLayer(SlideContent c)
     {
         if (c.Camera is { } feed && LiveVideo)
@@ -437,7 +554,7 @@ public sealed class ScreenView : UserControl
         Padding = new Thickness(36, 20),
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
-        Child = new TextBlock { Text = text, FontFamily = Ui, FontSize = 36, Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap, MaxWidth = 1400 },
+        Child = new TextBlock { Text = text, FontFamily = Ui, FontSize = 36, Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap, MaxWidth = W - 200 },
     };
 
     private static Control PlainText(LayerItem item, bool compact)
@@ -446,7 +563,7 @@ public sealed class ScreenView : UserControl
         {
             Spacing = 26, HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = compact ? VerticalAlignment.Bottom : VerticalAlignment.Center,
-            Margin = compact ? new Thickness(0, 0, 0, 90) : new Thickness(0), MaxWidth = 1640,
+            Margin = compact ? new Thickness(0, 0, 0, 90) : new Thickness(0), MaxWidth = W - 280,
         };
         sp.Children.Add(new TextBlock
         {
@@ -531,7 +648,7 @@ public sealed class ScreenView : UserControl
         {
             Text = b.ChurchName, FontFamily = Display, FontWeight = FontWeight.Regular, FontSize = 76,
             Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center,
-            TextWrapping = TextWrapping.Wrap, MaxWidth = 1600,
+            TextWrapping = TextWrapping.Wrap, MaxWidth = W - 320,
         });
         if (!string.IsNullOrWhiteSpace(b.LogoLine))
             sp.Children.Add(new TextBlock

@@ -393,7 +393,7 @@ public sealed partial class CameraSectionViewModel : SectionBase, IKeyHandler
         try
         {
             const int w = 1920, h = 1080;
-            _rtb ??= new RenderTargetBitmap(new PixelSize(w, h), new Vector(96.0 * w / ScreenView.W, 96.0 * h / ScreenView.H));
+            _rtb ??= new RenderTargetBitmap(new PixelSize(w, h), new Vector(96.0 * w / 1920, 96.0 * h / 1080));
             _rtb.Render(surface);
             _ndiBuffer ??= new byte[w * h * 4];
             fixed (byte* p = _ndiBuffer)

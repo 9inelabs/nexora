@@ -1,10 +1,11 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
              x:Class="Nexora.App.Views.StartupErrorView"
              x:DataType="vm:StartupErrorViewModel">
   <Grid RowDefinitions="Auto,*" Margin="40,30">
-    <Image Source="avares://Nexora/Assets/nexora-lockup-white.png" Height="30" HorizontalAlignment="Left" />
+    <c:NexoraLogo Foreground="{StaticResource Text1}" Height="30" HorizontalAlignment="Left" />
     <Border Grid.Row="1" Classes="card" Padding="34" Width="560" HorizontalAlignment="Center" VerticalAlignment="Center">
       <StackPanel Spacing="14">
         <TextBlock Classes="h1" Text="NEXORA could not start" />

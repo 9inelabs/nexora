@@ -260,7 +260,7 @@ public sealed partial class LiveOutputViewModel
     public string RecordLabel => Recording ? "Stop recording" : "Start recording";
     public string StreamLabel => Streaming ? "Stop streaming" : "Start streaming";
     public string RecordText => Recording
-        ? $"Recording · {Time(Engine.RecordingSeconds)} · {Path.GetFileName(Engine.RecordingFile ?? "")}"
+        ? $"Recording · {Time(Engine.RecordingSeconds)} · {Path.GetFileName(Engine.RecordingFile ?? "")}" + (Engine.RecordProblem is { } warn ? $"\n{warn}" : "")
         : Engine.RecordProblem ?? (Engine.FfmpegAvailable ? "Not recording" : "The recorder (ffmpeg) is missing on this PC.");
     public string StreamText => Streaming
         ? $"{Engine.StreamState} · {Engine.StreamKbps:0} kbps · {Engine.DroppedFrames} dropped"

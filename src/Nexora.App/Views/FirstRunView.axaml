@@ -5,7 +5,7 @@
              x:Class="Nexora.App.Views.FirstRunView"
              x:DataType="vm:FirstRunViewModel">
   <Grid RowDefinitions="Auto,*,Auto" Margin="40,30">
-    <Image Source="avares://Nexora/Assets/nexora-lockup-white.png" Height="30" HorizontalAlignment="Left" />
+    <c:NexoraLogo Foreground="{StaticResource Text1}" Height="30" HorizontalAlignment="Left" />
 
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
       <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,24">

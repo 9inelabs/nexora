@@ -57,13 +57,50 @@ jobs:
           & publish/ffmpeg/ffmpeg.exe -hide_banner -version | Select-Object -First 1
           if (Test-Path publish/libvlc) { Get-ChildItem publish/libvlc } else { Write-Warning "LibVLC folder not found in publish" }
 
+      - name: Keep the downloaded backgrounds between builds
+        uses: actions/cache@v4
+        with:
+          path: .bgcache
+          key: backgrounds-${{ hashFiles('assets/backgrounds/backgrounds.json', 'scripts/fetch_backgrounds.py') }}
+
+      - name: Add the built-in backgrounds (pictures and video loops)
+        shell: pwsh
+        run: |
+          python scripts/fetch_backgrounds.py assets/backgrounds/backgrounds.json publish/Backgrounds .bgcache publish/ffmpeg/ffmpeg.exe publish/ffmpeg/ffprobe.exe
+          if ($LASTEXITCODE -ne 0) { throw "Could not prepare the backgrounds" }
+
+      - name: Check the recorder works with this FFmpeg
+        shell: cmd
+        run: |
+          set FF=publish\ffmpeg\ffmpeg.exe
+          rem Make two seconds of raw frames first, then feed them to FFmpeg the way NEXORA does,
+          rem so a refusal by the encoder fails this step (and the build) instead of a church's recording.
+          %FF% -hide_banner -loglevel error -y -f lavfi -i color=black:s=1280x720:r=30 -frames:v 60 -f rawvideo -pix_fmt bgra "%RUNNER_TEMP%\frames.raw"
+          if errorlevel 1 exit /b 1
+          rem The same arguments NEXORA uses for a recording without a sound device.
+          %FF% -hide_banner -loglevel error -nostats -progress pipe:1 -stats_period 1 -y -f rawvideo -pix_fmt bgra -s 1280x720 -r 30 -i pipe:0 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 -shortest -map 0:v -map 1:a -c:v libx264 -preset veryfast -tune zerolatency -b:v 6000k -maxrate 6000k -bufsize 12000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 160k -ar 48000 -movflags +frag_keyframe+empty_moov+default_base_moof -f mp4 "%RUNNER_TEMP%\silent.mp4" < "%RUNNER_TEMP%\frames.raw" > nul
+          if errorlevel 1 (echo The bundled FFmpeg refused NEXORA's recording settings & exit /b 1)
+          for %%F in ("%RUNNER_TEMP%\silent.mp4") do if %%~zF LSS 1000 (echo The test recording is empty & exit /b 1)
+          echo Silent recording OK
+          rem The input options NEXORA uses for a sound device must still be accepted (a missing device is fine here).
+          %FF% -hide_banner -loglevel error -f dshow -audio_buffer_size 50 -i "audio=No Such Device" -t 1 -f null - > "%RUNNER_TEMP%\dshow.txt" 2>&1
+          type "%RUNNER_TEMP%\dshow.txt"
+          findstr /i /c:"Option not found" /c:"cannot be applied" /c:"Error parsing options" "%RUNNER_TEMP%\dshow.txt" && (echo The bundled FFmpeg refused NEXORA's sound settings & exit /b 1)
+          exit /b 0
+
       - name: Build the installer (Velopack)
         shell: pwsh
         run: |
           dotnet tool install -g vpk --version 1.2.161
+          # The last release's package lets vpk make a small "delta" update, so PCs download only what changed.
+          vpk download github --repoUrl https://github.com/${{ github.repository }} --pre --token ${{ secrets.GITHUB_TOKEN }} --outputDir Releases
+          if ($LASTEXITCODE -ne 0) { Write-Warning "No earlier release to make a small update from; this one is a full download." }
+          $global:LASTEXITCODE = 0
           vpk pack --packId Nexora --packVersion ${{ steps.version.outputs.value }} --packDir publish `
             --mainExe Nexora.exe --packTitle NEXORA --packAuthors NEXORA `
             --icon src/Nexora.App/Assets/nexora.ico --outputDir Releases
+          # Keep only this version's full package (the earlier one was only needed to make the delta).
+          Get-ChildItem Releases/*-full.nupkg | Where-Object { $_.Name -notlike "*-${{ steps.version.outputs.value }}-full.nupkg" } | Remove-Item
           Get-ChildItem Releases
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item Releases/Nexora-win-Setup.exe out/NEXORA-Setup.exe
@@ -72,6 +109,7 @@ jobs:
           Copy-Item docs/PHASE2-TESTING.md out/PHASE2-TESTING.md
           Copy-Item docs/TESTING-PHASES-3-8.md out/TESTING-PHASES-3-8.md
           Copy-Item docs/OPERATOR-GUIDE.md out/OPERATOR-GUIDE.md
+          Copy-Item publish/Backgrounds/CREDITS.txt out/BACKGROUNDS-CREDITS.txt
           # The files the Live Output PC offers to the other PCs (Settings > Updates).
           New-Item -ItemType Directory -Force update/NEXORA-Update | Out-Null
           Copy-Item Releases/releases.win.json update/NEXORA-Update/
@@ -85,6 +123,7 @@ jobs:
           path: |
             out/NEXORA-Setup.exe
             out/*.md
+            out/*.txt
           retention-days: 30
 
       - name: Upload the LAN update files
@@ -103,7 +142,10 @@ jobs:
           prerelease: true
           body: |
             Test build of NEXORA. Download **NEXORA-Setup.exe** below and follow PHASE1-TESTING.md and TESTING-PHASES-3-8.md.
+          # releases.win.json and the packages let "Update NEXORA" find and download this version.
           files: |
+            Releases/releases.win.json
+            Releases/*.nupkg
             out/NEXORA-Setup.exe
             out/NEXORA-Portable.zip
             out/PHASE1-TESTING.md

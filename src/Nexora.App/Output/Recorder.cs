@@ -47,6 +47,10 @@ public sealed class FfmpegPipe : IDisposable
     public int Dropped { get; private set; }
     public int Skipped;
     public string? LastError { get; private set; }
+    private readonly List<string> _errors = [];
+
+    /// <summary>Every error line FFmpeg printed, oldest first (at most 20).</summary>
+    public IReadOnlyList<string> Errors { get { lock (_errors) return _errors.ToList(); } }
     public DateTime LastProgressUtc { get; private set; } = DateTime.UtcNow;
     public bool Exited => _p.HasExited;
     public int? ExitCode => _p.HasExited ? _p.ExitCode : null;
@@ -130,6 +134,7 @@ public sealed class FfmpegPipe : IDisposable
             line.Contains("refused", StringComparison.OrdinalIgnoreCase) || line.Contains("No such", StringComparison.OrdinalIgnoreCase))
         {
             LastError = line.Trim();
+            lock (_errors) { if (_errors.Count < 20) _errors.Add(line.Trim()); }
             AppLog.Write($"FFmpeg {Name}: {line.Trim()}");
         }
     }
@@ -171,6 +176,9 @@ public sealed class Recorder : IDisposable
     private DateTime _nextStreamTry;
     private int _streamTries;
     private string? _encoder;
+    private bool _recordSilent;
+    private bool _recordRetried;
+    private string? _recordName;
 
     public BroadcastSettings Settings { get; set; } = new();
     public string? RecordingFile { get; private set; }
@@ -237,11 +245,17 @@ public sealed class Recorder : IDisposable
             {
                 Directory.CreateDirectory(RecordFolder);
                 var name = FileName(serviceName ?? Settings.ServiceName);
-                RecordingFile = Path.Combine(RecordFolder, name + ".mp4");
-                _record = new FfmpegPipe("recording", ff, Args(ff, RecordingFile, stream: false, withAudio: true));
-                if (Settings.CleanRecording)
-                    _clean = new FfmpegPipe("clean recording", ff, Args(ff, Path.Combine(RecordFolder, name + " (camera only).mp4"), stream: false, withAudio: true));
+                _recordName = name;
+                _recordRetried = false;
                 RecordProblem = null;
+                // A sound device that is not plugged in would stop FFmpeg at once: record silently instead and say so.
+                _recordSilent = false;
+                if (HasSoundDevice && !SoundDevicePresent())
+                {
+                    _recordSilent = true;
+                    RecordProblem = SoundMissing();
+                }
+                OpenRecording(ff);
                 AppLog.Write("Recording to " + RecordingFile);
                 return null;
             }
@@ -251,6 +265,49 @@ public sealed class Recorder : IDisposable
                 return RecordProblem = "Recording could not start: " + ex.Message;
             }
         }
+    }
+
+    private void OpenRecording(string ff)
+    {
+        RecordingFile = Path.Combine(RecordFolder, _recordName + ".mp4");
+        _record = new FfmpegPipe("recording", ff, Args(ff, RecordingFile, stream: false, withAudio: !_recordSilent));
+        if (Settings.CleanRecording)
+            _clean = new FfmpegPipe("clean recording", ff, Args(ff, Path.Combine(RecordFolder, _recordName + " (camera only).mp4"), stream: false, withAudio: !_recordSilent));
+    }
+
+    private bool HasSoundDevice => !string.IsNullOrWhiteSpace(Settings.AudioDevice) && OperatingSystem.IsWindows();
+
+    private bool SoundDevicePresent()
+    {
+        try
+        {
+            var list = Nexora.App.Controls.DirectShow.AudioDevices();
+            // If Windows lists nothing at all, let FFmpeg try (the list itself may have failed).
+            return list.Count == 0 || list.Contains(Settings.AudioDevice!);
+        }
+        catch { return true; }
+    }
+
+    private string SoundMissing() =>
+        $"Recording without sound: the sound device \"{Settings.AudioDevice}\" could not be opened. " +
+        "Check the mixer cable is plugged into this PC, then pick the sound device again in Settings › Recording & streaming.";
+
+    /// <summary>Turns FFmpeg's last words into something the media team can act on.</summary>
+    public static string Explain(IReadOnlyList<string> errors, bool usedSound, string folder)
+    {
+        var all = string.Join(" | ", errors);
+        bool Has(string x) => all.Contains(x, StringComparison.OrdinalIgnoreCase);
+        if (Has("Permission denied") || Has("Access is denied") || (Has("No such file or directory") && !Has("dshow")))
+            return $"NEXORA cannot write to the recording folder ({folder}). Pick another folder in Settings › Recording & streaming, or check the drive is connected.";
+        if (Has("No space left"))
+            return "The recording drive is full. Free up space or pick another folder in Settings › Recording & streaming.";
+        if (usedSound && (Has("dshow") || Has("audio") || Has("Error opening input")))
+            return "NEXORA could not open the sound device. Check the mixer cable is plugged into this PC, then pick the sound device again in Settings › Recording & streaming.";
+        if (Has("nvenc") || Has("qsv") || Has("encoder"))
+            return "The graphics card could not record. NEXORA will use the PC's processor instead; press Start recording again.";
+        var detail = errors.FirstOrDefault(e => !e.StartsWith("Error opening input files", StringComparison.OrdinalIgnoreCase)) ?? errors.FirstOrDefault();
+        return "The recorder could not start. Check the sound device and recording folder in Settings › Recording & streaming, then try again." +
+            (detail is null ? "" : $" (Details for support: {detail})");
     }
 
     public void StopRecording()
@@ -306,7 +363,9 @@ public sealed class Recorder : IDisposable
         {
             var url = Settings.StreamUrl!.TrimEnd('/');
             if (!string.IsNullOrWhiteSpace(Settings.StreamKey)) url += "/" + Settings.StreamKey!.Trim();
-            _stream = new FfmpegPipe("stream", FfmpegPath!, Args(FfmpegPath!, url, stream: true, withAudio: true));
+            var sound = !HasSoundDevice || SoundDevicePresent();
+            if (!sound) StreamProblem = "Streaming without sound: the sound device \"" + Settings.AudioDevice + "\" could not be opened. Check the mixer cable and Settings › Recording & streaming.";
+            _stream = new FfmpegPipe("stream", FfmpegPath!, Args(FfmpegPath!, url, stream: true, withAudio: sound));
         }
         catch (Exception ex)
         {
@@ -322,10 +381,35 @@ public sealed class Recorder : IDisposable
         {
             if (_record is { Exited: true } r)
             {
-                RecordProblem = "Recording stopped unexpectedly. " + (r.LastError ?? "");
-                AppLog.Write(RecordProblem);
+                var errors = r.Errors;
+                var early = DateTime.UtcNow - r.StartedUtc < TimeSpan.FromSeconds(20);
+                var usedSound = HasSoundDevice && !_recordSilent;
+                AppLog.Write("Recording stopped: " + string.Join(" | ", errors));
                 _record = null;
                 r.Dispose();
+                var c = _clean;
+                _clean = null;
+                c?.Dispose();
+                if (early && !_recordRetried && FfmpegPath is { } ff)
+                {
+                    // It failed as it started. Try once more the safe way: no sound device, the PC's own encoder.
+                    _recordRetried = true;
+                    if (usedSound) _recordSilent = true;
+                    var hardware = _encoder is "h264_nvenc" or "h264_qsv";
+                    if (hardware) _encoder = "libx264";
+                    if (usedSound || hardware)
+                    {
+                        try
+                        {
+                            OpenRecording(ff);
+                            RecordProblem = usedSound ? SoundMissing() : null;
+                            AppLog.Write("Recording restarted " + (usedSound ? "without sound" : "with the software encoder"));
+                        }
+                        catch (Exception ex) { AppLog.Write("Recording retry: " + ex.Message); }
+                    }
+                }
+                if (_record is null)
+                    RecordProblem = (early ? "Recording could not start. " : "Recording stopped unexpectedly. ") + Explain(errors, usedSound, RecordFolder);
             }
             if (!_wantStream) return;
             if (_stream is { Exited: false } s)
@@ -382,13 +466,13 @@ public sealed class Recorder : IDisposable
     private List<string> Args(string ffmpeg, string target, bool stream, bool withAudio)
     {
         var a = new List<string> { "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", "-stats_period", "1", "-y" };
-        a.AddRange(["-f", "rawvideo", "-pix_fmt", "bgra", "-s", $"{Width}x{Height}", "-r", Fps.ToString(), "-thread_queue_size", "64", "-i", "pipe:0"]);
+        a.AddRange(["-f", "rawvideo", "-pix_fmt", "bgra", "-s", $"{Width}x{Height}", "-r", Fps.ToString(), "-i", "pipe:0"]);
         var audio = withAudio && !string.IsNullOrWhiteSpace(Settings.AudioDevice) && OperatingSystem.IsWindows();
         if (audio)
         {
             if (Settings.SoundDelayMs != 0)
                 a.AddRange(["-itsoffset", (Settings.SoundDelayMs / 1000.0).ToString("0.000", CultureInfo.InvariantCulture)]);
-            a.AddRange(["-f", "dshow", "-thread_queue_size", "1024", "-audio_buffer_size", "50", "-i", "audio=" + Settings.AudioDevice]);
+            a.AddRange(["-f", "dshow", "-audio_buffer_size", "50", "-i", "audio=" + Settings.AudioDevice]);
         }
         else
         {
