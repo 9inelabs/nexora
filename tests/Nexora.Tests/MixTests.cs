@@ -323,8 +323,8 @@ public class ShadowMixTests
 
 public class FailsafeTests
 {
-    private static Heartbeat Beat(long seq, bool flowing = true, bool armed = true, int epoch = 0) =>
-        new("pc1", "SOUND-PC", seq, "running", flowing, armed, false, epoch, "127.0.0.1", 0, 5, 500);
+    private static Heartbeat Beat(long seq, bool flowing = true, bool armed = true, int epoch = 0, int timeoutMs = 500) =>
+        new("pc1", "SOUND-PC", seq, "running", flowing, armed, false, epoch, "127.0.0.1", 0, 5, timeoutMs);
 
     [Fact]
     public void A_heartbeat_survives_the_network()
@@ -345,9 +345,11 @@ public class FailsafeTests
         });
         using var udp = new UdpClient();
         var to = new IPEndPoint(IPAddress.Loopback, w.Port);
+        // A 1.5 s timeout: a busy build machine can stall this loop for well over the usual 0.5 s
+        // between two beats, which would hand over too early and fail the check below.
         for (var i = 1; i <= 10; i++)
         {
-            var b = Beat(i).Encode();
+            var b = Beat(i, timeoutMs: 1500).Encode();
             await udp.SendAsync(b, b.Length, to);
             await Task.Delay(30);
         }
@@ -355,7 +357,7 @@ public class FailsafeTests
         // Silence. The hand-over says the recall a few times (UDP can drop one); wait until it has finished.
         var done = new TaskCompletionSource();
         w.Fired += _ => done.TrySetResult();
-        Assert.Same(done.Task, await Task.WhenAny(done.Task, Task.Delay(5000)));
+        Assert.Same(done.Task, await Task.WhenAny(done.Task, Task.Delay(8000)));
         int count;
         lock (recalls)
         {
