@@ -885,13 +885,26 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
                 _mixDirty = false;
                 json = JsonSerializer.Serialize(_mix, MixState.Json);
             }
-            try
+            // On Windows a virus scanner or a backup reading the file can hold it for a moment: try again a few times.
+            for (var attempt = 1; ; attempt++)
             {
-                var tmp = _mixFile + ".tmp";
-                File.WriteAllText(tmp, json);
-                File.Move(tmp, _mixFile, true);
+                try
+                {
+                    var tmp = _mixFile + ".tmp";
+                    File.WriteAllText(tmp, json);
+                    File.Move(tmp, _mixFile, true);
+                    break;
+                }
+                catch (Exception ex) when (attempt < 20 && ex is IOException or UnauthorizedAccessException)
+                {
+                    Thread.Sleep(25);
+                }
+                catch (Exception ex)
+                {
+                    _log("Could not save the mix: " + ex.Message);
+                    break;
+                }
             }
-            catch (Exception ex) { _log("Could not save the mix: " + ex.Message); }
         }
     }
 
