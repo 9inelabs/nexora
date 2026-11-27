@@ -7,113 +7,13 @@
              xmlns:na="using:NexAudio.App.Views.NexAudio"
              x:Class="NexAudio.App.Views.NexAudioView"
              x:DataType="vm:NexAudioViewModel">
-  <UserControl.Styles>
-    <Style Selector="Border.stat">
-      <Setter Property="Background" Value="{StaticResource Surface2}" />
-      <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Padding" Value="10,5" />
-    </Style>
-    <Style Selector="TextBlock.statvalue">
-      <Setter Property="FontSize" Value="13.5" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="FontFamily" Value="{StaticResource FontDisplay}" />
-    </Style>
-    <Style Selector="TextBlock.flabel">
-      <Setter Property="FontSize" Value="12" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="{StaticResource Text2}" />
-      <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
-    <Style Selector="Border.row">
-      <Setter Property="Background" Value="{StaticResource Surface2}" />
-      <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Padding" Value="10,6" />
-      <Setter Property="Margin" Value="0,0,8,8" />
-    </Style>
-    <Style Selector="Button.strip">
-      <Setter Property="Padding" Value="0,3" />
-      <Setter Property="FontSize" Value="11" />
-      <Setter Property="FontWeight" Value="Bold" />
-      <Setter Property="HorizontalAlignment" Value="Stretch" />
-      <Setter Property="HorizontalContentAlignment" Value="Center" />
-    </Style>
-    <Style Selector="Button.strip.mute.active /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{StaticResource Live}" />
-      <Setter Property="Foreground" Value="White" />
-    </Style>
-    <!-- A group's mute is holding this strip down: the mute button shows it, but the strip's own mute is off -->
-    <Style Selector="Button.strip.mute.group /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="BorderBrush" Value="{StaticResource Live}" />
-      <Setter Property="BorderThickness" Value="1.5" />
-      <Setter Property="Background" Value="#33FF5A5F" />
-    </Style>
-    <!-- Hard mute: dark red with a bright edge, so it never looks like an ordinary mute -->
-    <Style Selector="Button.strip.mute.hard /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="#7A1F24" />
-      <Setter Property="BorderBrush" Value="#FF5A5F" />
-      <Setter Property="BorderThickness" Value="1.5" />
-      <Setter Property="Foreground" Value="White" />
-    </Style>
-    <Style Selector="Button.strip.solo.active /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{StaticResource Accent}" />
-      <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
-    </Style>
-    <Style Selector="Border.ind">
-      <Setter Property="CornerRadius" Value="3" />
-      <Setter Property="Padding" Value="3,0" />
-      <Setter Property="Background" Value="{StaticResource Surface3}" />
-    </Style>
-    <Style Selector="Border.ind TextBlock">
-      <Setter Property="FontSize" Value="9" />
-      <Setter Property="FontWeight" Value="Bold" />
-      <Setter Property="Foreground" Value="{StaticResource Text3}" />
-    </Style>
-    <Style Selector="Border.ind.on">
-      <Setter Property="Background" Value="{StaticResource TintAccent}" />
-    </Style>
-    <Style Selector="Border.ind.on TextBlock">
-      <Setter Property="Foreground" Value="{StaticResource Accent}" />
-    </Style>
-    <Style Selector="Border.stripcard">
-      <Setter Property="Background" Value="{StaticResource Surface2}" />
-      <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Padding" Value="6,6" />
-      <Setter Property="Width" Value="80" />
-      <Setter Property="Margin" Value="0,0,6,0" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="BorderBrush" Value="Transparent" />
-    </Style>
-    <Style Selector="Border.stripcard.selected">
-      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-    </Style>
-    <Style Selector="Slider.param">
-      <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="Margin" Value="0,-6" />
-    </Style>
-  </UserControl.Styles>
 
-  <UserControl.DataTemplates>
-    <DataTemplate DataType="vm:SliderParam">
-      <Grid ColumnDefinitions="128,8,*,8,64" Margin="0,2">
-        <TextBlock Classes="flabel" Text="{Binding Label}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Label}" />
-        <Slider Grid.Column="2" Classes="param" Minimum="0" Maximum="1000" Value="{Binding Position}" />
-        <TextBlock Grid.Column="4" Classes="mono small" Text="{Binding Text}" VerticalAlignment="Center" HorizontalAlignment="Right" />
-      </Grid>
-    </DataTemplate>
-    <DataTemplate DataType="vm:ToggleParam">
-      <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-        <TextBlock Classes="flabel" Text="{Binding Label}" TextWrapping="Wrap" />
-        <ToggleSwitch Grid.Column="1" IsChecked="{Binding Value}" OnContent="" OffContent="" MinWidth="0" Margin="0,-6" />
-      </Grid>
-    </DataTemplate>
-    <DataTemplate DataType="vm:ChoiceParam">
-      <Grid ColumnDefinitions="128,8,*" Margin="0,2">
-        <TextBlock Classes="flabel" Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
-        <ComboBox Grid.Column="2" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch" FontSize="12.5" />
-      </Grid>
-    </DataTemplate>
-  </UserControl.DataTemplates>
 
+  <Panel>
+  <LayoutTransformControl>
+  <LayoutTransformControl.LayoutTransform>
+    <ScaleTransform ScaleX="{Binding UiScale}" ScaleY="{Binding UiScale}" />
+  </LayoutTransformControl.LayoutTransform>
   <Grid RowDefinitions="Auto,8,Auto,Auto,Auto,8,*" Margin="16,12,16,14">
 
     <!-- Engine status, on one line so the desk gets the room -->
@@ -197,7 +97,7 @@
           </Panel>
           <Button.Flyout>
             <Flyout Placement="BottomEdgeAlignedRight">
-              <StackPanel Width="300" Spacing="10" Margin="6">
+              <StackPanel Width="340" Spacing="10" Margin="6">
                 <StackPanel Spacing="2">
                   <TextBlock Text="{Binding UserName}" FontWeight="SemiBold" FontSize="14" />
                   <TextBlock Classes="faint small" Text="{Binding AccountNote}" TextWrapping="Wrap" />
@@ -206,6 +106,36 @@
                         ToolTip.Tip="The sound keeps running after you sign out.">
                   <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Kind="signout" Width="14" Height="14" /><TextBlock Text="Sign out (the sound keeps running)" /></StackPanel>
                 </Button>
+                <Border Classes="hairline" />
+                <TextBlock Classes="eyebrow" Text="YOUR DISPLAY (SAVED FOR YOU)" />
+                <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,6,Auto,6,Auto,6,Auto">
+                  <TextBlock Classes="flabel" Text="Text size" />
+                  <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:NexAudioViewModel.TextScales}" SelectedItem="{Binding TextScale}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:Choice"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <TextBlock Grid.Row="2" Classes="flabel" Text="High contrast" />
+                  <ToggleSwitch Grid.Row="2" Grid.Column="1" IsChecked="{Binding HighContrast}" OnContent="" OffContent="" Margin="0,-6" />
+                  <TextBlock Grid.Row="4" Classes="flabel" Text="Peak hold" />
+                  <ComboBox Grid.Row="4" Grid.Column="1" ItemsSource="{x:Static vm:NexAudioViewModel.PeakHolds}" SelectedItem="{Binding PeakHold}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:Choice"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <TextBlock Grid.Row="6" Classes="flabel" Text="Meters fall" />
+                  <ComboBox Grid.Row="6" Grid.Column="1" ItemsSource="{x:Static vm:NexAudioViewModel.MeterFalls}" SelectedItem="{Binding MeterFall}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:Choice"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                </Grid>
+                <Expander Header="Keyboard shortcuts" HorizontalAlignment="Stretch">
+                  <ItemsControl ItemsSource="{Binding ShortcutRows}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ShortcutRow">
+                        <Grid ColumnDefinitions="120,*" Margin="0,2">
+                          <TextBlock Classes="mono" FontSize="11" Text="{Binding Keys}" Foreground="{StaticResource Accent}" TextWrapping="Wrap" />
+                          <TextBlock Grid.Column="1" Classes="small" Text="{Binding What}" TextWrapping="Wrap" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </Expander>
                 <Border Classes="hairline" />
                 <TextBlock Classes="eyebrow" Text="{Binding VersionText}" />
                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -225,6 +155,7 @@
     <StackPanel Orientation="Horizontal" Spacing="4">
       <Button Classes="tab" Classes.selected="{Binding OnMixer}" Command="{Binding ShowTabCommand}" CommandParameter="Mixer" Content="Mixer" />
       <Button Classes="tab" Classes.selected="{Binding OnChannel}" Command="{Binding ShowTabCommand}" CommandParameter="Channel" Content="Channel" />
+      <Button Classes="tab" Classes.selected="{Binding OnBridge}" Command="{Binding ShowTabCommand}" CommandParameter="Bridge" Content="Meter bridge" ToolTip.Tip="Every meter at once (Ctrl+B)" />
       <Button Classes="tab" Classes.selected="{Binding OnOutputs}" Command="{Binding ShowTabCommand}" CommandParameter="Outputs" Content="Outputs" />
       <Button Classes="tab" Classes.selected="{Binding OnRouting}" Command="{Binding ShowTabCommand}" CommandParameter="Routing">
         <StackPanel Orientation="Horizontal" Spacing="7">
@@ -253,6 +184,12 @@
       <Button Classes="tab" Classes.selected="{Binding OnSetup}" Command="{Binding ShowTabCommand}" CommandParameter="Meters" Content="Setup" />
     </StackPanel>
     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+      <Button Classes="ghost small" Command="{Binding OpenQuickCommand}" ToolTip.Tip="Find any channel, bus, group or effect return (Ctrl+K)">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <TextBlock Text="Quick select" />
+          <Border Background="{StaticResource Surface3}" CornerRadius="4" Padding="5,0"><TextBlock Classes="mono" FontSize="10" Text="Ctrl+K" Foreground="{StaticResource Text2}" /></Border>
+        </StackPanel>
+      </Button>
       <Border Classes="chip live" IsVisible="{Binding IsRecording}" ToolTip.Tip="NEX-Audio is recording (Soundcheck tab)">
         <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding TapeClock, StringFormat=REC {0}}" /></StackPanel>
       </Border>
@@ -281,8 +218,18 @@
       <Button Classes="tab small" Classes.selected="{Binding OnResources}" Command="{Binding ShowTabCommand}" CommandParameter="Resources" Content="Resources" />
     </StackPanel>
 
+    <StackPanel Grid.Row="4">
+    <!-- Offline: preparing a show, nothing reaches the room -->
+    <Border Background="{StaticResource TintPinned}" BorderBrush="{StaticResource Pinned}" BorderThickness="1" CornerRadius="8" Padding="12,6" Margin="0,8,0,0"
+            IsVisible="{Binding IsOffline}">
+      <Grid ColumnDefinitions="Auto,10,*,10,Auto">
+        <c:Icon Kind="info" Width="16" Height="16" Foreground="{StaticResource Pinned}" />
+        <TextBlock Grid.Column="2" Foreground="{StaticResource Pinned}" FontWeight="SemiBold" Text="{Binding OfflineBanner}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        <Button Grid.Column="4" Classes="small" Command="{Binding GoOnlineCommand}" Content="Go back online" />
+      </Grid>
+    </Border>
     <!-- Virtual soundcheck: never forget the mics are not live -->
-    <Border Grid.Row="4" Background="{StaticResource TintWarn}" BorderBrush="{StaticResource Warn}" BorderThickness="1" CornerRadius="8" Padding="12,6" Margin="0,8,0,0"
+    <Border Background="{StaticResource TintWarn}" BorderBrush="{StaticResource Warn}" BorderThickness="1" CornerRadius="8" Padding="12,6" Margin="0,8,0,0"
             IsVisible="{Binding PlaybackMode}">
       <Grid ColumnDefinitions="Auto,10,*,10,Auto">
         <c:Icon Kind="info" Width="16" Height="16" Foreground="{StaticResource Warn}" />
@@ -290,10 +237,12 @@
         <Button Grid.Column="4" Classes="warn small" Command="{Binding LiveInputsCommand}" Content="Back to live inputs" />
       </Grid>
     </Border>
+    </StackPanel>
 
     <Panel Grid.Row="6">
       <na:MixerPage IsVisible="{Binding OnMixer}" />
       <na:ChannelPage IsVisible="{Binding OnChannel}" />
+      <na:BridgePage IsVisible="{Binding OnBridge}" />
       <na:OutputsPage IsVisible="{Binding OnOutputs}" />
       <na:RoutingPage IsVisible="{Binding OnRouting}" />
       <na:GroupsPage IsVisible="{Binding OnGroups}" />
@@ -395,6 +344,14 @@
               <ComboBox Grid.Column="2" ItemsSource="{Binding BufferSizes}" SelectedItem="{Binding SelectedBuffer}" HorizontalAlignment="Stretch" />
               <TextBlock Grid.Column="3" Classes="faint small" Margin="10,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"
                          Text="samples. 64 is the target; use 128 if you hear clicks." />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,10,120,*">
+              <TextBlock Classes="flabel" Text="Sample rate" />
+              <ComboBox Grid.Column="2" ItemsSource="{Binding RateChoices}" SelectedItem="{Binding SelectedRate}" HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:Choice"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Grid.Column="3" Classes="faint small" Margin="10,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"
+                         Text="{Binding RateNote}" />
             </Grid>
             <StackPanel Orientation="Horizontal" Spacing="8">
               <Button Classes="primary" Command="{Binding StartSoundCommand}" Content="Start sound with these settings" />
@@ -612,4 +569,36 @@
     <!-- Recall preview, cue and macro editors, opening a show: over everything -->
     <na:ShowOverlays Grid.Row="0" Grid.RowSpan="7" ZIndex="20" Margin="-16,-12,-16,-14" />
   </Grid>
+  </LayoutTransformControl>
+
+  <!-- Quick select: type a number or a name, Enter to pick -->
+  <Border Background="#99000000" IsVisible="{Binding QuickOpen}" PointerPressed="OnQuickBackdrop">
+    <Border Classes="card" Width="520" Padding="14" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,110,0,0"
+            BorderBrush="{StaticResource Accent}" BorderThickness="1">
+      <StackPanel Spacing="10">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="h3" Text="Quick select" />
+          <TextBlock Grid.Column="1" Classes="faint small" Text="Enter picks the first · Esc closes" VerticalAlignment="Center" />
+        </Grid>
+        <TextBox Name="QuickBox" Text="{Binding QuickText}" Watermark="A channel number, mix 2, fx 1, group 3, or part of a name" FontSize="15" />
+        <ItemsControl ItemsSource="{Binding QuickResults}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:QuickItem">
+              <Button Classes="ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="8,5"
+                      Command="{Binding $parent[ItemsControl].((vm:NexAudioViewModel)DataContext).QuickPickCommand}" CommandParameter="{Binding Id}">
+                <Grid ColumnDefinitions="6,10,54,*,Auto">
+                  <Border CornerRadius="3" Background="{Binding Colour}" />
+                  <TextBlock Grid.Column="2" Classes="mono" FontSize="12" Text="{Binding Number}" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="3" FontWeight="SemiBold" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="4" Classes="faint small" Text="{Binding Kind}" VerticalAlignment="Center" />
+                </Grid>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="faint small" Text="Nothing matches. Try a number or a shorter part of the name." IsVisible="{Binding !QuickResults.Count}" />
+      </StackPanel>
+    </Border>
+  </Border>
+  </Panel>
 </UserControl>

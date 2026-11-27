@@ -6,6 +6,20 @@ using Nexora.Audio.Mix;
 
 namespace NexAudio.App.ViewModels;
 
+/// <summary>One preset in the library: load it, move it to a folder, or delete it (your own only).</summary>
+public sealed partial class PresetRow(NexAudioViewModel owner, PresetInfo p) : ObservableObject
+{
+    public string Id { get; } = p.Id;
+    public string Name { get; } = p.Name;
+    public string Folder { get; } = p.Folder.Length > 0 ? p.Folder : "Not in a folder";
+    public bool Mine { get; } = !p.BuiltIn;
+    public string Who => p.BuiltIn ? "NEX-Audio starting point" : p.SavedUtc > DateTime.MinValue ? $"Saved {p.SavedUtc.ToLocalTime():d MMM yyyy}" : "Saved here";
+    [ObservableProperty] private string _moveTo = p.Folder;
+    [RelayCommand] private Task Load() => owner.LoadPreset(Id);
+    [RelayCommand] private Task Delete() => owner.DeletePreset(Id);
+    [RelayCommand] private Task Move() => owner.MovePreset(Id, MoveTo);
+}
+
 /// <summary>Undo and redo, copy and paste between strips, and channel presets.</summary>
 public sealed partial class NexAudioViewModel
 {
@@ -56,12 +70,20 @@ public sealed partial class NexAudioViewModel
         return Command("paste", new() { ["to"] = id, ["parts"] = PastePart.Value }, c);
     }
 
-    // ---- Presets -----------------------------------------------------------------------------------
+    // ---- The preset library -------------------------------------------------------------------------
 
-    public ObservableCollection<Choice> PresetChoices { get; } = [];
-    [ObservableProperty] private Choice? _presetChoice;
+    public ObservableCollection<PresetRow> PresetRows { get; } = [];
+    public ObservableCollection<Choice> PresetFolders { get; } = [new("*", "All folders")];
+    [ObservableProperty] private string _presetSearch = "";
+    [ObservableProperty] private Choice? _presetFolder;
     [ObservableProperty] private string _newPresetName = "";
+    [ObservableProperty] private string _newPresetFolder = "";
+    public ObservableCollection<string> FolderNames { get; } = [];
+    private IReadOnlyList<PresetInfo> _presets = [];
     private string _presetsKey = "";
+    public string PresetCountText => PresetRows.Count == _presets.Count
+        ? $"{_presets.Count} presets"
+        : $"{PresetRows.Count} of {_presets.Count} presets";
 
     private void ApplyTools(DeskStatus d)
     {
@@ -69,20 +91,43 @@ public sealed partial class NexAudioViewModel
         OnPropertyChanged(nameof(CanRedo));
         OnPropertyChanged(nameof(UndoTip));
         OnPropertyChanged(nameof(RedoTip));
-        var key = string.Join("|", d.Presets.Select(p => p.Id + p.Name));
+        var key = string.Join("|", d.Presets.Select(p => p.Id + p.Name + "/" + p.Folder));
         if (key == _presetsKey) return;
         _presetsKey = key;
-        var keep = PresetChoice?.Value;
-        PresetChoices.Clear();
-        foreach (var p in d.Presets) PresetChoices.Add(new Choice(p.Id, p.BuiltIn ? p.Name : "★ " + p.Name));
-        PresetChoice = PresetChoices.FirstOrDefault(c => c.Value == keep) ?? PresetChoices.FirstOrDefault();
+        _presets = d.Presets;
+        var keep = PresetFolder?.Value ?? "*";
+        var folders = d.Presets.Where(p => p.Folder.Length > 0).GroupBy(p => p.Folder, StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(g => !g.Any(p => p.BuiltIn)).ThenBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase).Select(g => g.First().Folder).ToList();
+        PresetFolders.Clear();
+        PresetFolders.Add(new Choice("*", "All folders"));
+        PresetFolders.Add(new Choice("mine", "Only mine"));
+        foreach (var f in folders) PresetFolders.Add(new Choice(f, f));
+        if (d.Presets.Any(p => p.Folder.Length == 0)) PresetFolders.Add(new Choice("", "Not in a folder"));
+        FolderNames.Clear();
+        foreach (var f in folders) FolderNames.Add(f);
+        PresetFolder = PresetFolders.FirstOrDefault(c => c.Value == keep) ?? PresetFolders[0];
+        FilterPresets();
     }
 
-    [RelayCommand]
-    private Task LoadPreset()
+    partial void OnPresetSearchChanged(string value) => FilterPresets();
+    partial void OnPresetFolderChanged(Choice? value) => FilterPresets();
+
+    private void FilterPresets()
     {
-        if (SelectedId is not { } id || PresetChoice is not { } p) return Task.CompletedTask;
-        return Command("preset.load", new() { ["strip"] = id, ["id"] = p.Value, ["parts"] = PastePart.Value });
+        var folder = PresetFolder?.Value ?? "*";
+        PresetRows.Clear();
+        foreach (var p in _presets.Where(p => p.Matches(PresetSearch)
+                     && (folder == "*" || folder == "mine" && !p.BuiltIn || folder != "mine" && string.Equals(p.Folder, folder, StringComparison.CurrentCultureIgnoreCase))))
+            PresetRows.Add(new PresetRow(this, p));
+        OnPropertyChanged(nameof(PresetCountText));
+    }
+
+    internal Task LoadPreset(string id)
+    {
+        if (SelectedId is not { } strip) return Task.CompletedTask;
+        var name = _presets.FirstOrDefault(p => p.Id == id)?.Name ?? "the preset";
+        Notice = $"Loaded {name} ({PastePart.Label.ToLowerInvariant()}).";
+        return Command("preset.load", new() { ["strip"] = strip, ["id"] = id, ["parts"] = PastePart.Value });
     }
 
     [RelayCommand]
@@ -90,17 +135,16 @@ public sealed partial class NexAudioViewModel
     {
         if (SelectedStrip is not { } s) return Task.CompletedTask;
         var name = string.IsNullOrWhiteSpace(NewPresetName) ? NameOf(s) : NewPresetName.Trim();
+        var folder = PresetStore.CleanFolder(NewPresetFolder);
         NewPresetName = "";
-        Notice = $"Saved the preset \"{name}\".";
-        return Command("preset.save", new() { ["strip"] = s.Id, ["name"] = name });
+        Notice = folder.Length > 0 ? $"Saved the preset \"{name}\" in {folder}." : $"Saved the preset \"{name}\".";
+        return Command("preset.save", new() { ["strip"] = s.Id, ["name"] = name, ["folder"] = folder });
     }
 
-    [RelayCommand]
-    private Task DeletePreset()
-    {
-        if (PresetChoice is not { } p || p.Value.StartsWith("builtin-", StringComparison.Ordinal)) return Task.CompletedTask;
-        return Command("preset.delete", new() { ["id"] = p.Value });
-    }
+    internal Task DeletePreset(string id) =>
+        id.StartsWith("builtin-", StringComparison.Ordinal) ? Task.CompletedTask : Command("preset.delete", new() { ["id"] = id });
+
+    internal Task MovePreset(string id, string folder) => Command("preset.move", new() { ["id"] = id, ["folder"] = PresetStore.CleanFolder(folder) });
 
     // ---- Dynamic EQ activity -----------------------------------------------------------------------
 

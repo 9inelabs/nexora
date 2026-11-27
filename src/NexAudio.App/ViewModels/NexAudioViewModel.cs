@@ -34,6 +34,7 @@ public enum NexAudioTab
     Console,
     PcCheck,
     Resources,
+    Bridge,
 }
 
 /// <summary>
@@ -75,6 +76,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
         _clock = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Tick());
         _clock.Start();
 
+        LoadPrefs();
         X32Address = LoadLocal().X32Address ?? "";
         if (X32Address.Length > 0) _ = ConnectConsole();
         _ = RunPcCheck();
@@ -84,7 +86,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OnMeters), nameof(OnPatch), nameof(OnLatency), nameof(OnDriver), nameof(OnConsole), nameof(OnPcCheck), nameof(OnResources),
-        nameof(OnMixer), nameof(OnChannel), nameof(OnOutputs), nameof(OnRouting), nameof(OnGroups), nameof(OnStream), nameof(OnScenes), nameof(OnShow), nameof(OnSoundcheck), nameof(OnPlugins), nameof(OnFailsafe), nameof(OnSetup))]
+        nameof(OnMixer), nameof(OnChannel), nameof(OnOutputs), nameof(OnRouting), nameof(OnGroups), nameof(OnStream), nameof(OnScenes), nameof(OnShow), nameof(OnSoundcheck), nameof(OnPlugins), nameof(OnFailsafe), nameof(OnSetup), nameof(OnBridge))]
     private NexAudioTab _tab = NexAudioTab.Mixer;
 
     public bool OnMixer => Tab == NexAudioTab.Mixer;
@@ -189,6 +191,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
         else if (!_patchBuilt) BuildPatch();
 
         SyncDrivers(s);
+        SyncRates(s);
         if (s.State == EngineState.Stopped)
         {
             InputMeters.Silence();
@@ -419,7 +422,35 @@ public sealed partial class NexAudioViewModel : ViewModelBase
     {
         if (!CanControl || SelectedDriver is not { } d) return Task.CompletedTask;
         Notice = "";
-        return _engine.SendAsync(new OpenDriverMsg(d, SelectedBuffer));
+        return _engine.SendAsync(new OpenDriverMsg(d, SelectedBuffer, double.Parse(SelectedRate?.Value ?? "0", System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
+    // ---- Sample rate -----------------------------------------------------------------------------
+
+    public ObservableCollection<Choice> RateChoices { get; } = [new("0", "Driver's own")];
+    [ObservableProperty] private Choice? _selectedRate;
+    private string _ratesKey = "";
+
+    public string RateNote => Status.SampleRates.Count == 0
+        ? "Start the sound once to see which rates the driver can run at."
+        : Status.SampleRates.Any(r => r > 50000)
+            ? "96 kHz halves the delay of each buffer and costs about twice the processing. The stream still goes out at 48 kHz."
+            : "This driver only runs at 44.1 or 48 kHz (the X32's USB card is one of these). Use 48 kHz.";
+
+    private void SyncRates(EngineStatus s)
+    {
+        var key = string.Join(",", s.SampleRates);
+        if (key != _ratesKey)
+        {
+            _ratesKey = key;
+            RateChoices.Clear();
+            RateChoices.Add(new Choice("0", "Driver's own"));
+            foreach (var r in s.SampleRates)
+                RateChoices.Add(new Choice(r.ToString(System.Globalization.CultureInfo.InvariantCulture), $"{r / 1000:0.#} kHz"));
+            SelectedRate = null;
+        }
+        SelectedRate ??= RateChoices.FirstOrDefault(c => c.Value == s.WantedRate.ToString(System.Globalization.CultureInfo.InvariantCulture)) ?? RateChoices[0];
+        OnPropertyChanged(nameof(RateNote));
     }
 
     [RelayCommand]
@@ -514,6 +545,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(X32Title));
         OnPropertyChanged(nameof(X32Detail));
         var channels = _x32.Info is not null ? _x32.Channels : [];
+        RememberNames(channels);
         ConsoleChannels.Clear();
         foreach (var c in channels) ConsoleChannels.Add(new ConsoleChannel(c.Number, c.Label, new SolidColorBrush(Color.Parse(c.ColourHex)), c.Name.Length > 0));
         RefreshLabels();
@@ -554,7 +586,22 @@ public sealed partial class NexAudioViewModel : ViewModelBase
 
     // ---- Settings only this PC needs ----------------------------------------------------------------
 
-    private sealed record LocalSettings(string? X32Address);
+    /// <summary>The X32's address, and its channel names as last seen, so names still show offline.</summary>
+    private sealed record LocalSettings(string? X32Address, string[]? X32Names = null);
+
+    private string[] _cachedNames = LoadLocal().X32Names ?? [];
+
+    private void RememberNames(IReadOnlyList<X32Channel> channels)
+    {
+        if (channels.Count == 0 || channels.All(c => c.Name.Length == 0)) return;
+        var names = channels.Select(c => c.Name).ToArray();
+        if (names.SequenceEqual(_cachedNames)) return;
+        _cachedNames = names;
+        SaveLocal(LoadLocal() with { X32Names = names });
+    }
+
+    /// <summary>The X32's name for a channel as last seen, when the X32 is not linked now (offline, or before it answers).</summary>
+    private string? CachedName(int number) => number >= 1 && number <= _cachedNames.Length && _cachedNames[number - 1].Length > 0 ? _cachedNames[number - 1] : null;
 
     private static string LocalFile => Path.Combine(AppPaths.LocalDir, "nex-audio.json");
 

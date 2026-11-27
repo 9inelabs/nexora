@@ -221,10 +221,72 @@
           <ComboBox ItemsSource="{x:Static vm:NexAudioViewModel.PasteParts}" SelectedItem="{Binding PastePart}" MinWidth="150"
                     ToolTip.Tip="What Paste and Load bring over" />
           <Border Classes="hairline" Width="1" Height="24" Margin="4,0" />
-          <ComboBox ItemsSource="{Binding PresetChoices}" SelectedItem="{Binding PresetChoice}" MinWidth="190" PlaceholderText="Presets" />
-          <Button Classes="primary" Command="{Binding LoadPresetCommand}" Content="Load" />
-          <TextBox Text="{Binding NewPresetName}" Watermark="New preset name" Width="140" />
-          <Button Command="{Binding SavePresetCommand}" Content="Save" />
+          <Button Classes="primary" ToolTip.Tip="The preset library: search, folders, load and save">
+            <StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="Presets" /><c:Icon Kind="arrowdown" Width="10" Height="10" /></StackPanel>
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedRight">
+                <Grid Width="560" RowDefinitions="Auto,8,Auto,8,Auto,6,*,10,Auto,8,Auto" Margin="6">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="h3" Text="Preset library" />
+                    <TextBlock Grid.Column="1" Classes="faint small" Text="{Binding PresetCountText}" VerticalAlignment="Center" />
+                  </Grid>
+                  <Grid Grid.Row="2" ColumnDefinitions="*,8,180">
+                    <TextBox Text="{Binding PresetSearch}" Watermark="Search: pastor, kick, choir…" />
+                    <ComboBox Grid.Column="2" ItemsSource="{Binding PresetFolders}" SelectedItem="{Binding PresetFolder}" HorizontalAlignment="Stretch">
+                      <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:Choice"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </Grid>
+                  <TextBlock Grid.Row="4" Classes="faint small" TextWrapping="Wrap"
+                             Text="{Binding PastePart.Label, StringFormat='Load brings over: {0} (change it next to Paste).'}" />
+                  <ScrollViewer Grid.Row="6" MaxHeight="340">
+                    <ItemsControl ItemsSource="{Binding PresetRows}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PresetRow">
+                          <Border Classes="row" Margin="0,0,0,4">
+                            <Grid ColumnDefinitions="*,8,Auto,6,Auto">
+                              <StackPanel Spacing="0" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Classes="faint" FontSize="10.5">
+                                  <Run Text="{Binding Folder}" Foreground="{StaticResource Accent}" /><Run Text="  ·  " /><Run Text="{Binding Who}" />
+                                </TextBlock>
+                              </StackPanel>
+                              <Button Grid.Column="2" Classes="ghost small" Content="Folder" IsVisible="{Binding Mine}">
+                                <Button.Flyout>
+                                  <Flyout Placement="LeftEdgeAlignedTop">
+                                    <StackPanel Width="220" Spacing="6" Margin="4">
+                                      <TextBlock Classes="small" Text="Move to the folder" />
+                                      <AutoCompleteBox Text="{Binding MoveTo}" FilterMode="ContainsOrdinal" Watermark="Folder (empty for none)"
+                                                       ItemsSource="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).FolderNames}" />
+                                      <Button Classes="primary small" Command="{Binding MoveCommand}" Content="Move" />
+                                    </StackPanel>
+                                  </Flyout>
+                                </Button.Flyout>
+                              </Button>
+                              <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4">
+                                <Button Classes="primary small" Command="{Binding LoadCommand}" Content="Load" />
+                                <Button Classes="ghost small" Command="{Binding DeleteCommand}" IsVisible="{Binding Mine}" ToolTip.Tip="Delete this preset">
+                                  <c:Icon Kind="trash" Width="12" Height="12" />
+                                </Button>
+                              </StackPanel>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
+                  <Border Grid.Row="8" Classes="hairline" />
+                  <Grid Grid.Row="10" ColumnDefinitions="*,8,170,8,Auto">
+                    <TextBox Text="{Binding NewPresetName}" Watermark="Save this strip as… (its name if empty)" />
+                    <AutoCompleteBox Grid.Column="2" Text="{Binding NewPresetFolder}" FilterMode="ContainsOrdinal" Watermark="Folder" ItemsSource="{Binding FolderNames}" />
+                    <Button Grid.Column="4" Command="{Binding SavePresetCommand}" Content="Save" />
+                  </Grid>
+                </Grid>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+          <Button Classes="ghost" Command="{Binding PopOutCommand}" CommandParameter="channel" ToolTip.Tip="Open the channel page in its own window, for a second screen">
+            <c:Icon Kind="monitor" Width="14" Height="14" />
+          </Button>
         </StackPanel>
       </Grid>
     </Border>

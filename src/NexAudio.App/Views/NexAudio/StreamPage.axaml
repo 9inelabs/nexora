@@ -42,6 +42,13 @@
         </UniformGrid>
         <TextBlock Classes="muted" Text="{Binding LoudnessAdvice}" TextWrapping="Wrap" />
         <TextBlock Classes="faint small" TextWrapping="Wrap" Text="YouTube and Facebook play music at about -14 LUFS. A spoken service sits well a little lower, around -16." />
+        <Border Height="1" Background="{StaticResource Line}" Margin="0,2" />
+        <Grid ColumnDefinitions="Auto,12,*" RowDefinitions="Auto,4,Auto">
+          <TextBlock Classes="eyebrow" Text="LEFT AND RIGHT" VerticalAlignment="Center" />
+          <a:PhaseMeter Grid.Column="2" Height="14" Value="{Binding StreamPhase}" />
+          <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Classes="small" Foreground="{Binding StreamPhaseBrush}" Text="{Binding StreamPhaseText}"
+                     ToolTip.Tip="+1: left and right agree, safe on a phone speaker. 0: wide. Below 0: they fight, and the sound thins out in mono." />
+        </Grid>
       </StackPanel>
     </Border>
     <Border Grid.Row="2" Grid.ColumnSpan="3" Classes="card" Padding="16" IsVisible="{Binding StreamOwnMix}">

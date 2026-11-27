@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexAudio.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:a="using:NexAudio.App.Controls"
+             x:Class="NexAudio.App.Views.NexAudio.BridgePage"
+             x:DataType="vm:NexAudioViewModel">
+  <Border Classes="card" Padding="14,12">
+    <Grid RowDefinitions="Auto,10,*">
+      <Grid ColumnDefinitions="*,16,Auto,16,Auto,16,Auto">
+        <StackPanel Spacing="1" VerticalAlignment="Center">
+          <TextBlock Classes="h3" Text="Meter bridge" />
+          <TextBlock Classes="faint small" TextWrapping="Wrap"
+                     Text="Every channel, bus and output at once, after its fader. A red light at the top stays on after a clip until you clear it. Peak hold and fall speed are in your menu (top right)." />
+        </StackPanel>
+        <Grid Grid.Column="2" ColumnDefinitions="Auto,8,150" RowDefinitions="Auto,2,Auto" VerticalAlignment="Center">
+          <TextBlock Classes="eyebrow" Text="MAIN L/R" VerticalAlignment="Center" />
+          <a:PhaseMeter Grid.Column="2" Height="14" Value="{Binding MainPhase}" />
+          <TextBlock Grid.Row="2" Grid.ColumnSpan="3" FontSize="11" Foreground="{Binding MainPhaseBrush}" Text="{Binding MainPhaseText}" />
+        </Grid>
+        <Grid Grid.Column="4" ColumnDefinitions="Auto,8,150" RowDefinitions="Auto,2,Auto" VerticalAlignment="Center">
+          <TextBlock Classes="eyebrow" Text="STREAM" VerticalAlignment="Center" />
+          <a:PhaseMeter Grid.Column="2" Height="14" Value="{Binding StreamPhase}" />
+          <TextBlock Grid.Row="2" Grid.ColumnSpan="3" FontSize="11" Foreground="{Binding StreamPhaseBrush}" Text="{Binding StreamPhaseText}" />
+        </Grid>
+        <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Button Classes="ghost small" Command="{Binding ClearPeaksCommand}" Content="Clear peaks and clips" />
+          <Button Classes="ghost small" Command="{Binding PopOutCommand}" CommandParameter="bridge" Name="PopButton"
+                  ToolTip.Tip="Open the meter bridge in its own window, for a second screen">
+            <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="monitor" Width="12" Height="12" /><TextBlock Text="Own window" /></StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+      <a:MeterBridge Grid.Row="2" Meters="{Binding StripMeters}" Entries="{Binding BridgeEntries}" MinHeight="220" />
+    </Grid>
+  </Border>
+</UserControl>

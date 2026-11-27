@@ -13,12 +13,29 @@ public partial class MainWindow : Window
         AddHandler(KeyDownEvent, OnKey, Avalonia.Interactivity.RoutingStrategies.Tunnel);
     }
 
+    private static bool Handle(NexAudioViewModel d, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && d.QuickOpen)
+        {
+            d.QuickPickCommand.Execute(null);
+            return true;
+        }
+        return d.HandleKey(e.Key, e.KeyModifiers);
+    }
+
     private void OnKey(object? sender, KeyEventArgs e)
     {
         // F1 to F12 run the macros given those keys.
         if (DataContext is ShellViewModel { Current: NexAudioViewModel desk } && e.Key is >= Key.F1 and <= Key.F12 && e.KeyModifiers == KeyModifiers.None)
         {
             if (desk.RunMacroKey(e.Key - Key.F1 + 1)) e.Handled = true;
+            return;
+        }
+        // The desk's own shortcuts, except while typing in a box (Esc still closes quick select).
+        if (DataContext is ShellViewModel { Current: NexAudioViewModel d })
+        {
+            var typing = FocusManager?.GetFocusedElement() is TextBox or ComboBox or Slider;
+            if ((!typing || e.Key == Key.Escape || e.Key == Key.Enter && d.QuickOpen) && Handle(d, e)) e.Handled = true;
             return;
         }
         if (DataContext is not ShellViewModel { Current: SignInViewModel s }) return;

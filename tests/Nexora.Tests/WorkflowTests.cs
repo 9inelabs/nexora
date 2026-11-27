@@ -164,3 +164,25 @@ public class WorkflowTests
         Assert.Equal(new string('x', 30), PresetStore.CleanFolder(new string('x', 50)));
     }
 }
+
+public class QuickSelectTests
+{
+    private static string Name(Strip s) => s.Name.Length > 0 ? s.Name : MixState.Label(s);
+
+    [Fact]
+    public void A_number_finds_that_channel_first_and_a_kind_with_a_number_finds_that_bus()
+    {
+        var m = MixState.CreateDefault();
+        m.Channels[11].Name = "Pastor lapel";
+        var mix = MixParams.AddBus(m, StripKind.Mix, "Drum wedge")!;
+        Assert.Equal(m.Channels[11].Id, MixSearch.Find(m, "12", Name).First().Id);
+        Assert.Equal(m.Channels[11].Id, MixSearch.Find(m, "ch 12", Name).First().Id);
+        Assert.Equal(m.Channels[11].Id, MixSearch.Find(m, "pastor", Name).First().Id);
+        Assert.Equal(m.Channels[11].Id, MixSearch.Find(m, "LAPEL", Name).First().Id);
+        Assert.Equal(mix.Id, MixSearch.Find(m, $"mix {mix.Number}", Name).First().Id);
+        Assert.Equal(mix.Id, MixSearch.Find(m, "drum wedge", Name).First().Id);
+        Assert.Empty(MixSearch.Find(m, "zzzz", Name));
+        // Nothing typed: buses first, then every channel.
+        Assert.Equal(m.AllStrips().Count(), MixSearch.Find(m, "", Name).Count());
+    }
+}
