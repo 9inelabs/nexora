@@ -190,6 +190,12 @@ public sealed partial class NexAudioViewModel
             if (SelectedId is not null) RefreshChannel();
             return;
         }
+        if (id == "mainset")
+        {
+            // The centre strip comes or goes: the faders, routing grid and output list change shape.
+            RebuildAll();
+            return;
+        }
         if (id is "streamset")
         {
             foreach (var p in StreamParams) p.Refresh(_mix);
@@ -219,7 +225,7 @@ public sealed partial class NexAudioViewModel
 
     private static bool IsRoutingPath(string path) =>
         path.Contains(".send.", StringComparison.Ordinal) || path.Contains(".group.", StringComparison.Ordinal) ||
-        path.EndsWith(".toMain", StringComparison.Ordinal) || path.EndsWith(".input", StringComparison.Ordinal) ||
+        path.EndsWith(".toMain", StringComparison.Ordinal) || path.EndsWith(".toCentre", StringComparison.Ordinal) || path.EndsWith(".input", StringComparison.Ordinal) ||
         path.EndsWith(".altInput", StringComparison.Ordinal) || path.EndsWith(".useAlt", StringComparison.Ordinal) ||
         path.EndsWith(".directTap", StringComparison.Ordinal) || path.EndsWith(".delayMs", StringComparison.Ordinal) ||
         path.EndsWith(".name", StringComparison.Ordinal);
@@ -247,6 +253,8 @@ public sealed partial class NexAudioViewModel
     public ObservableCollection<StripView> BusStrips { get; } = [];
     public ObservableCollection<StripView> VisibleStrips { get; } = [];
     [ObservableProperty] private StripView? _mainStrip;
+    /// <summary>The centre of a left-centre-right main, beside the main fader.</summary>
+    [ObservableProperty] private StripView? _centreStrip;
     [ObservableProperty] private StripView? _layerStrip;
 
     private IEnumerable<StripView> AllStripViews()
@@ -254,6 +262,7 @@ public sealed partial class NexAudioViewModel
         foreach (var v in ChannelStrips) yield return v;
         foreach (var v in BusStrips) yield return v;
         if (MainStrip is { } m) yield return m;
+        if (CentreStrip is { } c) yield return c;
         if (LayerStrip is { } l) yield return l;
     }
 
@@ -307,6 +316,7 @@ public sealed partial class NexAudioViewModel
         BusStrips.Add(new StripView(this, _mix.Mono, Index(_mix.Mono), -1));
         BusStrips.Add(new StripView(this, _mix.Stream, Index(_mix.Stream), Index(_mix.Stream) + n));
         MainStrip = new StripView(this, _mix.Main, Index(_mix.Main), Index(_mix.Main) + n);
+        CentreStrip = _mix.IsLcr ? new StripView(this, _mix.Centre, Index(_mix.Centre), -1) : null;
         LayerStrip = LayerBus is { } lb ? new StripView(this, lb, Index(lb), lb.Stereo ? Index(lb) + n : -1) : null;
         foreach (var v in AllStripViews()) v.IsSelected = v.Id == SelectedId;
         FillVisible();
@@ -337,7 +347,7 @@ public sealed partial class NexAudioViewModel
         Array.Copy(m.R, 0, levels, n, n);
         StripMeters.Push(levels, new bool[n * 2]);
         UpdateBusMeters(m.L, m.R);
-        foreach (var v in VisibleStrips.Append(MainStrip))
+        foreach (var v in VisibleStrips.Append(MainStrip).Append(CentreStrip))
         {
             if (v is null || v.MeterIndex < 0 || v.MeterIndex >= n) continue;
             v.GateGr = m.Gate[v.MeterIndex];
@@ -470,6 +480,11 @@ public sealed partial class NexAudioViewModel
         var route = new ParamSection("Routing");
         if (s.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group)
             route.Items.Add(new ToggleParam($"{id}.toMain", "To the main mix", m => S(m)?.ToMain ?? false, q));
+        if (s.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group && _mix.IsLcr && !s.Stereo)
+            route.Items.Add(new ToggleParam($"{id}.toCentre", "Pan across left, centre and right (off: left and right only)", m => S(m)?.ToCentre ?? false, q));
+        if (s.Kind == StripKind.Main)
+            route.Items.Add(new ChoiceParam("mainset.layout", "Main speakers", [new("Lr", "Left and right"), new("Lcr", "Left, centre and right (a centre cluster)")],
+                m => m.MainSettings.Layout.ToString(), q));
         if (s.Kind is StripKind.Channel or StripKind.Fx)
             foreach (var g in _mix.BusesOf(StripKind.Group))
             {
@@ -634,6 +649,7 @@ public sealed partial class NexAudioViewModel
         var src = new List<Choice> { new("off", "Off (silent)"), new("tone", "Test signal (set it on the Routing tab)") };
         src.Add(new("main:l", "Main left"));
         src.Add(new("main:r", "Main right"));
+        if (_mix.IsLcr) src.Add(new("centre", "Main centre"));
         src.Add(new("mono", "Mono / sub"));
         foreach (var kind in new[] { StripKind.Mix, StripKind.Matrix, StripKind.Group, StripKind.Fx })
             foreach (var b in _mix.BusesOf(kind))

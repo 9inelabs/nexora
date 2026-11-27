@@ -60,7 +60,7 @@ public sealed partial class NexAudioViewModel
         StripKind.Fx => "Effects",
         StripKind.Group => "Groups",
         StripKind.Mix => "Mixes",
-        StripKind.Main or StripKind.Mono => "Main",
+        StripKind.Main or StripKind.Mono or StripKind.Centre => "Main",
         StripKind.Matrix => "Matrices",
         _ => "Other",
     };
@@ -70,8 +70,9 @@ public sealed partial class NexAudioViewModel
     private void BuildRouteMap()
     {
         var m = _mix;
-        _gridRows = [.. m.Channels, .. m.BusesOf(StripKind.Fx), .. m.BusesOf(StripKind.Group), .. m.BusesOf(StripKind.Mix), m.Main, m.Mono, .. m.BusesOf(StripKind.Matrix)];
-        _gridCols = [m.Main, .. m.BusesOf(StripKind.Group), .. m.BusesOf(StripKind.Fx), .. m.BusesOf(StripKind.Mix), .. m.BusesOf(StripKind.Matrix)];
+        List<Strip> centre = m.IsLcr ? [m.Centre] : [];
+        _gridRows = [.. m.Channels, .. m.BusesOf(StripKind.Fx), .. m.BusesOf(StripKind.Group), .. m.BusesOf(StripKind.Mix), m.Main, .. centre, m.Mono, .. m.BusesOf(StripKind.Matrix)];
+        _gridCols = [m.Main, .. centre, .. m.BusesOf(StripKind.Group), .. m.BusesOf(StripKind.Fx), .. m.BusesOf(StripKind.Mix), .. m.BusesOf(StripKind.Matrix)];
         var map = new RouteMap(
             _gridRows.Select(s => new RouteEnd(s.Id, RowLabel(s), GroupOf(s.Kind), StripColour(s))).ToList(),
             _gridCols.Select(s => new RouteEnd(s.Id, NameOf(s), GroupOf(s.Kind), StripColour(s))).ToList());
@@ -106,6 +107,16 @@ public sealed partial class NexAudioViewModel
             return from.ToMain
                 ? (RouteState.On, null, $"{name}: on. Tap to take it off the main mix.")
                 : (RouteState.Free, null, $"{name}: off. Tap to send it to the main mix.");
+        }
+        if (to.Kind == StripKind.Centre)
+        {
+            if (from.Kind is not (StripKind.Channel or StripKind.Fx or StripKind.Group))
+                return (RouteState.Never, null, $"{name}: only channels, effect returns and groups go to the centre.");
+            if (from.Stereo)
+                return (RouteState.Never, null, $"{name}: a stereo strip goes to left and right only. Make it mono to pan it across the centre.");
+            return Routing.FeedsCentre(m, from)
+                ? (RouteState.On, null, $"{name}: on, panned across left, centre and right. Tap to keep it in left and right only.")
+                : (RouteState.Free, null, $"{name}: off{(from.ToMain ? " (left and right only)" : "")}. Tap to pan it across left, centre and right.");
         }
         if (to.Kind == StripKind.Group)
         {
@@ -144,6 +155,12 @@ public sealed partial class NexAudioViewModel
                 return;
         }
         if (to.Kind == StripKind.Main) Queue($"{from.Id}.toMain", !from.ToMain);
+        else if (to.Kind == StripKind.Centre)
+        {
+            var on = !Routing.FeedsCentre(_mix, from);
+            if (on && !from.ToMain) Queue($"{from.Id}.toMain", true);
+            Queue($"{from.Id}.toCentre", on);
+        }
         else if (to.Kind == StripKind.Group) Queue($"{from.Id}.group.{to.Id}", !from.Groups.Contains(to.Id));
         else if (from.SendTo(to.Id) is { } send)
         {
