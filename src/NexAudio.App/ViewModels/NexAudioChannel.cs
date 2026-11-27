@@ -210,7 +210,8 @@ public sealed class ChannelControls
         GateKey = new SliderParam($"{id}.gate.keyFilter", "Key filter", 0, 400, "Hz", m => S(m)?.Gate.KeyFilter, q, step: 5, def: 0);
 
         CompOn = new ToggleParam($"{id}.comp.on", "On", m => S(m)?.Comp.On ?? false, q);
-        CompStyle = new ChoiceParam($"{id}.comp.style", "Style", [new("Clean", "Clean"), new("Opto", "Opto"), new("Fet", "FET"), new("Glue", "Glue")], m => S(m)?.Comp.Style.ToString(), q);
+        CompStyle = new ChoiceParam($"{id}.comp.style", "Style", [new("Clean", "Clean"), new("Opto", "Opto"), new("Fet", "FET"), new("Glue", "Glue"), new("Vintage", "Vintage"), new("Limit", "Limit")], m => S(m)?.Comp.Style.ToString(), q);
+        CompDetect = new ChoiceParam($"{id}.comp.detect", "Hears", [new("Auto", "Auto"), new("Peak", "Peaks"), new("Rms", "Average")], m => S(m)?.Comp.Detect.ToString(), q);
         CompThreshold = new SliderParam($"{id}.comp.threshold", "Threshold", -60, 0, "dB", m => S(m)?.Comp.Threshold, q, step: 0.5, def: -18);
         CompRatio = new SliderParam($"{id}.comp.ratio", "Ratio", 1, 20, ":1", m => S(m)?.Comp.Ratio, q, log: true, def: 3);
         CompAttack = new SliderParam($"{id}.comp.attack", "Attack", 0.05, 200, "ms", m => S(m)?.Comp.Attack, q, log: true, def: 10);
@@ -294,6 +295,7 @@ public sealed class ChannelControls
     public ChoiceParam GateMode { get; }
     public ChoiceParam GateKeySource { get; }
     public ChoiceParam CompKeySource { get; }
+    public ChoiceParam CompDetect { get; }
     public ChoiceParam Order { get; }
     public bool IsDucker => GateMode.Selected?.Value == "Ducker";
     public ObservableCollection<EqBandView> Bands { get; } = [];
@@ -314,7 +316,7 @@ public sealed class ChannelControls
         yield return CompKnee; yield return CompMakeup; yield return CompAuto; yield return CompMix; yield return CompKey;
         yield return EqOn;
         yield return DriveOn; yield return DriveStyle; yield return DriveAmount; yield return DriveMix; yield return DriveOutput;
-        yield return DynEqOn; yield return GateMode; yield return GateKeySource; yield return CompKeySource; yield return Order;
+        yield return DynEqOn; yield return GateMode; yield return GateKeySource; yield return CompKeySource; yield return CompDetect; yield return Order;
     }
 
     public void Refresh(MixState m)

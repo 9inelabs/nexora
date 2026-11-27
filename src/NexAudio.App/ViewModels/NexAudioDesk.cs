@@ -397,14 +397,50 @@ public sealed partial class RackItemView : ObservableObject
         if (Effects.Get(item.Type) is { } info)
         {
             foreach (var c in info.Choices)
-                Params.Add(new ChoiceParam($"{stripId}.rack.{item.Id}.t.{c.Key}", c.Label, c.Options.Select(o => new Choice(o, Cap(o))).ToList(),
-                    m => Find(m)?.T(c.Key, c.Default), owner.Queue));
+            {
+                // "Listens to": itself or any other channel.
+                var options = c.Key == "key"
+                    ? owner.Mix.Channels.Where(ch => ch.Id != stripId).Select(ch => new Choice(ch.Id, $"{ch.Number} · {owner.NameOf(ch)}")).Prepend(new Choice("", "Itself")).ToList()
+                    : c.Options.Select(o => new Choice(o, Label(o))).ToList();
+                Params.Add(new ChoiceParam($"{stripId}.rack.{item.Id}.t.{c.Key}", c.Label, options, m => Find(m)?.T(c.Key, c.Default), owner.Queue));
+            }
             foreach (var p in info.Params)
                 Params.Add(new SliderParam(p, $"{stripId}.rack.{item.Id}.p.{p.Key}", m => Find(m)?.P(p.Key, p.Default), owner.Queue));
         }
     }
 
     private static string Cap(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
+    /// <summary>A choice as it reads on screen.</summary>
+    private static string Label(string o) => o switch
+    {
+        "Fet" => "FET",
+        "Rms" => "Average",
+        "Peak" => "Peaks",
+        "Limit" => "Fast limit",
+        "Iron" => "Iron (transformer)",
+        _ => Cap(o),
+    };
+
+    // ---- Tap tempo (delays) -----------------------------------------------------------------
+
+    private readonly List<DateTime> _taps = [];
+
+    public bool CanTap => Type == "delay";
+
+    /// <summary>Sets the delay's tempo from the gap between taps (two taps at least, a pause over 2 seconds starts again).</summary>
+    [RelayCommand]
+    private void Tap()
+    {
+        var now = DateTime.UtcNow;
+        if (_taps.Count > 0 && (now - _taps[^1]).TotalSeconds > 2) _taps.Clear();
+        _taps.Add(now);
+        if (_taps.Count > 6) _taps.RemoveAt(0);
+        if (_taps.Count < 2) return;
+        var bpm = Effects.TempoFrom(_taps);
+        if (bpm is { } b) _owner.Queue($"{StripId}.rack.{Id}.p.bpm", b);
+    }
+
 
     private RackItem? Find(MixState m) => m.Find(StripId)?.Rack.FirstOrDefault(r => r.Id == Id);
 

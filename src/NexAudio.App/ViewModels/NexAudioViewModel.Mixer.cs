@@ -232,6 +232,7 @@ public sealed partial class NexAudioViewModel
 
     private void RebuildAll()
     {
+        if (OnResources) RefreshPools();
         BuildStrips();
         BuildLayers();
         BuildBusTags();
@@ -347,6 +348,7 @@ public sealed partial class NexAudioViewModel
         Array.Copy(m.R, 0, levels, n, n);
         StripMeters.Push(levels, new bool[n * 2]);
         UpdateBusMeters(m.L, m.R);
+        if (m.Cost is { } cost) ApplyCosts(cost);
         foreach (var v in VisibleStrips.Append(MainStrip).Append(CentreStrip))
         {
             if (v is null || v.MeterIndex < 0 || v.MeterIndex >= n) continue;
@@ -591,11 +593,10 @@ public sealed partial class NexAudioViewModel
         {
             if (e.Type == "reverb")
             {
-                AddChoices.Add(new AddChoice("reverb", "room", "Reverb: room", e.Group));
-                AddChoices.Add(new AddChoice("reverb", "hall", "Reverb: hall", e.Group));
-                AddChoices.Add(new AddChoice("reverb", "plate", "Reverb: plate", e.Group));
+                foreach (var st in new[] { "room", "hall", "plate", "chamber", "church", "ambience" })
+                    AddChoices.Add(new AddChoice("reverb", st, "Reverb: " + st, e.Group));
             }
-            else AddChoices.Add(new AddChoice(e.Type, null, e.Name, e.Group));
+            else AddChoices.Add(new AddChoice(e.Type, null, e.Group == "Effects rack" ? "Effects rack: " + e.Name : e.Name, e.Group));
         }
         foreach (var p in DeskStatus.Plugins.Where(p => !p.IsInstrument))
             AddChoices.Add(new AddChoice("plugin", null, $"Plugin: {p.Name} ({p.Vendor})", "Plugins", p));

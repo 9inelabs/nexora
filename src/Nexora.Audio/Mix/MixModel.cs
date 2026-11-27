@@ -53,6 +53,21 @@ public enum CompStyle
     Fet,
     /// <summary>Gentle, holds a group or the whole mix together.</summary>
     Glue,
+    /// <summary>A classic VCA character: firm, listens to the average level, lets go quicker after deep reduction, a touch of warmth.</summary>
+    Vintage,
+    /// <summary>A fast FET-style limiter: very quick, high ratio, with colour as it works.</summary>
+    Limit,
+}
+
+/// <summary>How a compressor hears the level.</summary>
+public enum CompDetect
+{
+    /// <summary>The style decides (opto, glue and vintage listen to the average level, the others to peaks).</summary>
+    Auto,
+    /// <summary>Every peak: quick and exact, good for catching transients.</summary>
+    Peak,
+    /// <summary>The average (RMS) level: closer to how loud it sounds, smoother on voices and mixes.</summary>
+    Rms,
 }
 
 public enum SendTap
@@ -199,6 +214,36 @@ public sealed class EqSettings
         new() { Shape = FilterShape.HighShelf, Freq = 10000, Q = 0.7 },
     ];
 
+    /// <summary>The eight bands of a bus, the main and the matrices: four that shape broadly and four narrower ones in between.</summary>
+    public static List<EqBand> BusBands() =>
+    [
+        new() { Shape = FilterShape.LowShelf, Freq = 80, Q = 0.7 },
+        new() { Shape = FilterShape.Peak, Freq = 160, Q = 1.2 },
+        new() { Shape = FilterShape.Peak, Freq = 400, Q = 1.2 },
+        new() { Shape = FilterShape.Peak, Freq = 800, Q = 1.2 },
+        new() { Shape = FilterShape.Peak, Freq = 1600, Q = 1.2 },
+        new() { Shape = FilterShape.Peak, Freq = 3200, Q = 1.2 },
+        new() { Shape = FilterShape.Peak, Freq = 6300, Q = 1.2 },
+        new() { Shape = FilterShape.HighShelf, Freq = 10000, Q = 0.7 },
+    ];
+
+    /// <summary>
+    /// Gives a bus its eight bands. A six-band EQ from an older file keeps its bands and gains two flat ones
+    /// (160 Hz and 6.3 kHz), so it sounds exactly as before.
+    /// </summary>
+    public void MakeBus()
+    {
+        if (Bands.Count >= 8) return;
+        if (Bands.Count == 6)
+        {
+            Bands.Insert(1, new EqBand { Shape = FilterShape.Peak, Freq = 160, Q = 1.2 });
+            Bands.Insert(6, new EqBand { Shape = FilterShape.Peak, Freq = 6300, Q = 1.2 });
+            return;
+        }
+        var all = BusBands();
+        while (Bands.Count < 8) Bands.Insert(Math.Max(0, Bands.Count - 1), all[Bands.Count]);
+    }
+
     public bool IsFlat => !On || Bands.All(b => !b.On || Math.Abs(b.Gain) < 0.01 && b.Shape is not (FilterShape.HighPass or FilterShape.LowPass or FilterShape.Notch or FilterShape.BandPass));
 
     public EqSettings Clone() => new() { On = On, Bands = Bands.Select(b => b.Clone()).ToList() };
@@ -226,6 +271,7 @@ public sealed class CompSettings
 {
     public bool On { get; set; }
     public CompStyle Style { get; set; } = CompStyle.Clean;
+    public CompDetect Detect { get; set; } = CompDetect.Auto;
     public double Threshold { get; set; } = -18;
     public double Ratio { get; set; } = 3;
     public double Attack { get; set; } = 10;
@@ -639,7 +685,7 @@ public sealed class MixState
         yield return Stream;
     }
 
-    public static Strip NewCentre() => new() { Id = "centre", Kind = StripKind.Centre, Name = "Centre", Stereo = false, Fader = 0, ToMain = false };
+    public static Strip NewCentre() => new() { Id = "centre", Kind = StripKind.Centre, Name = "Centre", Stereo = false, Fader = 0, ToMain = false, Eq = new EqSettings { Bands = EqSettings.BusBands() } };
 
     public Strip? Find(string id) => AllStrips().FirstOrDefault(s => s.Id == id);
 
@@ -662,11 +708,11 @@ public sealed class MixState
         s.Buses.Add(NewBus(StripKind.Group, 4, "Choir"));
         s.Buses.Add(NewBus(StripKind.Matrix, 1, "Lobby"));
         s.Buses.Add(NewBus(StripKind.Matrix, 2, "Overflow"));
-        s.Main = new Strip { Id = "main", Kind = StripKind.Main, Name = "Main", Stereo = true, Fader = 0, ToMain = false };
-        s.Mono = new Strip { Id = "mono", Kind = StripKind.Mono, Name = "Mono / sub", Fader = Db.Floor, ToMain = false };
+        s.Main = new Strip { Id = "main", Kind = StripKind.Main, Name = "Main", Stereo = true, Fader = 0, ToMain = false, Eq = new EqSettings { Bands = EqSettings.BusBands() } };
+        s.Mono = new Strip { Id = "mono", Kind = StripKind.Mono, Name = "Mono / sub", Fader = Db.Floor, ToMain = false, Eq = new EqSettings { Bands = EqSettings.BusBands() } };
         s.Stream = new Strip
         {
-            Id = "stream", Kind = StripKind.Stream, Name = "Stream", Stereo = true, Fader = 0, ToMain = false,
+            Id = "stream", Kind = StripKind.Stream, Name = "Stream", Stereo = true, Fader = 0, ToMain = false, Eq = new EqSettings { Bands = EqSettings.BusBands() },
             Comp = new CompSettings { On = true, Style = CompStyle.Glue, Threshold = -20, Ratio = 2, Attack = 30, Release = 300, Knee = 6 },
             Rack = [Effects.Default("limiter")],
         };
@@ -717,6 +763,7 @@ public sealed class MixState
             Stereo = kind is StripKind.Fx or StripKind.Group,
             ToMain = kind is StripKind.Fx or StripKind.Group,
             StreamOn = kind is StripKind.Fx,
+            Eq = new EqSettings { Bands = EqSettings.BusBands() },
         };
         if (effect is not null) b.Rack.Add(effect);
         return b;
@@ -832,6 +879,19 @@ public sealed class MixState
             s.Lpf ??= new PassFilter { Freq = 18000 };
             s.Eq ??= new EqSettings();
             s.Eq.Bands ??= EqSettings.DefaultBands();
+            s.Eq.Bands.RemoveAll(b => b is null);
+            if (s.Kind == StripKind.Channel)
+            {
+                // A bus EQ pasted onto a channel: drop the two in-between bands it added.
+                if (s.Eq.Bands.Count == 8) { s.Eq.Bands.RemoveAt(6); s.Eq.Bands.RemoveAt(1); }
+                while (s.Eq.Bands.Count < 6) s.Eq.Bands.Add(EqSettings.DefaultBands()[s.Eq.Bands.Count]);
+                if (s.Eq.Bands.Count > 6) s.Eq.Bands.RemoveRange(6, s.Eq.Bands.Count - 6);
+            }
+            else
+            {
+                s.Eq.MakeBus();
+                if (s.Eq.Bands.Count > 8) s.Eq.Bands.RemoveRange(8, s.Eq.Bands.Count - 8);
+            }
             s.Drive ??= new DriveSettings();
             s.DynEq ??= new DynEqSettings();
             s.DynEq.Bands ??= DynEqSettings.DefaultBands();
@@ -853,6 +913,8 @@ public sealed class MixState
             {
                 r.Params ??= [];
                 r.Text ??= [];
+                // A gate, ducker or colour strip listens to another channel, or to itself.
+                if (r.Text.TryGetValue("key", out var rk)) r.Text["key"] = ValidKey(s, rk);
             }
             // Sends only to buses that exist and that this strip is allowed to feed.
             s.Sends.RemoveAll(x => Find(x.Bus) is not { } b || !Routing.CanSend(s, b));

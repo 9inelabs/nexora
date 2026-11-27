@@ -278,6 +278,7 @@
         </StackPanel>
       </Button>
       <Button Classes="tab small" Classes.selected="{Binding OnPcCheck}" Command="{Binding ShowTabCommand}" CommandParameter="PcCheck" Content="PC check" />
+      <Button Classes="tab small" Classes.selected="{Binding OnResources}" Command="{Binding ShowTabCommand}" CommandParameter="Resources" Content="Resources" />
     </StackPanel>
 
     <!-- Virtual soundcheck: never forget the mics are not live -->
@@ -490,6 +491,83 @@
       </Grid>
 
       <!-- PC check -->
+      <!-- Resources: how much of the PC the mix uses, and the shared pools -->
+      <Grid RowDefinitions="Auto,12,*" IsVisible="{Binding OnResources}">
+        <Border Classes="card" Padding="18,14">
+          <Grid ColumnDefinitions="*,24,420">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="eyebrow" Text="PROCESSING HEADROOM" />
+              <TextBlock Classes="h3" Text="{Binding ResourceVerdict}" Classes.warn="{Binding ResourceWarn}" Classes.error="{Binding ResourceDanger}" />
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding ResourceAdvice}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Center">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <TextBlock Classes="eyebrow" Text="LOAD" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Classes="mono" Text="{Binding LoadText}" />
+              </Grid>
+              <a:BarMeter Height="14" Minimum="0" Maximum="1" Value="{Binding LoadFraction}" Target="{Binding LoadPeakFraction}" />
+              <TextBlock Classes="faint small" Text="{Binding LoadSummary}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <Grid Grid.Row="2" ColumnDefinitions="*,12,*">
+          <Border Classes="card" Padding="18,14">
+            <Grid RowDefinitions="Auto,12,*">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="sectitle" Text="Shared pools" />
+                <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Like slots on a hardware desk: the whole show shares these. A full pool will not take another item until one is removed." />
+              </StackPanel>
+              <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Pools}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PoolRow">
+                      <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="14,10" Margin="0,0,0,8">
+                        <Grid RowDefinitions="Auto,6,Auto,4,Auto" ColumnDefinitions="*,Auto">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Border Width="10" Height="10" CornerRadius="3" Background="{Binding Colour}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                            <Border Classes="chip bad" IsVisible="{Binding Full}"><TextBlock Text="FULL" /></Border>
+                          </StackPanel>
+                          <TextBlock Grid.Column="1" Classes="mono" Text="{Binding UsedText}" />
+                          <a:BarMeter Grid.Row="2" Grid.ColumnSpan="2" Height="8" Minimum="0" Maximum="1" Value="{Binding Fraction}" Fill="{Binding Colour}" IsVisible="{Binding HasLimit}" />
+                          <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Classes="faint small" TextWrapping="Wrap" Text="{Binding Detail}" />
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Grid>
+          </Border>
+          <Border Grid.Column="2" Classes="card" Padding="18,14">
+            <Grid RowDefinitions="Auto,12,*">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="sectitle" Text="What uses the most" />
+                <TextBlock Classes="faint small" TextWrapping="Wrap" Text="{Binding MixCostText, FallbackValue=Measuring...}" />
+              </StackPanel>
+              <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Costs}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:CostRow">
+                      <Grid ColumnDefinitions="150,*,64" RowDefinitions="Auto,2,Auto" Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                          <Border Width="4" Height="16" CornerRadius="2" Background="{Binding Colour}" />
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="130" />
+                        </StackPanel>
+                        <a:BarMeter Grid.Column="1" Height="10" Minimum="0" Maximum="1" Value="{Binding Fraction}" Fill="{Binding Colour}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Classes="mono" HorizontalAlignment="Right" Text="{Binding ShareText}" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Classes="faint small" Text="{Binding Effects}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Row="2" Classes="faint small" Text="{Binding Kind}" Margin="11,0,0,0" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Grid>
+          </Border>
+        </Grid>
+      </Grid>
+
       <Border Classes="card" Padding="18" IsVisible="{Binding OnPcCheck}">
         <Grid RowDefinitions="Auto,12,*">
           <Grid ColumnDefinitions="*,Auto">
