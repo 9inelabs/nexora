@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- What NEXORA and NEX-Audio share on screen: the theme, the fonts, icons, the logo and the log file.
+       The types keep the Nexora.App namespaces so both apps' XAML finds them the same way. -->
+  <PropertyGroup>
+    <AssemblyName>Nexora.UI</AssemblyName>
+    <RootNamespace>Nexora.App</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.23" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.23" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Nexora.Core\Nexora.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -37,7 +37,7 @@ The failsafe works by switching the X32 between two scenes. You make them once.
 
 ## 2. Open the mixer
 
-1. On the NEX-Audio PC, sign in, open the **NEX-Audio** section and start the sound (top right, **Start sound**).
+1. On the NEX-Audio PC, open the **NEX-Audio** app (installed with NEX-Audio-Setup.exe), sign in with your NEXORA name and PIN, and start the sound (top right, **Start sound**).
 2. The **Mixer** tab opens first. You should see 16 strips with names from the X32, each with a fader, meter, **MUTE** and **SOLO**.
 3. Switch between **Channels 1–16**, **Channels 17–32** and **Buses**.
 

@@ -28,5 +28,6 @@
     <ProjectReference Include="..\Nexora.Core\Nexora.Core.csproj" />
     <ProjectReference Include="..\Nexora.Server\Nexora.Server.csproj" />
     <ProjectReference Include="..\Nexora.Audio\Nexora.Audio.csproj" />
+    <ProjectReference Include="..\Nexora.UI\Nexora.UI.csproj" />
   </ItemGroup>
 </Project>

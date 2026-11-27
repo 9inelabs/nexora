@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- NEX-Audio: the X32 mixing desk, its own app with its own installer. It shares the sound engine
+       (Nexora.Audio), the look (Nexora.UI) and the church's users (through the Live Output PC) with NEXORA. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>NexAudio</AssemblyName>
+    <RootNamespace>NexAudio.App</RootNamespace>
+    <Product>NEX-Audio</Product>
+    <ApplicationIcon>Assets\nexaudio.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.23" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.23" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.23" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.23" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Nexora.Core\Nexora.Core.csproj" />
+    <ProjectReference Include="..\Nexora.Audio\Nexora.Audio.csproj" />
+    <ProjectReference Include="..\Nexora.UI\Nexora.UI.csproj" />
+  </ItemGroup>
+</Project>

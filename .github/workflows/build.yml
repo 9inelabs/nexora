@@ -43,6 +43,11 @@ jobs:
           dotnet publish src/Nexora.App/Nexora.App.csproj -c Release -r win-x64 --self-contained true
           -p:Version=${{ steps.version.outputs.value }} -p:DebugType=none -o publish
 
+      - name: Publish NEX-Audio for Windows (its own app)
+        run: >
+          dotnet publish src/NexAudio.App/NexAudio.App.csproj -c Release -r win-x64 --self-contained true
+          -p:Version=${{ steps.version.outputs.value }} -p:DebugType=none -o publish-nexaudio
+
       - name: Add the recorder (FFmpeg)
         shell: pwsh
         run: |
@@ -99,23 +104,33 @@ jobs:
           vpk pack --packId Nexora --packVersion ${{ steps.version.outputs.value }} --packDir publish `
             --mainExe Nexora.exe --packTitle NEXORA --packAuthors NEXORA `
             --icon src/Nexora.App/Assets/nexora.ico --outputDir Releases
+          # NEX-Audio: its own installer and its own update channel ("nexaudio"), released beside NEXORA.
+          vpk download github --repoUrl https://github.com/${{ github.repository }} --pre --token ${{ secrets.GITHUB_TOKEN }} --channel nexaudio --outputDir Releases
+          if ($LASTEXITCODE -ne 0) { Write-Warning "No earlier NEX-Audio release to make a small update from." }
+          $global:LASTEXITCODE = 0
+          vpk pack --packId NexAudio --channel nexaudio --packVersion ${{ steps.version.outputs.value }} --packDir publish-nexaudio `
+            --mainExe NexAudio.exe --packTitle NEX-Audio --packAuthors NEXORA `
+            --icon src/NexAudio.App/Assets/nexaudio.ico --outputDir Releases
+          if ($LASTEXITCODE -ne 0) { throw "Could not build the NEX-Audio installer" }
           # Keep only this version's full package (the earlier one was only needed to make the delta).
           Get-ChildItem Releases/*-full.nupkg | Where-Object { $_.Name -notlike "*-${{ steps.version.outputs.value }}-full.nupkg" } | Remove-Item
           Get-ChildItem Releases
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item Releases/Nexora-win-Setup.exe out/NEXORA-Setup.exe
           Copy-Item Releases/Nexora-win-Portable.zip out/NEXORA-Portable.zip
+          Copy-Item (Get-ChildItem Releases/NexAudio-*Setup.exe | Select-Object -First 1).FullName out/NEX-Audio-Setup.exe
           Copy-Item docs/PHASE1-TESTING.md out/PHASE1-TESTING.md
           Copy-Item docs/PHASE2-TESTING.md out/PHASE2-TESTING.md
           Copy-Item docs/TESTING-PHASES-3-8.md out/TESTING-PHASES-3-8.md
           Copy-Item docs/OPERATOR-GUIDE.md out/OPERATOR-GUIDE.md
           Copy-Item docs/NEX-AUDIO-PHASE1-TESTING.md out/NEX-AUDIO-PHASE1-TESTING.md
           Copy-Item docs/NEX-AUDIO-PHASES2-5-TESTING.md out/NEX-AUDIO-PHASES2-5-TESTING.md
+          Copy-Item docs/NEX-AUDIO-APP.md out/NEX-AUDIO-APP.md
           Copy-Item publish/Backgrounds/CREDITS.txt out/BACKGROUNDS-CREDITS.txt
           # The files the Live Output PC offers to the other PCs (Settings > Updates).
           New-Item -ItemType Directory -Force update/NEXORA-Update | Out-Null
           Copy-Item Releases/releases.win.json update/NEXORA-Update/
-          Copy-Item Releases/*-full.nupkg update/NEXORA-Update/
+          Copy-Item Releases/Nexora-*-full.nupkg update/NEXORA-Update/
           Get-ChildItem out, update -Recurse | Select-Object FullName, Length
 
       - name: Upload the installer
@@ -124,6 +139,7 @@ jobs:
           name: NEXORA-Setup-${{ steps.version.outputs.value }}
           path: |
             out/NEXORA-Setup.exe
+            out/NEX-Audio-Setup.exe
             out/*.md
             out/*.txt
           retention-days: 30
@@ -144,11 +160,14 @@ jobs:
           prerelease: true
           body: |
             Test build of NEXORA. Download **NEXORA-Setup.exe** below and follow PHASE1-TESTING.md and TESTING-PHASES-3-8.md.
+            The sound PC installs **NEX-Audio-Setup.exe** (the mixing desk, its own app).
           # releases.win.json and the packages let "Update NEXORA" find and download this version.
           files: |
             Releases/releases.win.json
+            Releases/releases.nexaudio.json
             Releases/*.nupkg
             out/NEXORA-Setup.exe
+            out/NEX-Audio-Setup.exe
             out/NEXORA-Portable.zip
             out/PHASE1-TESTING.md
             out/TESTING-PHASES-3-8.md

@@ -102,7 +102,8 @@ public static class Sections
         new(SectionKind.LowerThirds, "Lower Thirds", "Minister names and titles over cameras.", Role.LowerThirds, Layer.Overlays, false),
         new(SectionKind.Countdown, "Countdown", "Timers, sermon points and the Stage Monitor.", Role.Countdown, Layer.Overlays, false),
         new(SectionKind.MinisterTimer, "Minister Timer", "A big timer on the Stage Monitor so ministers keep to time.", Role.Countdown, Layer.Overlays, false),
-        new(SectionKind.Audio, "NEX-Audio", "Mix the live sound and the stream from the X32.", Role.Audio, Layer.Overlays, false, ToScreens: false),
+        // NEX-Audio is its own app (NexAudio.exe); kept here for its role check, but not offered in NEXORA's section picker.
+        new(SectionKind.Audio, "NEX-Audio", "Mix the live sound and the stream from the X32.", Role.Audio, Layer.Overlays, false, ToScreens: false, Pickable: false),
         new(SectionKind.Media, "Media", "Videos and pictures played on Live Output.", Role.LiveOutput, Layer.Media, false, Pickable: false),
     ];
 

@@ -15,18 +15,7 @@ internal static class Program
         // Must run first: handles install, update and uninstall hooks from the installer.
         VelopackApp.Build().Run();
 
-        // NEX-Audio plugins each run in their own small process, so a crashing plugin cannot stop the sound.
-        if (args.Contains("--plugin-host")) return Nexora.Audio.Plugins.PluginHost.RunProcess(args);
-        var scan = Array.IndexOf(args, "--plugin-scan");
-        if (scan >= 0 && scan + 1 < args.Length) return Nexora.Audio.Plugins.PluginScanner.RunScanProcess(args[scan + 1]);
-
         IsOutputEngine = args.Contains("--output-engine");
-        if (args.Contains("--audio-engine"))
-        {
-            // NEX-Audio's sound engine: no window, runs until asked to stop.
-            AppDomain.CurrentDomain.UnhandledException += (_, e) => AppLog.Write("Audio engine unhandled: " + e.ExceptionObject);
-            return Nexora.Audio.Engine.EngineProcess.Run(Nexora.Core.Config.AppPaths.Root, m => AppLog.Write(m));
-        }
         AppDomain.CurrentDomain.UnhandledException += (_, e) => AppLog.Write("Unhandled: " + e.ExceptionObject);
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {

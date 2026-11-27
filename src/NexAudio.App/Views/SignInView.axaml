@@ -1,0 +1,135 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexAudio.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="NexAudio.App.Views.SignInView"
+             x:DataType="vm:SignInViewModel">
+  <UserControl.Styles>
+    <Style Selector="Border.pin">
+      <Setter Property="Width" Value="87" />
+      <Setter Property="Height" Value="54" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line2}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.pin.active">
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="Button.who">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="4" />
+    </Style>
+    <Style Selector="Button.who:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.face">
+      <Setter Property="Width" Value="46" />
+      <Setter Property="Height" Value="46" />
+      <Setter Property="CornerRadius" Value="999" />
+      <Setter Property="Background" Value="{StaticResource Surface3}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Border.face.selected">
+      <Setter Property="BorderBrush" Value="{StaticResource FxTone}" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+    </Style>
+    <Style Selector="Button.who:pointerover Border.face">
+      <Setter Property="Background" Value="{StaticResource Surface4}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="40,30">
+    <Grid ColumnDefinitions="Auto,12,Auto,*,Auto">
+      <c:NexoraLogo Part="Mark" Foreground="{StaticResource Text1}" Height="30" />
+      <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="0">
+        <TextBlock Text="NEX-Audio" FontFamily="{StaticResource FontDisplay}" FontWeight="Bold" FontSize="20" />
+        <TextBlock Classes="faint small" Text="Mixing desk" />
+      </StackPanel>
+      <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" IsVisible="{Binding LinkOk}" />
+        <Ellipse Width="7" Height="7" Fill="{StaticResource Live}" IsVisible="{Binding LinkBad}" />
+        <Ellipse Width="7" Height="7" Fill="{StaticResource Warn}" IsVisible="{Binding LinkWaiting}" />
+        <TextBlock Classes="muted small" VerticalAlignment="Center">
+          <Run Text="{Binding PcLine}" /><Run Text="  ·  " /><Run Text="{Binding LinkText}" />
+        </TextBlock>
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Row="1" Classes="card" Padding="36" Width="472" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="0">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Rectangle Width="4" Height="16" RadiusX="2" RadiusY="2" Fill="{StaticResource InputTone}" />
+          <Rectangle Width="4" Height="16" RadiusX="2" RadiusY="2" Fill="{StaticResource GateTone}" />
+          <Rectangle Width="4" Height="16" RadiusX="2" RadiusY="2" Fill="{StaticResource EqTone}" />
+          <Rectangle Width="4" Height="16" RadiusX="2" RadiusY="2" Fill="{StaticResource DynTone}" />
+          <Rectangle Width="4" Height="16" RadiusX="2" RadiusY="2" Fill="{StaticResource FxTone}" />
+          <TextBlock Classes="eyebrow" Text="{Binding ChurchName}" VerticalAlignment="Center" Margin="6,0,0,0" />
+        </StackPanel>
+        <TextBlock Classes="h1" Text="Sign in to the desk" Margin="0,14,0,0" />
+        <TextBlock Classes="muted" Margin="0,8,0,22" TextWrapping="Wrap"
+                   Text="Your NEXORA name and 4-digit PIN. The sound keeps running while nobody is signed in." />
+
+        <ItemsControl ItemsSource="{Binding Users}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><WrapPanel ItemWidth="64" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:UserChoice">
+              <Button Classes="who" HorizontalAlignment="Center"
+                      Command="{Binding $parent[UserControl].((vm:SignInViewModel)DataContext).SelectUserCommand}" CommandParameter="{Binding}">
+                <StackPanel Spacing="6" HorizontalAlignment="Center">
+                  <Border Classes="face" Classes.selected="{Binding IsSelected}" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding Initials}" FontWeight="Bold" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <TextBlock Text="{Binding Name}" FontSize="12" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="60"
+                             Foreground="{StaticResource Text2}" />
+                </StackPanel>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="muted" IsVisible="{Binding NoUsers}" Text="{Binding NoUsersText}" TextWrapping="Wrap" />
+
+        <ItemsControl ItemsSource="{Binding PinSlots}" Margin="0,24,0,0">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><UniformGrid Columns="4" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:PinSlot">
+              <Border Classes="pin" Classes.active="{Binding Active}" HorizontalAlignment="Center">
+                <Ellipse Width="10" Height="10" Fill="{StaticResource Text1}" IsVisible="{Binding Filled}" />
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Classes="error" Margin="0,14,0,0" Text="{Binding Error}" TextWrapping="Wrap"
+                   IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        <TextBlock Classes="faint small" Margin="0,14,0,0" TextWrapping="Wrap" IsVisible="{Binding OfflineNote}"
+                   Text="The Live Output PC cannot be reached. Anyone who has signed in on this PC before can still sign in." />
+
+        <Button Classes="primary big" Margin="0,22,0,0" HorizontalAlignment="Stretch" Height="46"
+                Content="Sign in" Command="{Binding SignInCommand}" IsEnabled="{Binding CanSignIn}" />
+
+        <Border Classes="hairline" Margin="0,22,0,12" />
+        <Button Classes="link" Content="Connection to the Live Output PC" Command="{Binding EditConnectionCommand}" HorizontalAlignment="Left" />
+        <StackPanel IsVisible="{Binding ShowConnection}" Margin="0,10,0,0" Spacing="10">
+          <TextBlock Classes="muted small" TextWrapping="Wrap"
+                     Text="Type the pairing code from NEXORA's Settings on the Live Output PC. Leave the address empty unless the Live Output PC cannot be found by itself." />
+          <Grid ColumnDefinitions="*,10,*">
+            <TextBox Text="{Binding PairingCode}" Watermark="Pairing code" />
+            <TextBox Grid.Column="2" Text="{Binding Address}" Watermark="Address (optional), e.g. 192.168.1.20" />
+          </Grid>
+          <Button Classes="ghost" Content="Save and connect" Command="{Binding SaveConnectionCommand}" HorizontalAlignment="Left" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <TextBlock Grid.Row="2" Classes="faint small" HorizontalAlignment="Center">
+      <Run Text="NEX-Audio " /><Run Text="{Binding Version}" /><Run Text="      Part of NEXORA. Works offline on the church network." />
+    </TextBlock>
+  </Grid>
+</UserControl>

@@ -120,7 +120,7 @@ public sealed class Desk : IDisposable
         _log = log ?? (_ => { });
         _store = new SceneStore(dataDir);
         _presets = new PresetStore(dataDir);
-        _launcher = launcher ?? new ProcessHostLauncher(Environment.ProcessPath ?? "Nexora.exe");
+        _launcher = launcher ?? new ProcessHostLauncher(Environment.ProcessPath ?? "NexAudio.exe");
         _settings = LoadJson<DeskSettings>(_settingsFile) ?? new DeskSettings();
         _mix = (File.Exists(_mixFile) ? MixState.FromJson(File.ReadAllText(_mixFile)) : null) ?? MixState.CreateDefault();
         _pluginList = PluginScanner.Load(_pluginsFile);
@@ -463,7 +463,7 @@ public sealed class Desk : IDisposable
         {
             try
             {
-                var exe = Environment.ProcessPath ?? "Nexora.exe";
+                var exe = Environment.ProcessPath ?? "NexAudio.exe";
                 var list = PluginScanner.Scan(_pluginList, exe, null, null, name =>
                 {
                     _scanNote = $"Checking {name}…";

@@ -323,8 +323,8 @@ public static class ScriptureRenderer
 
     public static FontFamily Font(string name)
     {
-        if (BundledFonts.Contains(name, StringComparer.OrdinalIgnoreCase)) return new FontFamily($"avares://Nexora/Assets/Fonts#{name}");
-        return string.IsNullOrWhiteSpace(name) ? new FontFamily("avares://Nexora/Assets/Fonts#Manrope") : new FontFamily(name);
+        if (BundledFonts.Contains(name, StringComparer.OrdinalIgnoreCase)) return new FontFamily($"avares://Nexora.UI/Assets/Fonts#{name}");
+        return string.IsNullOrWhiteSpace(name) ? new FontFamily("avares://Nexora.UI/Assets/Fonts#Manrope") : new FontFamily(name);
     }
 
     public static TextAlignment Alignment(TextAlign a) => a switch

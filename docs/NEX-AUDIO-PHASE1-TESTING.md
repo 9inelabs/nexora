@@ -26,7 +26,7 @@ Before changing anything on the X32, **save the current scene** (Scenes > Save).
 
 ## 1. Open NEX-Audio
 
-1. Sign in on the NEX-Audio PC and add the **NEX-Audio** section.
+1. On the NEX-Audio PC, install **NEX-Audio-Setup.exe** (it is its own app now, beside NEXORA), open **NEX-Audio** and sign in with your NEXORA name and PIN. The first time, type the pairing code from NEXORA's Settings on the Live Output PC.
 2. Open the **PC check** tab. Every line says OK, Improve or Fix.
    - Fix any **Fix** line before going further.
    - Note any **Improve** lines on the sheet at the end. Common ones: set the power plan to High performance, and turn USB selective suspend off.

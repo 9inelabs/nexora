@@ -21,7 +21,7 @@ public interface IPluginHostLauncher
     IPluginHostConnection Start(string shmPath, string eventName, int block, double sampleRate);
 }
 
-/// <summary>Starts each plugin host as its own process ("Nexora.exe --plugin-host ...").</summary>
+/// <summary>Starts each plugin host as its own process ("NexAudio.exe --plugin-host ...").</summary>
 public sealed class ProcessHostLauncher : IPluginHostLauncher
 {
     private readonly string _exe;

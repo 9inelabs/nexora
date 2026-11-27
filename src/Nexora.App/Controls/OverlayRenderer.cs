@@ -14,9 +14,9 @@ public static class OverlayRenderer
 {
     private static double W => CanvasSize.W;
     private static double H => CanvasSize.H;
-    private static readonly FontFamily Ui = new("avares://Nexora/Assets/Fonts#Manrope");
-    private static readonly FontFamily Display = new("avares://Nexora/Assets/Fonts#Sora");
-    public static readonly FontFamily Mono = new("avares://Nexora/Assets/Fonts#JetBrains Mono");
+    private static readonly FontFamily Ui = new("avares://Nexora.UI/Assets/Fonts#Manrope");
+    private static readonly FontFamily Display = new("avares://Nexora.UI/Assets/Fonts#Sora");
+    public static readonly FontFamily Mono = new("avares://Nexora.UI/Assets/Fonts#JetBrains Mono");
 
     public static readonly IBrush Warn = new SolidColorBrush(Color.Parse("#F0B44C"));
     public static readonly IBrush Red = new SolidColorBrush(Color.Parse("#FF5A5F"));

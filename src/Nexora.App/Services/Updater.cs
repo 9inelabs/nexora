@@ -56,6 +56,10 @@ public static class Updater
                 say("Offering it to every PC…");
                 await Task.Run(() => Offer(target.Version.ToString(), package, FeedFor(target)));
                 S.Server?.RefreshLibrary();
+                // NEX-Audio is its own app with its own installer: bring its matching version down too,
+                // so the sound PC can update from here without the internet.
+                say("Fetching NEX-Audio for the sound PC…");
+                await FetchNexAudioAsync(target.Version.ToString());
             }
             else AppLog.Write("Update: downloaded package not found at " + package);
 
@@ -114,17 +118,54 @@ public static class Updater
     {
         var updates = AppPaths.UpdatesDir;
         var prev = Path.Combine(updates, "previous");
+        // NEX-Audio's files sit beside NEXORA's and are managed by FetchNexAudioAsync.
+        var mine = Directory.GetFiles(updates).Where(f => !IsNexAudioFile(Path.GetFileName(f))).ToList();
         if (File.Exists(Path.Combine(updates, "offered.txt")))
         {
             if (Directory.Exists(prev)) Directory.Delete(prev, true);
             Directory.CreateDirectory(prev);
-            foreach (var f in Directory.GetFiles(updates)) File.Move(f, Path.Combine(prev, Path.GetFileName(f)));
+            foreach (var f in mine) File.Move(f, Path.Combine(prev, Path.GetFileName(f)));
         }
         else
-            foreach (var f in Directory.GetFiles(updates)) File.Delete(f);
+            foreach (var f in mine) File.Delete(f);
         File.WriteAllText(Path.Combine(updates, "releases.win.json"), feedJson);
         File.Copy(packagePath, Path.Combine(updates, Path.GetFileName(packagePath)), true);
         File.WriteAllText(Path.Combine(updates, "offered.txt"), version);
+    }
+
+    private static bool IsNexAudioFile(string name) =>
+        name.StartsWith("NexAudio-", StringComparison.OrdinalIgnoreCase) || name.Equals("releases.nexaudio.json", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Live Output PC: downloads NEX-Audio's package from the same release as this NEXORA version into the
+    /// updates folder, which the sound PC reads over the church network. Quiet when it cannot (logged only).
+    /// </summary>
+    public static async Task FetchNexAudioAsync(string version)
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+            var baseUrl = $"{RepoUrl}/releases/download/v{version}/";
+            var feed = await http.GetStringAsync(baseUrl + "releases.nexaudio.json");
+            using var doc = JsonDocument.Parse(feed);
+            var asset = doc.RootElement.GetProperty("Assets").EnumerateArray()
+                .Where(a => string.Equals(a.GetProperty("Type").GetString(), "Full", StringComparison.OrdinalIgnoreCase))
+                .LastOrDefault(a => a.GetProperty("FileName").GetString()?.Contains(version, StringComparison.Ordinal) == true);
+            if (asset.ValueKind != JsonValueKind.Object) return;
+            var full = asset.GetProperty("FileName").GetString()!;
+            // Only the full package is kept here, so the list names only that (no small "delta" updates).
+            var onlyFull = "{\"Assets\":[" + asset.GetRawText() + "]}";
+            var updates = AppPaths.UpdatesDir;
+            var tmp = Path.Combine(updates, full + ".part");
+            await using (var src = await http.GetStreamAsync(baseUrl + full))
+            await using (var dst = File.Create(tmp))
+                await src.CopyToAsync(dst);
+            foreach (var old in Directory.GetFiles(updates, "NexAudio-*.nupkg")) File.Delete(old);
+            File.Move(tmp, Path.Combine(updates, full), true);
+            await File.WriteAllTextAsync(Path.Combine(updates, "releases.nexaudio.json"), onlyFull);
+            AppLog.Write($"NEX-Audio {version} is ready for the sound PC.");
+        }
+        catch (Exception ex) { AppLog.Write("Could not fetch NEX-Audio for the sound PC: " + ex.Message); }
     }
 
     /// <summary>

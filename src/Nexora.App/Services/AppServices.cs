@@ -29,8 +29,6 @@ public sealed class AppServices
     public NexoraClient? Client { get; private set; }
     public OutputEngineHost? Output { get; private set; }
 
-    /// <summary>NEX-Audio's sound engine on this PC (only started when someone uses NEX-Audio here).</summary>
-    public AudioEngineHost Audio { get; } = new();
 
     /// <summary>UI-thread view of the link, the live picture and the signed-in user.</summary>
     public LiveModel Live { get; } = new();
@@ -95,9 +93,6 @@ public sealed class AppServices
             }
         }
 
-        // The sound was on when NEXORA last closed (or the PC restarted): bring it straight back.
-        if (AudioEngineHost.SoundWasOn) Audio.Start();
-
         Client = new NexoraClient(ResolveUrl, () => new Hello(Config.PairingCode, Config.PcId, Config.PcName, ClientKind.Terminal, Version));
         Live.Attach(Client);
         Songs.Attach(Client);
@@ -146,7 +141,6 @@ public sealed class AppServices
         Server = null;
         Store?.Dispose();
         Store = null;
-        if (stopOutput) Audio.StopForUpdate();
         if (stopOutput && Output is not null)
         {
             Output.StopEngine();
