@@ -84,4 +84,30 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Margin" Value="0,-6" />
     </Style>
+  <!-- High contrast (your menu, top right): black panels, white writing, bright edges -->
+  <Style Selector=":is(Panel).hc">
+    <Setter Property="Background" Value="#000000" />
+  </Style>
+  <Style Selector=".hc Border.card">
+    <Setter Property="Background" Value="#000000" />
+    <Setter Property="BorderBrush" Value="#99FFFFFF" />
+  </Style>
+  <Style Selector=".hc Border.stripcard, .hc Border.well, .hc Border.row, .hc Border.stat">
+    <Setter Property="BorderBrush" Value="#73FFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector=".hc TextBlock.muted, .hc TextBlock.faint, .hc TextBlock.flabel, .hc TextBlock.eyebrow">
+    <Setter Property="Foreground" Value="#F2F2F2" />
+  </Style>
+  <Style Selector=".hc TextBlock">
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector=".hc Button.tab">
+    <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+
+  <!-- Wider flyouts (the preset library) -->
+  <Style Selector="FlyoutPresenter.wide">
+    <Setter Property="MaxWidth" Value="720" />
+  </Style>
 </Styles>

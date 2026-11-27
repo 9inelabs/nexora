@@ -243,7 +243,8 @@ public sealed partial class StripView : ObservableObject
     [ObservableProperty] private bool _onLayer;
     /// <summary>The strip's background: tinted in the bus colour while the faders show sends.</summary>
     [ObservableProperty] private IBrush _card = DefaultCard;
-    private static readonly IBrush DefaultCard = new SolidColorBrush(Color.Parse("#1F2125"));
+    private static IBrush DefaultCard => Contrast.On ? Contrast.StripCard : NormalCard;
+    private static readonly IBrush NormalCard = new SolidColorBrush(Color.Parse("#1F2125"));
     [ObservableProperty] private bool _rackOn;
     [ObservableProperty] private bool _faderEnabled = true;
     [ObservableProperty] private string _layerNote = "";

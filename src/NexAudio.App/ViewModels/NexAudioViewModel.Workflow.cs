@@ -568,8 +568,10 @@ public sealed partial class NexAudioViewModel
     private void ApplyDisplay()
     {
         MeterSet.Configure(MeterFall.Value, PeakHold.Value);
+        var changed = Contrast.On != HighContrast;
         Contrast.Apply(HighContrast);
         MeterBridge.HighContrast = HighContrast;
+        if (changed) foreach (var v in AllStripViews()) if (_mix.Find(v.Id) is { } s) v.Update(s);
     }
 
     // ---- Pages on a second screen -------------------------------------------------------------------

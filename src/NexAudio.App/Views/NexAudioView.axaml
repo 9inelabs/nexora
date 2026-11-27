@@ -9,7 +9,7 @@
              x:DataType="vm:NexAudioViewModel">
 
 
-  <Panel>
+  <Panel Classes.hc="{Binding HighContrast}">
   <LayoutTransformControl>
   <LayoutTransformControl.LayoutTransform>
     <ScaleTransform ScaleX="{Binding UiScale}" ScaleY="{Binding UiScale}" />

@@ -224,7 +224,7 @@
           <Button Classes="primary" ToolTip.Tip="The preset library: search, folders, load and save">
             <StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="Presets" /><c:Icon Kind="arrowdown" Width="10" Height="10" /></StackPanel>
             <Button.Flyout>
-              <Flyout Placement="BottomEdgeAlignedRight">
+              <Flyout Placement="BottomEdgeAlignedRight" FlyoutPresenterClasses="wide">
                 <Grid Width="560" RowDefinitions="Auto,8,Auto,8,Auto,6,*,10,Auto,8,Auto" Margin="6">
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Classes="h3" Text="Preset library" />

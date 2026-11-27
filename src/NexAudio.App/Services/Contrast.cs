@@ -19,6 +19,8 @@ public static class Contrast
 
     private static readonly Dictionary<string, Color> Normal = [];
     public static bool On { get; private set; }
+    /// <summary>The fader strips' background in high contrast.</summary>
+    public static readonly IBrush StripCard = new SolidColorBrush(Color.Parse("#0A0A0C"));
 
     public static void Apply(bool on)
     {
