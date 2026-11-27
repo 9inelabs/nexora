@@ -832,21 +832,30 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
 
     // ---- Files -------------------------------------------------------------------------------------
 
+    private readonly object _saveGate = new();
+
+    /// <summary>
+    /// Writes the mix to disk. One save at a time, each taking the mix as it is when its turn comes, so a slower
+    /// save from the timer can never land after (and over) a newer one, for example the last save on closing.
+    /// </summary>
     private void SaveMix()
     {
-        string json;
-        lock (_gate)
+        lock (_saveGate)
         {
-            _mixDirty = false;
-            json = JsonSerializer.Serialize(_mix, MixState.Json);
+            string json;
+            lock (_gate)
+            {
+                _mixDirty = false;
+                json = JsonSerializer.Serialize(_mix, MixState.Json);
+            }
+            try
+            {
+                var tmp = _mixFile + ".tmp";
+                File.WriteAllText(tmp, json);
+                File.Move(tmp, _mixFile, true);
+            }
+            catch (Exception ex) { _log("Could not save the mix: " + ex.Message); }
         }
-        try
-        {
-            var tmp = _mixFile + ".tmp";
-            File.WriteAllText(tmp, json);
-            File.Move(tmp, _mixFile, true);
-        }
-        catch (Exception ex) { _log("Could not save the mix: " + ex.Message); }
     }
 
     /// <summary>Brings a Phase 1 patch (output = input number, off or tone) into the mix's outputs, the first time.</summary>
@@ -885,9 +894,11 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
 
     public void Dispose()
     {
-        _timer.Dispose();
+        // Wait for a timer tick that is already running (it may be saving the mix), then save the latest.
+        using (var done = new ManualResetEvent(false))
+            if (_timer.Dispose(done)) done.WaitOne(2000);
         _tape.Dispose();
-        if (_mixDirty) SaveMix();
+        SaveMix();
         _heartbeat?.Dispose();
         _stream?.Dispose();
         _x32.Dispose();
