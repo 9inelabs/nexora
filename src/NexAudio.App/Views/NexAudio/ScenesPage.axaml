@@ -61,6 +61,7 @@
             <TextBlock Classes="faint small" Text="{Binding Detail}" TextTrimming="CharacterEllipsis" />
           </StackPanel>
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <Button Classes="ghost small" Command="{Binding PreviewCommand}" ToolTip.Tip="See what it would change first"><c:Icon Kind="eye" Width="12" Height="12" /></Button>
             <Button Classes="primary small" Command="{Binding RecallCommand}" Content="Recall" />
             <Button Classes="ghost small" Command="{Binding UpdateCommand}" Content="Save over" ToolTip.Tip="Replace this with the desk as it is now" />
             <Button Classes="ghost small" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete"><c:Icon Kind="x" Width="11" Height="11" /></Button>

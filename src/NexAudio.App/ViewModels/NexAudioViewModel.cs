@@ -21,6 +21,8 @@ public enum NexAudioTab
     Outputs,
     Stream,
     Scenes,
+    Show,
+    Soundcheck,
     Plugins,
     Failsafe,
     Meters,
@@ -64,6 +66,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
         });
         _x32.Changed += () => Dispatcher.UIThread.Post(ApplyConsole);
         HookDesk();
+        HookShow();
         Live.PropertyChanged += OnAccountChanged;
         _clock = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Tick());
         _clock.Start();
@@ -77,7 +80,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OnMeters), nameof(OnPatch), nameof(OnLatency), nameof(OnDriver), nameof(OnConsole), nameof(OnPcCheck),
-        nameof(OnMixer), nameof(OnChannel), nameof(OnOutputs), nameof(OnStream), nameof(OnScenes), nameof(OnPlugins), nameof(OnFailsafe), nameof(OnSetup))]
+        nameof(OnMixer), nameof(OnChannel), nameof(OnOutputs), nameof(OnStream), nameof(OnScenes), nameof(OnShow), nameof(OnSoundcheck), nameof(OnPlugins), nameof(OnFailsafe), nameof(OnSetup))]
     private NexAudioTab _tab = NexAudioTab.Mixer;
 
     public bool OnMixer => Tab == NexAudioTab.Mixer;
@@ -85,6 +88,8 @@ public sealed partial class NexAudioViewModel : ViewModelBase
     public bool OnOutputs => Tab == NexAudioTab.Outputs;
     public bool OnStream => Tab == NexAudioTab.Stream;
     public bool OnScenes => Tab == NexAudioTab.Scenes;
+    public bool OnShow => Tab == NexAudioTab.Show;
+    public bool OnSoundcheck => Tab == NexAudioTab.Soundcheck;
     public bool OnPlugins => Tab == NexAudioTab.Plugins;
     public bool OnFailsafe => Tab == NexAudioTab.Failsafe;
     /// <summary>The Phase 1 pages (meters, latency, driver, X32 link, PC check) sit together under Setup.</summary>

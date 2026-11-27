@@ -193,7 +193,11 @@ public sealed class AudioEngine : IDisposable
             var f = device.Format!;
             var core = new EngineCore(f.Inputs, f.Outputs, f.BufferSize, f.SampleRate);
             if (_settings.Patch is { Length: > 0 } p) core.SetPatch(p);
-            if (_desk is not null) core.Mix = _desk.Attach(f.Inputs, f.Outputs, f.BufferSize, f.SampleRate);
+            if (_desk is not null)
+            {
+                core.Mix = _desk.Attach(f.Inputs, f.Outputs, f.BufferSize, f.SampleRate);
+                core.Tape = _desk.Tape;
+            }
             _stats.Reset();
             device.Start(core, _stats);
             _device = device;

@@ -1,0 +1,199 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexAudio.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:m="using:Nexora.Audio.Mix"
+             x:Class="NexAudio.App.Views.NexAudio.ShowOverlays"
+             x:DataType="vm:NexAudioViewModel">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.title">
+      <Setter Property="FontSize" Value="19" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="Border.scrim">
+      <Setter Property="Background" Value="#B3000000" />
+    </Style>
+  </UserControl.Styles>
+  <Panel>
+    <!-- RECALL PREVIEW -->
+    <Border Classes="scrim" IsVisible="{Binding RecallPreview.IsOpen}">
+      <Border Classes="card" Width="720" MaxHeight="640" Padding="22,18" HorizontalAlignment="Center" VerticalAlignment="Center"
+              DataContext="{Binding RecallPreview}" x:DataType="vm:PreviewForm">
+        <Grid RowDefinitions="Auto,12,*,10,Auto,14,Auto">
+          <StackPanel Spacing="3">
+            <TextBlock Classes="title" Text="{Binding Title}" TextWrapping="Wrap" />
+            <TextBlock Classes="faint small" Text="{Binding Subtitle}" TextWrapping="Wrap" />
+          </StackPanel>
+          <Border Grid.Row="2" Classes="well" Padding="0">
+            <Panel>
+              <TextBlock Classes="muted" Margin="14" IsVisible="{Binding NoRows}" TextWrapping="Wrap" Text="Nothing would change: the desk already matches." />
+              <ScrollViewer VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasRows}">
+                <ItemsControl ItemsSource="{Binding Rows}" Margin="12,8">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="m:RecallChange">
+                      <Grid ColumnDefinitions="170,8,150,8,*" Margin="0,3">
+                        <TextBlock Text="{Binding Strip}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Classes="muted small" Text="{Binding What}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6">
+                          <TextBlock Classes="mono small" Foreground="{StaticResource Text3}" Text="{Binding From}" />
+                          <TextBlock Classes="small" Foreground="{StaticResource Text3}" Text="→" />
+                          <TextBlock Classes="mono small" Foreground="{StaticResource Accent}" Text="{Binding To}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Panel>
+          </Border>
+          <TextBlock Grid.Row="4" Classes="small" Foreground="{StaticResource PreviewBrush}" Text="{Binding SafeText}" TextWrapping="Wrap" IsVisible="{Binding HasSafe}" />
+          <StackPanel Grid.Row="6" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Classes="ghost" Command="{Binding CancelCommand}" Content="Close" />
+            <Button Classes="primary" Command="{Binding GoCommand}" Content="{Binding GoText}" IsVisible="{Binding CanGo}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Border>
+
+    <!-- OPEN A SHOW FILE OR BACKUP -->
+    <Border Classes="scrim" IsVisible="{Binding ShowOpen.IsOpen}">
+      <Border Classes="card" Width="560" Padding="22,18" HorizontalAlignment="Center" VerticalAlignment="Center"
+              DataContext="{Binding ShowOpen}" x:DataType="vm:ShowOpenForm">
+        <StackPanel Spacing="14">
+          <TextBlock Classes="title" Text="{Binding Title}" TextWrapping="Wrap" />
+          <TextBlock Classes="muted" Text="{Binding Detail}" TextWrapping="Wrap" />
+          <Border Classes="well" Padding="12,10">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="small" FontWeight="SemiBold" Text="Take its mix too?" />
+              <TextBlock Classes="faint small" TextWrapping="Wrap"
+                         Text="Its mix replaces every fader, EQ and bus on the desk now. During a service, keep the live mix and bring in only the scenes, cues and macros." />
+            </StackPanel>
+          </Border>
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Classes="ghost" Command="{Binding CancelCommand}" Content="Cancel" />
+            <Button Classes="ghost" Command="{Binding KeepMixCommand}" Content="Keep the live mix" />
+            <Button Classes="primary" Command="{Binding TakeAllCommand}" Content="Open with its mix" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <!-- CUE EDITOR -->
+    <Border Classes="scrim" IsVisible="{Binding CueEdit.IsOpen}">
+      <Border Classes="card" Width="600" Padding="22,18" HorizontalAlignment="Center" VerticalAlignment="Center"
+              DataContext="{Binding CueEdit}" x:DataType="vm:CueForm">
+        <StackPanel Spacing="12">
+          <TextBlock Classes="title" Text="{Binding Heading}" />
+          <StackPanel Spacing="5">
+            <TextBlock Classes="eyebrow" Text="NAME" />
+            <TextBox Text="{Binding Name}" Watermark="For example Sermon" MaxLength="60" />
+          </StackPanel>
+          <StackPanel Spacing="5">
+            <TextBlock Classes="eyebrow" Text="RECALLS" />
+            <ComboBox ItemsSource="{Binding Recalls}" SelectedItem="{Binding Recall}" HorizontalAlignment="Stretch" />
+          </StackPanel>
+          <Grid ColumnDefinitions="*,14,*">
+            <StackPanel Spacing="5">
+              <TextBlock Classes="eyebrow" Text="WHAT IT CHANGES" />
+              <ComboBox ItemsSource="{x:Static vm:CueForm.Scopes}" SelectedItem="{Binding Scope}" HorizontalAlignment="Stretch" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Spacing="5">
+              <TextBlock Classes="eyebrow" Text="AND RUNS" />
+              <ComboBox ItemsSource="{Binding Macros}" SelectedItem="{Binding Macro}" HorizontalAlignment="Stretch" />
+            </StackPanel>
+          </Grid>
+          <Grid ColumnDefinitions="Auto,12,*,10,50">
+            <CheckBox Content="Its own fade" IsChecked="{Binding OwnFade}" />
+            <Slider Grid.Column="2" Minimum="0" Maximum="10" TickFrequency="0.5" IsSnapToTickEnabled="True" Value="{Binding Fade}" IsEnabled="{Binding OwnFade}" Margin="0,-6" />
+            <TextBlock Grid.Column="4" Classes="mono small" Text="{Binding Fade, StringFormat={}{0:0.#} s}" VerticalAlignment="Center" />
+          </Grid>
+          <StackPanel Spacing="5">
+            <TextBlock Classes="eyebrow" Text="NOTE FOR THE ENGINEER" />
+            <TextBox Text="{Binding Notes}" Watermark="For example Pastor to the pulpit, choir mics off" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56" MaxLength="400" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Classes="ghost" Command="{Binding CancelCommand}" Content="Cancel" />
+            <Button Classes="primary" Command="{Binding SaveCommand}" Content="Save cue" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <!-- MACRO EDITOR -->
+    <Border Classes="scrim" IsVisible="{Binding MacroEdit.IsOpen}">
+      <Border Classes="card" Width="820" MaxHeight="680" Padding="22,18" HorizontalAlignment="Center" VerticalAlignment="Center"
+              DataContext="{Binding MacroEdit}" x:DataType="vm:MacroForm">
+        <Grid RowDefinitions="Auto,12,Auto,12,Auto,8,*,12,Auto">
+          <TextBlock Classes="title" Text="{Binding Heading}" />
+          <Grid Grid.Row="2" ColumnDefinitions="*,12,170,12,130">
+            <StackPanel Spacing="5">
+              <TextBlock Classes="eyebrow" Text="NAME ON THE BUTTON" />
+              <TextBox Text="{Binding Name}" Watermark="For example Choir off" MaxLength="30" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Spacing="5">
+              <TextBlock Classes="eyebrow" Text="COLOUR" />
+              <ComboBox ItemsSource="{x:Static vm:MacroForm.Colours}" SelectedItem="{Binding Colour}" HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:Choice">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <Border Width="14" Height="14" CornerRadius="4" Background="{Binding Value}" />
+                      <TextBlock Text="{Binding Label}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+            <StackPanel Grid.Column="4" Spacing="5">
+              <TextBlock Classes="eyebrow" Text="KEY" />
+              <ComboBox ItemsSource="{x:Static vm:MacroForm.Keys}" SelectedItem="{Binding Key}" HorizontalAlignment="Stretch" />
+            </StackPanel>
+          </Grid>
+          <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
+            <TextBlock Classes="eyebrow" Text="STEPS, IN ORDER" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="ghost small" Command="{Binding AddStepCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="plus" Width="12" Height="12" /><TextBlock Text="Add step" /></StackPanel>
+            </Button>
+          </Grid>
+          <ScrollViewer Grid.Row="6" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Steps}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:MacroStepRow">
+                  <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="8,6" Margin="0,0,0,6">
+                    <Grid ColumnDefinitions="230,8,*,8,Auto">
+                      <ComboBox ItemsSource="{x:Static vm:MacroStepRow.Actions}" SelectedItem="{Binding Action}" HorizontalAlignment="Stretch" FontSize="12.5" />
+                      <Grid Grid.Column="2" ColumnDefinitions="*,8,*">
+                        <ComboBox ItemsSource="{Binding Strips}" SelectedItem="{Binding Strip}" IsVisible="{Binding NeedsStrip}" HorizontalAlignment="Stretch" FontSize="12.5" PlaceholderText="Which strip" />
+                        <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding Target}" IsVisible="{Binding NeedsTarget}" HorizontalAlignment="Stretch" FontSize="12.5" PlaceholderText="Which one" Grid.ColumnSpan="3" />
+                        <ComboBox Grid.Column="2" ItemsSource="{Binding Buses}" SelectedItem="{Binding Bus}" IsVisible="{Binding NeedsBus}" HorizontalAlignment="Stretch" FontSize="12.5" PlaceholderText="To which bus" />
+                        <Grid Grid.Column="2" ColumnDefinitions="*,6,58" IsVisible="{Binding NeedsDb}">
+                          <Slider Minimum="-60" Maximum="10" Value="{Binding Value}" Margin="0,-6" />
+                          <TextBlock Grid.Column="2" Classes="mono small" Text="{Binding ValueText}" VerticalAlignment="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,6,58" IsVisible="{Binding NeedsSeconds}">
+                          <Slider Minimum="0" Maximum="20" TickFrequency="0.5" IsSnapToTickEnabled="True" Value="{Binding Value}" Margin="0,-6" />
+                          <TextBlock Grid.Column="2" Classes="mono small" Text="{Binding ValueText}" VerticalAlignment="Center" />
+                        </Grid>
+                      </Grid>
+                      <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2">
+                        <Button Classes="ghost small" Command="{Binding UpCommand}"><c:Icon Kind="arrowup" Width="11" Height="11" /></Button>
+                        <Button Classes="ghost small" Command="{Binding DownCommand}"><c:Icon Kind="arrowdown" Width="11" Height="11" /></Button>
+                        <Button Classes="ghost small" Command="{Binding RemoveCommand}"><c:Icon Kind="x" Width="11" Height="11" /></Button>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          <Grid Grid.Row="8" ColumnDefinitions="Auto,*,Auto,8,Auto">
+            <Button Classes="ghost" Command="{Binding DeleteCommand}" IsVisible="{Binding IsExisting}">
+              <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="trash" Width="12" Height="12" /><TextBlock Text="Delete macro" /></StackPanel>
+            </Button>
+            <Button Grid.Column="2" Classes="ghost" Command="{Binding CancelCommand}" Content="Cancel" />
+            <Button Grid.Column="4" Classes="primary" Command="{Binding SaveCommand}" Content="Save macro" />
+          </Grid>
+        </Grid>
+      </Border>
+    </Border>
+  </Panel>
+</UserControl>

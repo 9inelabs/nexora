@@ -21,6 +21,7 @@ public sealed class EngineCore
 
     private int[] _patch;
     private MixEngine? _mix;
+    private Record.Multitrack? _tape;
     private readonly float[] _inPeak, _outPeak;
     private readonly int[] _inClip, _outClip;
     private double _tonePhase;
@@ -92,6 +93,13 @@ public sealed class EngineCore
         set => Volatile.Write(ref _mix, value);
     }
 
+    /// <summary>The recorder and virtual soundcheck player, when there is a desk.</summary>
+    public Record.Multitrack? Tape
+    {
+        get => Volatile.Read(ref _tape);
+        set => Volatile.Write(ref _tape, value);
+    }
+
     /// <summary>Runs once per driver buffer, on the audio thread.</summary>
     public void Process(int frames)
     {
@@ -108,7 +116,13 @@ public sealed class EngineCore
         var toneUsed = false;
         var phaseStep = 2 * Math.PI * 1000.0 / SampleRate;
         var mix = Volatile.Read(ref _mix);
-        if (mix is not null) mix.Process(In, Out, frames);
+        if (mix is not null)
+        {
+            var tape = Volatile.Read(ref _tape);
+            tape?.PreMix(In, frames);
+            mix.Process(In, Out, frames);
+            tape?.PostMix(mix, frames);
+        }
         else for (var o = 0; o < Outputs; o++)
         {
             var dst = Out[o];

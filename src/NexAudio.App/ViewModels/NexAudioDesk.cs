@@ -482,6 +482,7 @@ public sealed class SceneRow(SavedMixInfo info, bool snapshot, bool current, Nex
         }
     }
     public IRelayCommand RecallCommand { get; } = new RelayCommand(() => owner.RecallScene(info.Id, snapshot));
+    public IRelayCommand PreviewCommand { get; } = new RelayCommand(() => owner.PreviewScene(info.Id, snapshot));
     public IRelayCommand UpdateCommand { get; } = new RelayCommand(() => owner.UpdateScene(info, snapshot));
     public IRelayCommand DeleteCommand { get; } = new RelayCommand(() => owner.DeleteScene(info.Id, snapshot));
 }

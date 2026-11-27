@@ -685,6 +685,8 @@ public sealed partial class NexAudioViewModel
         _applyingDesk = true;
         DeskStatus = d;
         ApplyTools(d);
+        ApplyShow(d);
+        ApplyTape(d.Tape);
         var key = string.Join("|", d.Scenes.Concat(d.Snapshots).Select(s => s.Id + s.Name + s.SavedUtc.Ticks)) + d.Settings.CurrentSceneId + _currentSnapshot;
         if (key != _scenesKey)
         {

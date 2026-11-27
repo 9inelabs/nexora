@@ -101,7 +101,7 @@
     </DataTemplate>
   </UserControl.DataTemplates>
 
-  <Grid RowDefinitions="Auto,8,Auto,Auto,8,*" Margin="16,12,16,14">
+  <Grid RowDefinitions="Auto,8,Auto,Auto,Auto,8,*" Margin="16,12,16,14">
 
     <!-- Engine status, on one line so the desk gets the room -->
     <Border Classes="card" Padding="12,8">
@@ -200,13 +200,22 @@
       </Grid>
     </Border>
 
-    <!-- Tabs -->
-    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="4">
+    <!-- Tabs, and on the right the recorder light and the next cue with its GO button -->
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+    <StackPanel Orientation="Horizontal" Spacing="4">
       <Button Classes="tab" Classes.selected="{Binding OnMixer}" Command="{Binding ShowTabCommand}" CommandParameter="Mixer" Content="Mixer" />
       <Button Classes="tab" Classes.selected="{Binding OnChannel}" Command="{Binding ShowTabCommand}" CommandParameter="Channel" Content="Channel" />
       <Button Classes="tab" Classes.selected="{Binding OnOutputs}" Command="{Binding ShowTabCommand}" CommandParameter="Outputs" Content="Outputs" />
       <Button Classes="tab" Classes.selected="{Binding OnStream}" Command="{Binding ShowTabCommand}" CommandParameter="Stream" Content="Stream" />
       <Button Classes="tab" Classes.selected="{Binding OnScenes}" Command="{Binding ShowTabCommand}" CommandParameter="Scenes" Content="Scenes" />
+      <Button Classes="tab" Classes.selected="{Binding OnShow}" Command="{Binding ShowTabCommand}" CommandParameter="Show" Content="Show" />
+      <Button Classes="tab" Classes.selected="{Binding OnSoundcheck}" Command="{Binding ShowTabCommand}" CommandParameter="Soundcheck">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <Ellipse Width="7" Height="7" Fill="{StaticResource Live}" IsVisible="{Binding IsRecording}" VerticalAlignment="Center" />
+          <Ellipse Width="7" Height="7" Fill="{StaticResource Warn}" IsVisible="{Binding PlaybackMode}" VerticalAlignment="Center" />
+          <TextBlock Text="Soundcheck" />
+        </StackPanel>
+      </Button>
       <Button Classes="tab" Classes.selected="{Binding OnPlugins}" Command="{Binding ShowTabCommand}" CommandParameter="Plugins" Content="Plugins" />
       <Button Classes="tab" Classes.selected="{Binding OnFailsafe}" Command="{Binding ShowTabCommand}" CommandParameter="Failsafe">
         <StackPanel Orientation="Horizontal" Spacing="7">
@@ -216,6 +225,21 @@
       </Button>
       <Button Classes="tab" Classes.selected="{Binding OnSetup}" Command="{Binding ShowTabCommand}" CommandParameter="Meters" Content="Setup" />
     </StackPanel>
+    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+      <Border Classes="chip live" IsVisible="{Binding IsRecording}" ToolTip.Tip="NEX-Audio is recording (Soundcheck tab)">
+        <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding TapeClock, StringFormat=REC {0}}" /></StackPanel>
+      </Border>
+      <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="10,3" IsVisible="{Binding HasHeaderCue}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <StackPanel Spacing="0" VerticalAlignment="Center" MaxWidth="230">
+            <TextBlock Classes="eyebrow" FontSize="9" Text="NEXT CUE" Foreground="{StaticResource PreviewBrush}" />
+            <TextBlock FontSize="12.5" FontWeight="SemiBold" Text="{Binding NextCueText}" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+          <Button Classes="primary small" Command="{Binding GoCueCommand}" IsEnabled="{Binding HasNextCue}" Content="GO" FontWeight="Black" MinWidth="54" ToolTip.Tip="Fire the next cue (Show tab)" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+    </Grid>
     <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="4" Margin="0,8,0,0" IsVisible="{Binding OnSetup}">
       <Button Classes="tab small" Classes.selected="{Binding OnMeters}" Command="{Binding ShowTabCommand}" CommandParameter="Meters" Content="Meters" />
       <Button Classes="tab small" Classes.selected="{Binding OnLatency}" Command="{Binding ShowTabCommand}" CommandParameter="Latency" Content="Latency test" />
@@ -229,12 +253,24 @@
       <Button Classes="tab small" Classes.selected="{Binding OnPcCheck}" Command="{Binding ShowTabCommand}" CommandParameter="PcCheck" Content="PC check" />
     </StackPanel>
 
-    <Panel Grid.Row="5">
+    <!-- Virtual soundcheck: never forget the mics are not live -->
+    <Border Grid.Row="4" Background="{StaticResource TintWarn}" BorderBrush="{StaticResource Warn}" BorderThickness="1" CornerRadius="8" Padding="12,6" Margin="0,8,0,0"
+            IsVisible="{Binding PlaybackMode}">
+      <Grid ColumnDefinitions="Auto,10,*,10,Auto">
+        <c:Icon Kind="info" Width="16" Height="16" Foreground="{StaticResource Warn}" />
+        <TextBlock Grid.Column="2" Foreground="{StaticResource Warn}" FontWeight="SemiBold" Text="{Binding PlaybackBanner}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        <Button Grid.Column="4" Classes="warn small" Command="{Binding LiveInputsCommand}" Content="Back to live inputs" />
+      </Grid>
+    </Border>
+
+    <Panel Grid.Row="6">
       <na:MixerPage IsVisible="{Binding OnMixer}" />
       <na:ChannelPage IsVisible="{Binding OnChannel}" />
       <na:OutputsPage IsVisible="{Binding OnOutputs}" />
       <na:StreamPage IsVisible="{Binding OnStream}" />
       <na:ScenesPage IsVisible="{Binding OnScenes}" />
+      <na:ShowPage IsVisible="{Binding OnShow}" />
+      <na:SoundcheckPage IsVisible="{Binding OnSoundcheck}" />
       <na:PluginsPage IsVisible="{Binding OnPlugins}" />
       <na:FailsafePage IsVisible="{Binding OnFailsafe}" />
 
@@ -465,5 +501,8 @@
         </Grid>
       </Border>
     </Panel>
+
+    <!-- Recall preview, cue and macro editors, opening a show: over everything -->
+    <na:ShowOverlays Grid.Row="0" Grid.RowSpan="7" ZIndex="20" Margin="-16,-12,-16,-14" />
   </Grid>
 </UserControl>

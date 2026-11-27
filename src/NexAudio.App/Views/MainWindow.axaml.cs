@@ -15,6 +15,12 @@ public partial class MainWindow : Window
 
     private void OnKey(object? sender, KeyEventArgs e)
     {
+        // F1 to F12 run the macros given those keys.
+        if (DataContext is ShellViewModel { Current: NexAudioViewModel desk } && e.Key is >= Key.F1 and <= Key.F12 && e.KeyModifiers == KeyModifiers.None)
+        {
+            if (desk.RunMacroKey(e.Key - Key.F1 + 1)) e.Handled = true;
+            return;
+        }
         if (DataContext is not ShellViewModel { Current: SignInViewModel s }) return;
         if (FocusManager?.GetFocusedElement() is TextBox) return;
         switch (e.Key)

@@ -886,6 +886,25 @@ public sealed class MixEngine
         }
     }
 
+    // ---- For the recorder (audio thread, after Process) -------------------------------------
+
+    /// <summary>A channel after its processing, before its fader (mono, or the left of a stereo channel).</summary>
+    public float[]? ChannelPre(int index)
+    {
+        var t = Volatile.Read(ref _topo);
+        return index >= 0 && index < t.Channels.Length ? t.Channels[index].PreL : null;
+    }
+
+    /// <summary>The main mix as it leaves the desk.</summary>
+    public (float[] L, float[] R)? MainOut
+    {
+        get
+        {
+            var t = Volatile.Read(ref _topo);
+            return t.Main is null ? null : (t.Main.PostL, t.Main.PostR);
+        }
+    }
+
     // ---- Meters --------------------------------------------------------------------------
 
     /// <summary>The loudest levels since the last call, for every strip in mix order (channels, buses, main, mono, stream).</summary>

@@ -82,6 +82,8 @@ public sealed record EngineStatus(
 [JsonDerivedType(typeof(MixMetersMsg), "mixmeters")]
 [JsonDerivedType(typeof(SetMixMsg), "set")]
 [JsonDerivedType(typeof(DeskCommandMsg), "cmd")]
+[JsonDerivedType(typeof(PreviewMsg), "preview")]
+[JsonDerivedType(typeof(ShowInspectMsg), "showinfo")]
 public abstract record AudioMessage
 {
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
@@ -144,3 +146,9 @@ public sealed record DeskCommandMsg(string Cmd, Dictionary<string, string>? Args
 {
     public string? Arg(string name) => Args is not null && Args.TryGetValue(name, out var v) ? v : null;
 }
+
+/// <summary>The answer to scene.preview or cue.preview: what the recall would change.</summary>
+public sealed record PreviewMsg(RecallPreview? Preview, string? Error = null) : AudioMessage;
+
+/// <summary>The answer to show.inspect: what a show file holds, before opening it.</summary>
+public sealed record ShowInspectMsg(string File, Show.ShowContents? Contents, string? Error = null) : AudioMessage;

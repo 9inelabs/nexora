@@ -2,6 +2,8 @@ using System.Text.Json;
 using Nexora.Audio.Dsp;
 using Nexora.Audio.Mix;
 using Nexora.Audio.Plugins;
+using Nexora.Audio.Record;
+using Nexora.Audio.Show;
 using Nexora.Audio.X32;
 
 namespace Nexora.Audio.Engine;
@@ -26,6 +28,8 @@ public sealed record DeskSettings
     public int Epoch { get; init; }
     /// <summary>The scene last recalled or saved, shown on the screen.</summary>
     public string? CurrentSceneId { get; init; }
+    /// <summary>The show file last saved or opened.</summary>
+    public string? ShowFile { get; init; }
 }
 
 public sealed record X32SceneName(int Number, string Name);
@@ -56,6 +60,13 @@ public sealed record DeskStatus(
     public string? UndoText { get; init; }
     public string? RedoText { get; init; }
     public IReadOnlyList<PresetInfo> Presets { get; init; } = [];
+    /// <summary>The cue list and macros.</summary>
+    public ShowState Show { get; init; } = new();
+    public TapeStatus Tape { get; init; } = TapeStatus.Empty;
+    public IReadOnlyList<BackupInfo> Backups { get; init; } = [];
+    public DateTime LastBackupUtc { get; init; }
+    /// <summary>A macro is running now.</summary>
+    public string? RunningMacro { get; init; }
 
     public static DeskStatus Empty { get; } = new(0, new DeskSettings(), false, null, [], null, 0, 0, null, [], [], [], 0, false, null, [], 0, 0);
 }
@@ -68,7 +79,7 @@ public sealed record LoudnessReading(double Momentary, double ShortTerm, double 
 /// failsafe scenes), the stream to the Live Output PC, the heartbeat and the plugins.
 /// It lives in the engine process, so it keeps going if every screen closes.
 /// </summary>
-public sealed class Desk : IDisposable
+public sealed partial class Desk : IDisposable
 {
     private readonly string _dir;
     private readonly string _mixFile, _settingsFile, _pluginsFile;
@@ -84,6 +95,13 @@ public sealed class Desk : IDisposable
     private readonly IPluginHostLauncher _launcher;
     private readonly List<PluginProcessor> _plugins = [];
     private readonly string _id = Guid.NewGuid().ToString("n")[..8];
+    private readonly Multitrack _tape;
+    private readonly string _showFile;
+    private ShowState _show;
+    private bool _backupDirty;
+    private DateTime _lastBackup;
+    private bool _backingUp;
+    private volatile string? _runningMacro;
 
     private MixState _mix;
     private DeskSettings _settings;
@@ -124,6 +142,12 @@ public sealed class Desk : IDisposable
         _settings = LoadJson<DeskSettings>(_settingsFile) ?? new DeskSettings();
         _mix = (File.Exists(_mixFile) ? MixState.FromJson(File.ReadAllText(_mixFile)) : null) ?? MixState.CreateDefault();
         _pluginList = PluginScanner.Load(_pluginsFile);
+        _showFile = Path.Combine(dataDir, "show.json");
+        _show = LoadShow();
+        _tape = new Multitrack(dataDir, _log);
+        _tape.Changed += () => Changed?.Invoke();
+        _lastBackup = ShowFiles.Backups(dataDir).FirstOrDefault()?.SavedUtc ?? DateTime.MinValue;
+        if (File.Exists(_mixFile)) _ = Task.Run(() => BackupNow("start"));
         _x32 = new X32Client();
         _x32.ValueChanged += OnDeskValue;
         _x32.Changed += () => Changed?.Invoke();
@@ -165,18 +189,23 @@ public sealed class Desk : IDisposable
         var engine = new MixEngine(inputs, outputs, frames, sampleRate, MakePlugin);
         lock (_gate) engine.Load(_mix);
         _engine = engine;
+        lock (_gate) _tape.Prepare(Math.Min(inputs, _mix.Channels.Count), sampleRate, frames);
         Changed?.Invoke();
         return engine;
     }
 
     public void Detach()
     {
+        _tape.Detach();
         _engine = null;
         DisposePlugins();
         Changed?.Invoke();
     }
 
     public MixEngine? Engine => _engine;
+
+    /// <summary>The multitrack recorder and virtual soundcheck player.</summary>
+    public Multitrack Tape => _tape;
 
     private Processor? MakePlugin(RackItem item)
     {
@@ -305,6 +334,7 @@ public sealed class Desk : IDisposable
     {
         _engine?.Load(_mix);
         _mixDirty = true;
+        _backupDirty = true;
         _mixChangedAt = DateTime.UtcNow;
         return Interlocked.Increment(ref _rev);
     }
@@ -642,6 +672,13 @@ public sealed class Desk : IDisposable
 
             if (_stream != null) _stream.Host = StreamHost();
 
+            // The recorder's clock, twice a second.
+            if ((_tape.Recording || _tape.Rolling) && _tick % 5 == 0) Changed?.Invoke();
+
+            // A backup of the whole desk every ten minutes while it is being changed.
+            if (_backupDirty && !_backingUp && DateTime.UtcNow - _lastBackup > TimeSpan.FromMinutes(10))
+                _ = Task.Run(() => BackupNow("auto"));
+
             // Save the mix a moment after it stops changing.
             if (_mixDirty && DateTime.UtcNow - _mixChangedAt > TimeSpan.FromSeconds(1)) SaveMix();
         }
@@ -676,6 +713,7 @@ public sealed class Desk : IDisposable
                 _fadeTo != null ? Math.Clamp((DateTime.UtcNow - _fadeStart).TotalSeconds / _fadeSeconds, 0, 1) : 0)
             {
                 UndoText = _history.UndoLabel, RedoText = _history.RedoLabel, Presets = _presets.List(),
+                Show = ShowCopy, Tape = _tape.Status, Backups = ShowFiles.Backups(_dir), LastBackupUtc = _lastBackup, RunningMacro = _runningMacro,
             };
         }
     }
@@ -747,6 +785,7 @@ public sealed class Desk : IDisposable
     public void Dispose()
     {
         _timer.Dispose();
+        _tape.Dispose();
         if (_mixDirty) SaveMix();
         _heartbeat?.Dispose();
         _stream?.Dispose();

@@ -5,6 +5,8 @@ using System.Text.Json;
 using Nexora.Audio.Engine;
 using Nexora.Audio.Mix;
 using Nexora.Audio.Plugins;
+using Nexora.Audio.Record;
+using Nexora.Audio.Show;
 
 namespace Nexora.Audio.Ipc;
 
@@ -149,7 +151,7 @@ public sealed class EngineServer : IDisposable
                 if (!desk.Set(set.Path, set.Value)) await c.SendAsync(new NoticeMsg($"That setting could not be changed ({set.Path}).", true));
                 break;
             case DeskCommandMsg cmd when _engine.Desk is { } desk:
-                await DeskCommand(desk, cmd);
+                await DeskCommand(desk, cmd, c.SendAsync);
                 Interlocked.Exchange(ref _deskDirty, 1);
                 break;
         }
@@ -161,8 +163,9 @@ public sealed class EngineServer : IDisposable
         double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : fallback;
 
     /// <summary>The desk commands the screens can send.</summary>
-    private static async Task DeskCommand(Desk desk, DeskCommandMsg m)
+    private static async Task DeskCommand(Desk desk, DeskCommandMsg m, Func<AudioMessage, Task> reply)
     {
+        if (await ShowCommand(desk, m, reply)) return;
         switch (m.Cmd)
         {
             case "bus.add":
@@ -310,6 +313,132 @@ public sealed class EngineServer : IDisposable
         }
     }
 
+    /// <summary>Show control and the recorder. Returns false for any other command.</summary>
+    private static async Task<bool> ShowCommand(Desk desk, DeskCommandMsg m, Func<AudioMessage, Task> reply)
+    {
+        var by = m.Arg("by") ?? "";
+        T Data<T>(string what) where T : class =>
+            (m.Data is { } d ? d.Deserialize<T>(ShowState.Json) : null) ?? throw new InvalidOperationException($"The {what} could not be read.");
+        switch (m.Cmd)
+        {
+            // Cue list
+            case "cue.save":
+                desk.SaveCue(Data<Cue>("cue"), Int(m.Arg("index"), -1));
+                return true;
+            case "cue.delete":
+                desk.DeleteCue(m.Arg("id") ?? "");
+                return true;
+            case "cue.move":
+                desk.MoveCue(m.Arg("id") ?? "", Int(m.Arg("dir"), 1));
+                return true;
+            case "cue.go":
+                if (!desk.GoCue(m.Arg("id"))) throw new InvalidOperationException("That was the last cue. Press Back to the top to start again.");
+                return true;
+            case "cue.back":
+                desk.BackCue();
+                return true;
+            case "cue.reset":
+                desk.ResetCues();
+                return true;
+            case "cue.preview":
+            {
+                var p = desk.PreviewCue(m.Arg("id"));
+                await reply(new PreviewMsg(p, p is null ? "There is no next cue." : null));
+            }
+                return true;
+            case "scene.preview":
+            {
+                var p = desk.Preview(m.Arg("id") ?? "", Bool(m.Arg("snapshot")), Enum.TryParse<RecallScope>(m.Arg("scope"), true, out var sc) ? sc : null);
+                await reply(new PreviewMsg(p, p is null ? "That scene could not be found." : null));
+                return true;
+            }
+
+            // Macros
+            case "macro.save":
+                desk.SaveMacro(Data<Macro>("macro"));
+                return true;
+            case "macro.delete":
+                desk.DeleteMacro(m.Arg("id") ?? "");
+                return true;
+            case "macro.move":
+                desk.MoveMacro(m.Arg("id") ?? "", Int(m.Arg("dir"), 1));
+                return true;
+            case "macro.run":
+                if (!await desk.RunMacroAsync(m.Arg("id") ?? "", by)) throw new InvalidOperationException("That macro could not be found.");
+                return true;
+
+            // Show files and backups
+            case "show.save":
+                desk.SaveShow(m.Arg("file") ?? "", m.Arg("name") ?? "", by);
+                return true;
+            case "show.inspect":
+            {
+                var f = m.Arg("file") ?? "";
+                try { await reply(new ShowInspectMsg(f, desk.InspectShow(f))); }
+                catch (InvalidOperationException ex) { await reply(new ShowInspectMsg(f, null, ex.Message)); }
+                return true;
+            }
+            case "show.open":
+                desk.OpenShow(m.Arg("file") ?? "", Bool(m.Arg("mix")), by);
+                return true;
+            case "show.new":
+                desk.NewShow(m.Arg("name") ?? "");
+                return true;
+            case "backup.now":
+                if (desk.BackupNow("by hand", by) is null) throw new InvalidOperationException("The backup could not be saved.");
+                return true;
+            case "backup.restore":
+                desk.RestoreBackup(m.Arg("name") ?? "", Bool(m.Arg("mix")), by);
+                return true;
+
+            // Recorder and virtual soundcheck
+            case "tape.record":
+                desk.StartRecording(m.Arg("name"), by, m.Data is { } names ? names.Deserialize<List<string>>() : null);
+                return true;
+            case "tape.stop":
+                if (desk.Tape.Recording) desk.Tape.StopRecording();
+                else desk.Tape.Stop();
+                return true;
+            case "tape.load":
+                desk.Tape.Load(m.Arg("id") ?? "");
+                return true;
+            case "tape.play":
+                desk.Tape.Play(m.Arg("id"));
+                return true;
+            case "tape.pause":
+                desk.Tape.Pause();
+                return true;
+            case "tape.seek":
+                desk.Tape.Seek(Dbl(m.Arg("seconds")));
+                return true;
+            case "tape.playback":
+                desk.Tape.SetPlayback(Bool(m.Arg("on")));
+                return true;
+            case "tape.live":
+                desk.Tape.SetLive(Int(m.Arg("ch")), Bool(m.Arg("on")));
+                return true;
+            case "tape.arm":
+                desk.Arm(Int(m.Arg("ch")), Bool(m.Arg("on")));
+                return true;
+            case "tape.set":
+            {
+                var n = Data<TapeSettings>("recorder settings");
+                desk.Tape.Configure(old => old with { Folder = string.IsNullOrWhiteSpace(n.Folder) ? null : n.Folder.Trim(), Format = n.Format, Tap = n.Tap, RecordMain = n.RecordMain, Loop = n.Loop });
+                return true;
+            }
+            case "tape.rename":
+                desk.Tape.Rename(m.Arg("id") ?? "", m.Arg("name") ?? "");
+                return true;
+            case "tape.delete":
+                desk.Tape.Delete(m.Arg("id") ?? "");
+                return true;
+            case "tape.import":
+                desk.Tape.Import(m.Arg("folder") ?? "", m.Arg("name"));
+                return true;
+        }
+        return false;
+    }
+
     private void Broadcast(AudioMessage msg)
     {
         Conn[] conns;
@@ -424,6 +553,8 @@ public sealed class EngineClient : IDisposable
     public event Action<MixChangedMsg>? MixChanged;
     public event Action<DeskStatus>? Desk;
     public event Action<MixMetersMsg>? MixMeters;
+    public event Action<PreviewMsg>? Preview;
+    public event Action<ShowInspectMsg>? ShowInfo;
 
     private async Task Loop()
     {
@@ -447,6 +578,8 @@ public sealed class EngineClient : IDisposable
                         case MixChangedMsg mc: MixChanged?.Invoke(mc); break;
                         case DeskStatusMsg ds: Desk?.Invoke(ds.Desk); break;
                         case MixMetersMsg mm: MixMeters?.Invoke(mm); break;
+                        case PreviewMsg pv: Preview?.Invoke(pv); break;
+                        case ShowInspectMsg si: ShowInfo?.Invoke(si); break;
                     }
                 }
             }
