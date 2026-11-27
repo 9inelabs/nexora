@@ -27,9 +27,9 @@ public sealed record X32Channel(int Number, string Name, int Colour)
 }
 
 /// <summary>
-/// Talks to the X32 over the network (OSC on UDP port 10023): who it is, and the names and colours of
-/// its 32 input channels, kept up to date as engineers rename channels on the desk.
-/// Phase 1 only reads from the console. Nothing here changes the X32.
+/// Talks to the X32 over the network (OSC on UDP port 10023): who it is, the names and colours of its
+/// 32 input channels, its scenes, and its faders, mutes, sends and preamps. NEX-Audio reads these, keeps the
+/// desk's own mix in step with NEX-Audio (the shadow mix), and recalls a scene when the failsafe fires.
 /// </summary>
 public sealed class X32Client : IDisposable
 {
@@ -46,7 +46,28 @@ public sealed class X32Client : IDisposable
 
     public X32Client(int port = DefaultPort) => _port = port;
 
+    private readonly Dictionary<string, float> _values = [];
+    private readonly Dictionary<int, string> _scenes = [];
+
     public X32Info? Info { get; private set; }
+
+    /// <summary>A fader, mute, send, pan or preamp changed on the desk (address and new value).</summary>
+    public event Action<string, float>? ValueChanged;
+
+    /// <summary>The X32's scene names by number (0 to 99), once asked for with <see cref="RequestScenesAsync"/>.</summary>
+    public IReadOnlyDictionary<int, string> Scenes
+    {
+        get { lock (_gate) return new Dictionary<int, string>(_scenes); }
+    }
+
+    /// <summary>The scene the X32 says is loaded now, when known.</summary>
+    public int? CurrentScene { get; private set; }
+
+    /// <summary>The last value seen on the desk for an address, if any.</summary>
+    public float? Value(string address)
+    {
+        lock (_gate) return _values.TryGetValue(address, out var v) ? v : null;
+    }
     public bool Connected => Info is not null && DateTime.UtcNow - _lastHeard < TimeSpan.FromSeconds(10);
     public string? Address => _target?.Address.ToString();
 
@@ -108,7 +129,7 @@ public sealed class X32Client : IDisposable
         }
     }
 
-    private async Task SendAsync(OscMessage msg)
+    public async Task SendAsync(OscMessage msg)
     {
         var udp = _udp;
         var target = _target;
@@ -154,9 +175,125 @@ public sealed class X32Client : IDisposable
         }
     }
 
+    /// <summary>Sets a value on the desk and remembers it, so the echo from the desk is not taken as a change there.</summary>
+    public Task SetAsync(string address, float value)
+    {
+        lock (_gate) _values[address] = value;
+        return SendAsync(new OscMessage(address, value));
+    }
+
+    public Task SetAsync(string address, int value)
+    {
+        lock (_gate) _values[address] = value;
+        return SendAsync(new OscMessage(address, value));
+    }
+
+    /// <summary>Asks for the names of all 100 scenes.</summary>
+    public async Task RequestScenesAsync()
+    {
+        for (var i = 0; i < 100; i++) await SendAsync(new OscMessage($"/-show/showfile/scene/{i:000}/name"));
+        await SendAsync(new OscMessage("/-show/prepos/current"));
+    }
+
+    /// <summary>Loads a saved scene on the X32 (0 to 99).</summary>
+    public async Task RecallSceneAsync(int scene)
+    {
+        await SendAsync(new OscMessage("/-action/goscene", Math.Clamp(scene, 0, 99)));
+        CurrentScene = scene;
+        await Task.Delay(150);
+        await SendAsync(new OscMessage("/-show/prepos/current"));
+    }
+
+    /// <summary>
+    /// Recalls a scene on the X32 at this address without a lasting link (used by the failsafe on the
+    /// Live Output PC). Returns true when the X32 confirms the scene is loaded.
+    /// </summary>
+    public static async Task<bool> RecallSceneAsync(string host, int scene)
+    {
+        if (!IPAddress.TryParse(host, out var ip)) return false;
+        using var udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
+        var target = new IPEndPoint(ip, DefaultPort);
+        var go = new OscMessage("/-action/goscene", Math.Clamp(scene, 0, 99)).Encode();
+        var ask = new OscMessage("/-show/prepos/current").Encode();
+        await udp.SendAsync(go, go.Length, target);
+        await Task.Delay(100);
+        await udp.SendAsync(ask, ask.Length, target);
+        using var wait = new CancellationTokenSource(400);
+        try
+        {
+            while (true)
+            {
+                var r = await udp.ReceiveAsync(wait.Token);
+                if (OscMessage.Decode(r.Buffer) is { Address: "/-show/prepos/current" } m && m.Int(0) is { } cur) return cur == scene;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
+    // ---- The X32's fader and preamp scales ----------------------------------------------------
+
+    /// <summary>A fader position (0 to 1, as the X32 sends it) in dB.</summary>
+    public static double FaderToDb(float f) => f switch
+    {
+        >= 0.5f => f * 40 - 30,
+        >= 0.25f => f * 80 - 50,
+        >= 0.0625f => f * 160 - 70,
+        > 0f => f * 480 - 90,
+        _ => -90,
+    };
+
+    /// <summary>dB as an X32 fader position (0 to 1).</summary>
+    public static float DbToFader(double db) => (float)Math.Clamp(db switch
+    {
+        >= 10 => 1,
+        >= -10 => (db + 30) / 40,
+        >= -30 => (db + 50) / 80,
+        >= -60 => (db + 70) / 160,
+        > -90 => (db + 90) / 480,
+        _ => 0,
+    }, 0, 1);
+
+    /// <summary>X32 preamp gain runs from -12 to +60 dB.</summary>
+    public static float GainToHeadamp(double db) => (float)Math.Clamp((db + 12) / 72, 0, 1);
+    public static double HeadampToGain(float f) => Math.Round((f * 72 - 12) * 2) / 2;
+
     internal void Handle(OscMessage msg)
     {
         _lastHeard = DateTime.UtcNow;
+        if (msg.Address.StartsWith("/-show/showfile/scene/") && msg.String(0) is { } sceneName)
+        {
+            var p = msg.Address.Split('/');
+            if (p.Length >= 5 && int.TryParse(p[4], out var sn))
+            {
+                lock (_gate) _scenes[sn] = sceneName;
+                Changed?.Invoke();
+            }
+            return;
+        }
+        if (msg.Address == "/-show/prepos/current" && msg.Int(0) is { } current)
+        {
+            CurrentScene = current;
+            Changed?.Invoke();
+            return;
+        }
+        if (msg.Address.StartsWith("/ch/") || msg.Address.StartsWith("/bus/") || msg.Address.StartsWith("/main/") || msg.Address.StartsWith("/headamp/"))
+        {
+            float? v = msg.Float(0) ?? (msg.Int(0) is { } iv ? iv : null);
+            if (v is { } value && !msg.Address.EndsWith("/name") && !msg.Address.EndsWith("/color"))
+            {
+                bool changed;
+                lock (_gate)
+                {
+                    changed = !_values.TryGetValue(msg.Address, out var old) || Math.Abs(old - value) > 0.0005f;
+                    _values[msg.Address] = value;
+                }
+                if (changed) ValueChanged?.Invoke(msg.Address, value);
+                return;
+            }
+        }
         if (msg.Address == "/xinfo" && msg.Args.Count >= 4)
         {
             var first = Info is null;
