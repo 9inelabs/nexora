@@ -11,8 +11,24 @@ namespace NexAudio.App.Controls;
 /// </summary>
 public sealed class MeterSet
 {
-    private const float FallPerFrame = 0.88f; // about 20 dB a second at 30 frames a second
-    private const int HoldFrames = 45;        // a peak line stays 1.5 seconds
+    /// <summary>How fast every meter falls back (per frame, at about 30 frames a second). Set from the user's settings.</summary>
+    public static float FallPerFrame { get; private set; } = 0.88f; // about 20 dB a second
+    /// <summary>How many frames a peak line stays; 0 is no peak line, int.MaxValue holds it until cleared.</summary>
+    public static int HoldFrames { get; private set; } = 30;
+    /// <summary>Bumped when every peak line should be cleared.</summary>
+    private static int s_clearStamp;
+    private int _clearSeen;
+
+    /// <summary>Fall: "fast" (about 40 dB a second), "medium" (20) or "slow" (10). Hold: "off", "1", "3" seconds or "hold".</summary>
+    public static void Configure(string fall, string hold)
+    {
+        FallPerFrame = fall switch { "fast" => 0.74f, "slow" => 0.94f, _ => 0.88f };
+        HoldFrames = hold switch { "off" => 0, "3" => 90, "hold" => int.MaxValue, _ => 30 };
+    }
+
+    /// <summary>Clears every held peak line and clip light on every meter.</summary>
+    public static void ClearPeaks() => Interlocked.Increment(ref s_clearStamp);
+    public static int ClearStamp => s_clearStamp;
 
     public MeterSet(int count)
     {
@@ -55,16 +71,22 @@ public sealed class MeterSet
     public void Push(float[] peaks, bool[] clips)
     {
         if (peaks.Length != Count) Resize(peaks.Length);
+        var clear = s_clearStamp != _clearSeen;
+        _clearSeen = s_clearStamp;
+        var fall = FallPerFrame;
+        var holdFor = HoldFrames;
         for (var i = 0; i < Count; i++)
         {
             var p = peaks[i];
-            Levels[i] = p >= Levels[i] ? p : Math.Max(p, Levels[i] * FallPerFrame);
-            if (p >= Peaks[i])
+            Levels[i] = p >= Levels[i] ? p : Math.Max(p, Levels[i] * fall);
+            if (clear) Peaks[i] = Levels[i];
+            if (holdFor == 0) Peaks[i] = 0;
+            else if (p >= Peaks[i])
             {
                 Peaks[i] = p;
-                _hold[i] = HoldFrames;
+                _hold[i] = holdFor;
             }
-            else if (--_hold[i] <= 0) Peaks[i] = Math.Max(Levels[i], Peaks[i] * FallPerFrame);
+            else if (holdFor != int.MaxValue && --_hold[i] <= 0) Peaks[i] = Math.Max(Levels[i], Peaks[i] * fall);
             Clips[i] = i < clips.Length && clips[i];
         }
         Changed?.Invoke();

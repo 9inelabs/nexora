@@ -19,6 +19,8 @@ public sealed class SimulatedDevice : IAudioDevice
     private readonly float[] _loop = new float[8192];
     private int _loopWrite;
     private long _t;
+    private double _rate = 48000;
+    public static readonly IReadOnlyList<double> Rates = [44100, 48000, 88200, 96000];
 
     public string Name => DeviceName;
     public DeviceFormat? Format { get; private set; }
@@ -26,14 +28,15 @@ public sealed class SimulatedDevice : IAudioDevice
     public bool ResetRequested => false;
     public void ShowSettingsPanel() { }
 
-    public void Open(int bufferSize)
+    public void Open(int bufferSize, double sampleRate = 0)
     {
         _buffer = bufferSize is 32 or 64 or 128 or 256 or 512 ? bufferSize : 64;
         _delay = LoopDelayFor(_buffer);
-        Format = new DeviceFormat(Channels, Channels, 48000, _buffer, _buffer + 40, _buffer + 43, "32-bit (test)",
+        _rate = Rates.FirstOrDefault(r => Math.Abs(r - sampleRate) < 1, 48000);
+        Format = new DeviceFormat(Channels, Channels, _rate, _buffer, _buffer + 40, _buffer + 43, "32-bit (test)",
             [32, 64, 128, 256, 512],
             Enumerable.Range(1, Channels).Select(i => $"Test In {i}").ToList(),
-            Enumerable.Range(1, Channels).Select(i => $"Test Out {i}").ToList());
+            Enumerable.Range(1, Channels).Select(i => $"Test Out {i}").ToList()) { SampleRates = Rates };
     }
 
     public void Start(EngineCore core, AudioStats stats)
@@ -47,7 +50,7 @@ public sealed class SimulatedDevice : IAudioDevice
     private void Run(EngineCore core, AudioStats stats)
     {
         var frames = _buffer;
-        var seconds = frames / 48000.0;
+        var seconds = frames / _rate;
         var period = (long)(seconds * Stopwatch.Frequency);
         var next = Stopwatch.GetTimestamp();
         while (_run)
@@ -84,9 +87,9 @@ public sealed class SimulatedDevice : IAudioDevice
             }
             var freq = 110.0 * (1 + ch % 8);
             var level = (float)Math.Pow(10, (-30 + (ch % 6) * 4) / 20.0);
-            var swell = 0.6 + 0.4 * Math.Sin(2 * Math.PI * 0.2 * (_t / 48000.0) + ch);
+            var swell = 0.6 + 0.4 * Math.Sin(2 * Math.PI * 0.2 * (_t / _rate) + ch);
             for (var n = 0; n < frames; n++)
-                buf[n] = (float)(level * swell * Math.Sin(2 * Math.PI * freq * (_t + n) / 48000.0));
+                buf[n] = (float)(level * swell * Math.Sin(2 * Math.PI * freq * (_t + n) / _rate));
         }
         var loopIn = core.In[Channels - 1];
         for (var n = 0; n < frames; n++)

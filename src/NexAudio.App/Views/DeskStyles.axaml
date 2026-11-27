@@ -1,0 +1,113 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NexAudio.App.ViewModels">
+  <!-- The desk's shared looks, used by the main window and by pages opened on a second screen. -->
+    <Style Selector="Border.stat">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,5" />
+    </Style>
+    <Style Selector="TextBlock.statvalue">
+      <Setter Property="FontSize" Value="13.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontFamily" Value="{StaticResource FontDisplay}" />
+    </Style>
+    <Style Selector="TextBlock.flabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.row">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="Margin" Value="0,0,8,8" />
+    </Style>
+    <Style Selector="Button.strip">
+      <Setter Property="Padding" Value="0,3" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.strip.mute.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Live}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <!-- A group's mute is holding this strip down: the mute button shows it, but the strip's own mute is off -->
+    <Style Selector="Button.strip.mute.group /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{StaticResource Live}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="Background" Value="#33FF5A5F" />
+    </Style>
+    <!-- Hard mute: dark red with a bright edge, so it never looks like an ordinary mute -->
+    <Style Selector="Button.strip.mute.hard /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#7A1F24" />
+      <Setter Property="BorderBrush" Value="#FF5A5F" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.strip.solo.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Accent}" />
+      <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
+    </Style>
+    <Style Selector="Border.ind">
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="3,0" />
+      <Setter Property="Background" Value="{StaticResource Surface3}" />
+    </Style>
+    <Style Selector="Border.ind TextBlock">
+      <Setter Property="FontSize" Value="9" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{StaticResource Text3}" />
+    </Style>
+    <Style Selector="Border.ind.on">
+      <Setter Property="Background" Value="{StaticResource TintAccent}" />
+    </Style>
+    <Style Selector="Border.ind.on TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="Border.stripcard">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="6,6" />
+      <Setter Property="Width" Value="80" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.stripcard.selected">
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="Slider.param">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,-6" />
+    </Style>
+  <!-- High contrast (your menu, top right): black panels, white writing, bright edges -->
+  <Style Selector=":is(Panel).hc">
+    <Setter Property="Background" Value="#000000" />
+  </Style>
+  <Style Selector=".hc Border.card">
+    <Setter Property="Background" Value="#000000" />
+    <Setter Property="BorderBrush" Value="#99FFFFFF" />
+  </Style>
+  <Style Selector=".hc Border.stripcard, .hc Border.well, .hc Border.row, .hc Border.stat">
+    <Setter Property="BorderBrush" Value="#73FFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector=".hc TextBlock.muted, .hc TextBlock.faint, .hc TextBlock.flabel, .hc TextBlock.eyebrow">
+    <Setter Property="Foreground" Value="#F2F2F2" />
+  </Style>
+  <Style Selector=".hc TextBlock">
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector=".hc Button.tab">
+    <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+
+  <!-- Wider flyouts (the preset library) -->
+  <Style Selector="FlyoutPresenter.wide">
+    <Setter Property="MaxWidth" Value="720" />
+  </Style>
+</Styles>

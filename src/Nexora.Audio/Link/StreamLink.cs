@@ -55,6 +55,79 @@ public sealed class StreamTap
     public int Capacity => _mask + 1;
 }
 
+/// <summary>
+/// Brings the stream mix to 48 kHz when the desk runs at another rate (44.1, 88.2 or 96 kHz), so the Live Output PC
+/// always gets 48 kHz. Above 48 kHz it first filters away what 48 kHz cannot carry. Runs on the audio thread.
+/// </summary>
+public sealed class StreamResampler
+{
+    public const double Target = 48000;
+    private readonly double _step;
+    private readonly Dsp.Biquad _lp1, _lp2;
+    private Dsp.BiquadState _l1, _l2, _r1, _r2;
+    private readonly bool _filter;
+    private double _pos; // where the next 48 kHz sample falls, in input samples after the last one kept
+    private float _lastL, _lastR;
+    private readonly float[] _outL, _outR;
+
+    public StreamResampler(double inputRate, int maxFrames)
+    {
+        InputRate = inputRate;
+        _step = inputRate / Target;
+        _filter = inputRate > Target + 1;
+        if (_filter)
+        {
+            _lp1 = Dsp.Biquad.Make(Dsp.FilterShape.LowPass, 20000, 0.54, 0, inputRate);
+            _lp2 = Dsp.Biquad.Make(Dsp.FilterShape.LowPass, 20000, 1.31, 0, inputRate);
+        }
+        var most = (int)Math.Ceiling(maxFrames / _step) + 2;
+        _outL = new float[most];
+        _outR = new float[most];
+    }
+
+    public double InputRate { get; }
+    /// <summary>True when there is nothing to do (the desk already runs at 48 kHz).</summary>
+    public bool Through => Math.Abs(InputRate - Target) < 1;
+
+    /// <summary>Takes one buffer at the desk's rate and writes its 48 kHz version into the tap.</summary>
+    public void Write(StreamTap tap, float[] l, float[] r, int frames)
+    {
+        if (Through)
+        {
+            tap.Write(l, r, frames);
+            return;
+        }
+        var count = 0;
+        var pos = _pos;
+        float prevL = _lastL, prevR = _lastR;
+        for (var n = 0; n < frames; n++)
+        {
+            float a = l[n], b = r[n];
+            if (_filter)
+            {
+                a = _l2.Tick(_lp2, _l1.Tick(_lp1, a));
+                b = _r2.Tick(_lp2, _r1.Tick(_lp1, b));
+            }
+            // Every 48 kHz sample that falls between the previous input sample and this one.
+            while (pos <= 1.0 && count < _outL.Length)
+            {
+                var f = (float)pos;
+                _outL[count] = prevL + (a - prevL) * f;
+                _outR[count] = prevR + (b - prevR) * f;
+                count++;
+                pos += _step;
+            }
+            pos -= 1.0;
+            prevL = a;
+            prevR = b;
+        }
+        _pos = pos;
+        _lastL = prevL;
+        _lastR = prevR;
+        tap.Write(_outL, _outR, count);
+    }
+}
+
 /// <summary>The packet format for the stream mix on the church network (UDP, 16-bit stereo, 48 kHz).</summary>
 public static class StreamPacket
 {

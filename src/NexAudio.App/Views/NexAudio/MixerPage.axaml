@@ -107,6 +107,18 @@
     <Style Selector="Border.lamp.p48.on"><Setter Property="Background" Value="{StaticResource Live}" /></Style>
     <Style Selector="Border.lamp.inv.on"><Setter Property="Background" Value="{StaticResource InputTone}" /></Style>
     <Style Selector="Border.lamp.fx.on"><Setter Property="Background" Value="{StaticResource FxTone}" /></Style>
+    <!-- A strip to tick in the bank editor -->
+    <Style Selector="ToggleButton.pickchip">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line2}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="ToggleButton.pickchip:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource TintAccent}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+      <Setter Property="Foreground" Value="{StaticResource Text1}" />
+    </Style>
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,8,Auto,8,*">
@@ -290,6 +302,28 @@
             <Border Width="10" Height="10" CornerRadius="5" Background="{Binding LayerTone}" VerticalAlignment="Center" />
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
               <TextBlock FontWeight="SemiBold" FontSize="12.5" Text="{Binding LayerTitle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              <!-- Your own fader banks -->
+              <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Classes="eyebrow" Text="MY BANKS" VerticalAlignment="Center" Margin="4,0,2,0" />
+                <ItemsControl ItemsSource="{Binding UserBanks}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:UserBankView">
+                      <Button Classes="tab small" Classes.selected="{Binding IsCurrent}" Command="{Binding ShowCommand}" Padding="10,3"
+                              DoubleTapped="OnUserBankDoubleTapped" ToolTip.Tip="{Binding CountText, StringFormat='{}{0}. Double-tap to change it.'}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <TextBlock Text="{Binding Name}" />
+                          <Button Classes="ghost" Padding="2,0" Command="{Binding EditCommand}" ToolTip.Tip="Change this bank"><c:Icon Kind="edit" Width="10" Height="10" /></Button>
+                        </StackPanel>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Classes="ghost small" Command="{Binding NewUserBankCommand}" IsVisible="{Binding CanAddBank}" Padding="8,3"
+                        ToolTip.Tip="Make a bank of your own: any channels and buses, in any order. It is saved for you.">
+                  <StackPanel Orientation="Horizontal" Spacing="4"><c:Icon Kind="plus" Width="10" Height="10" /><TextBlock Text="Bank" /></StackPanel>
+                </Button>
+              </StackPanel>
               <Border Classes="chip" IsVisible="{Binding IsSpilled}" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <TextBlock Text="{Binding SpillTitle}" />
@@ -366,12 +400,121 @@
       </Border>
       <Border Grid.Column="2" Classes="card" Padding="8">
         <StackPanel Orientation="Horizontal">
+          <ItemsControl ItemsSource="{Binding Utilities}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:UtilityView">
+                <Border Classes="stripcard" Width="74" BorderBrush="{StaticResource Line2}">
+                  <Grid RowDefinitions="Auto,4,Auto,4,*,Auto,4,Auto">
+                    <Border CornerRadius="5" Background="{StaticResource Surface3}" Padding="3,3">
+                      <StackPanel Spacing="0">
+                        <TextBlock Text="{Binding Title}" FontSize="8.5" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{StaticResource Accent}" />
+                        <TextBlock Text="{Binding Name}" FontSize="11.5" FontWeight="Bold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
+                      </StackPanel>
+                    </Border>
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+                      <Border Width="7" Height="7" CornerRadius="4" Background="{Binding Colour}" VerticalAlignment="Center" />
+                      <TextBlock Classes="faint" FontSize="9.5" Text="{Binding What}" TextTrimming="CharacterEllipsis" MaxWidth="56" ToolTip.Tip="{Binding What}" />
+                    </StackPanel>
+                    <a:Fader Grid.Row="4" Value="{Binding Fader}" MinHeight="180" IsEnabled="{Binding Enabled}" Margin="0,4,0,0"
+                             Meters="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).StripMeters}"
+                             MeterIndex="{Binding MeterIndex}" MeterIndexR="{Binding MeterIndexR}" />
+                    <Button Grid.Row="5" Classes="ghost" Padding="0" HorizontalAlignment="Center" Command="{Binding ResetFaderCommand}" IsEnabled="{Binding Enabled}" ToolTip.Tip="Back to 0 dB">
+                      <TextBlock Classes="mono" FontSize="12" Text="{Binding FaderText}" />
+                    </Button>
+                    <Button Grid.Row="7" Classes="strip" Command="{Binding AssignCommand}" Content="SET" Padding="0,6"
+                            ToolTip.Tip="Choose what this fader moves: any strip's fader, or its send to a mix" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <Border Width="1" Background="{StaticResource Line2}" Margin="2,4,8,4" />
           <ContentControl Content="{Binding LayerStrip}" IsVisible="{Binding OnSendsLayer}" />
           <ContentControl Content="{Binding CentreStrip}" IsVisible="{Binding CentreStrip, Converter={x:Static ObjectConverters.IsNotNull}}" />
           <ContentControl Content="{Binding MainStrip}" />
         </StackPanel>
       </Border>
     </Grid>
+    <!-- YOUR OWN BANK: a name and the strips on it -->
+    <Border Grid.Row="0" Grid.RowSpan="5" Background="#B3000000" IsVisible="{Binding BankEditing}" ZIndex="10">
+      <Border Classes="card" Width="620" Padding="22,18" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid RowDefinitions="Auto,12,Auto,12,Auto,6,Auto,14,Auto">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="2">
+              <TextBlock Classes="sectitle" Text="{Binding BankEditTitle}" />
+              <TextBlock Classes="faint small" TextWrapping="Wrap"
+                         Text="Tick the strips you want, in the order you tick them. Banks are saved for you, so the next person keeps their own." />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="ghost" Padding="8" Command="{Binding CancelUserBankCommand}" ToolTip.Tip="Close" VerticalAlignment="Top">
+              <c:Icon Kind="x" Width="14" Height="14" />
+            </Button>
+          </Grid>
+          <Grid Grid.Row="2" ColumnDefinitions="Auto,10,*">
+            <TextBlock Classes="flabel" Text="Name" />
+            <TextBox Grid.Column="2" Text="{Binding BankName}" MaxLength="20" Watermark="Band, Vocals, Wedges…" />
+          </Grid>
+          <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
+            <TextBlock Classes="eyebrow" Text="STRIPS" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Classes="faint small" Text="{Binding BankCountText}" />
+          </Grid>
+          <ScrollViewer Grid.Row="6" MaxHeight="360">
+            <ItemsControl ItemsSource="{Binding BankMembers}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:BankMemberChoice">
+                  <ToggleButton Classes="pickchip" IsChecked="{Binding On}" Width="140" Margin="0,0,6,6" Padding="8,5" HorizontalContentAlignment="Left">
+                    <Grid ColumnDefinitions="4,8,*">
+                      <Border CornerRadius="2" Background="{Binding Colour}" />
+                      <StackPanel Grid.Column="2" Spacing="0">
+                        <TextBlock FontSize="11.5" FontWeight="SemiBold" Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="faint" FontSize="9.5" Text="{Binding Kind}" />
+                      </StackPanel>
+                    </Grid>
+                  </ToggleButton>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          <Grid Grid.Row="8" ColumnDefinitions="Auto,*,Auto,8,Auto">
+            <Button Classes="ghost" Command="{Binding DeleteUserBankCommand}" IsVisible="{Binding !BankEditIsNew}">
+              <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="trash" Width="12" Height="12" /><TextBlock Text="Delete bank" /></StackPanel>
+            </Button>
+            <Button Grid.Column="2" Classes="ghost" Content="Cancel" Command="{Binding CancelUserBankCommand}" />
+            <Button Grid.Column="4" Classes="primary" Content="Save bank" Command="{Binding SaveUserBankCommand}" />
+          </Grid>
+        </Grid>
+      </Border>
+    </Border>
+
+    <!-- UTILITY FADER: what it moves -->
+    <Border Grid.Row="0" Grid.RowSpan="5" Background="#B3000000" IsVisible="{Binding UtilityPicking}" ZIndex="10">
+      <Border Classes="card" Width="460" Padding="22,18" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="14">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="sectitle" Text="{Binding UtilityPickTitle}" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap"
+                       Text="Keep one fader to hand whatever bank is showing: the pastor's mic, a wedge send, the band group. Saved for you." />
+          </StackPanel>
+          <Grid ColumnDefinitions="90,10,*" RowDefinitions="Auto,8,Auto">
+            <TextBlock Classes="flabel" Text="Strip" />
+            <ComboBox Grid.Column="2" ItemsSource="{Binding UtilityStrips}" SelectedItem="{Binding UtilityStrip}" HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:Choice"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Grid.Row="2" Classes="flabel" Text="It moves" />
+            <ComboBox Grid.Row="2" Grid.Column="2" ItemsSource="{Binding UtilitySends}" SelectedItem="{Binding UtilitySend}" HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:Choice"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+          </Grid>
+          <Grid ColumnDefinitions="Auto,*,Auto,8,Auto">
+            <Button Classes="ghost" Content="Clear" Command="{Binding ClearUtilityCommand}" />
+            <Button Grid.Column="2" Classes="ghost" Content="Cancel" Command="{Binding CancelUtilityCommand}" />
+            <Button Grid.Column="4" Classes="primary" Content="Use it" Command="{Binding SaveUtilityCommand}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+    </Border>
+
     <!-- NEW BUS: kind, name, mono or stereo, tap point, and the other settings for that kind. -->
     <Border Grid.Row="0" Grid.RowSpan="5" Background="#B3000000" IsVisible="{Binding NewBus.IsOpen}" ZIndex="10">
       <Border Classes="card" Width="640" Padding="22,18" HorizontalAlignment="Center" VerticalAlignment="Center" DataContext="{Binding NewBus}" x:DataType="vm:NewBusForm">

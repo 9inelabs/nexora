@@ -19,9 +19,14 @@
           </StackPanel>
         </Button>
       </StackPanel>
-      <Border Grid.Column="1" Classes="chip live" IsVisible="{Binding ToneOn}" ToolTip.Tip="The test signal is playing into a bus (Test signal)">
-        <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="TEST SIGNAL ON" /></StackPanel>
-      </Border>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+        <Border Classes="chip live" IsVisible="{Binding ToneOn}" ToolTip.Tip="The test signal is playing into a bus (Test signal)">
+          <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="TEST SIGNAL ON" /></StackPanel>
+        </Border>
+        <Button Classes="ghost small" Command="{Binding PopOutCommand}" CommandParameter="routing" ToolTip.Tip="Open routing in its own window, for a second screen">
+          <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="monitor" Width="12" Height="12" /><TextBlock Text="Own window" /></StackPanel>
+        </Button>
+      </StackPanel>
     </Grid>
 
     <!-- Bus routing: the grid, with the trace beside it -->

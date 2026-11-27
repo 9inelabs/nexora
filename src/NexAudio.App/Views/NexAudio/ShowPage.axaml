@@ -204,6 +204,17 @@
               </Button.Flyout>
             </Button>
           </StackPanel>
+          <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="10,8">
+            <Grid ColumnDefinitions="*,10,Auto">
+              <StackPanel Spacing="1">
+                <TextBlock FontWeight="SemiBold" FontSize="12.5" Text="Prepare next Sunday's show offline" />
+                <TextBlock Classes="faint small" TextWrapping="Wrap"
+                           Text="On any PC, with no X32: the X32 link, failsafe and stream pause while you build the mix, scenes and cues. Save the show and open it on the sound PC." />
+              </StackPanel>
+              <Button Grid.Column="2" Classes="small" Command="{Binding GoOfflineCommand}" Content="Go offline" IsVisible="{Binding !IsOffline}" VerticalAlignment="Center" />
+              <Button Grid.Column="2" Classes="primary small" Command="{Binding GoOnlineCommand}" Content="Go back online" IsVisible="{Binding IsOffline}" VerticalAlignment="Center" />
+            </Grid>
+          </Border>
           <Border Classes="hairline" />
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Classes="faint small" Text="{Binding BackupText}" TextWrapping="Wrap" VerticalAlignment="Center" />

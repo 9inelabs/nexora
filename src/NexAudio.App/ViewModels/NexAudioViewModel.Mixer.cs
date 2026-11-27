@@ -204,6 +204,7 @@ public sealed partial class NexAudioViewModel
         }
         if (_mix.Find(id) is { } s)
         {
+            RefreshUtilities(id);
             foreach (var v in AllStripViews().Where(v => v.Id == id)) v.Update(s);
             // A stereo partner or linked faders moved too.
             foreach (var other in MixParams.AlsoChanges(_mix, path).ToList())
@@ -241,6 +242,7 @@ public sealed partial class NexAudioViewModel
         BuildStream();
         BuildRouting();
         BuildGroups();
+        BuildWorkflow();
         OnPropertyChanged(nameof(AnySolo));
         OnPropertyChanged(nameof(LatencyMixText));
     }
@@ -300,6 +302,7 @@ public sealed partial class NexAudioViewModel
             var ch = _x32.Channels;
             if (s.Number >= 1 && s.Number <= ch.Count && ch[s.Number - 1].Name.Length > 0) return ch[s.Number - 1].Name;
         }
+        else if (s.Kind == StripKind.Channel && CachedName(s.Number) is { } cached) return cached;
         return MixState.Label(s);
     }
 
@@ -334,6 +337,7 @@ public sealed partial class NexAudioViewModel
                 0 => ChannelStrips.Take(16),
                 1 => ChannelStrips.Skip(16),
                 3 => [],
+                >= 10 => UserBankStrips(Bank - 10),
                 _ => BusStrips,
             };
         foreach (var v in src) VisibleStrips.Add(v);
@@ -347,6 +351,12 @@ public sealed partial class NexAudioViewModel
         Array.Copy(m.L, levels, n);
         Array.Copy(m.R, 0, levels, n, n);
         StripMeters.Push(levels, new bool[n * 2]);
+        if (m.Phase is { Length: >= 2 } ph)
+        {
+            MainPhase = ph[0];
+            StreamPhase = ph[1];
+        }
+        UpdateUtilityMeters(m.L, m.R);
         UpdateBusMeters(m.L, m.R);
         if (m.Cost is { } cost) ApplyCosts(cost);
         foreach (var v in VisibleStrips.Append(MainStrip).Append(CentreStrip))
@@ -782,6 +792,7 @@ public sealed partial class NexAudioViewModel
         _applyingDesk = true;
         DeskStatus = d;
         ApplyTools(d);
+        ApplyWorkflowStatus();
         ApplyRoutings(d);
         ApplyShow(d);
         ApplyTape(d.Tape);
