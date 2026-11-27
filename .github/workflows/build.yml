@@ -110,6 +110,7 @@ jobs:
           Copy-Item docs/TESTING-PHASES-3-8.md out/TESTING-PHASES-3-8.md
           Copy-Item docs/OPERATOR-GUIDE.md out/OPERATOR-GUIDE.md
           Copy-Item docs/NEX-AUDIO-PHASE1-TESTING.md out/NEX-AUDIO-PHASE1-TESTING.md
+          Copy-Item docs/NEX-AUDIO-PHASES2-5-TESTING.md out/NEX-AUDIO-PHASES2-5-TESTING.md
           Copy-Item publish/Backgrounds/CREDITS.txt out/BACKGROUNDS-CREDITS.txt
           # The files the Live Output PC offers to the other PCs (Settings > Updates).
           New-Item -ItemType Directory -Force update/NEXORA-Update | Out-Null
