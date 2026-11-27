@@ -19,6 +19,7 @@ public enum NexAudioTab
     Mixer,
     Channel,
     Outputs,
+    Routing,
     Stream,
     Scenes,
     Show,
@@ -81,7 +82,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OnMeters), nameof(OnPatch), nameof(OnLatency), nameof(OnDriver), nameof(OnConsole), nameof(OnPcCheck),
-        nameof(OnMixer), nameof(OnChannel), nameof(OnOutputs), nameof(OnStream), nameof(OnScenes), nameof(OnShow), nameof(OnSoundcheck), nameof(OnPlugins), nameof(OnFailsafe), nameof(OnSetup))]
+        nameof(OnMixer), nameof(OnChannel), nameof(OnOutputs), nameof(OnRouting), nameof(OnStream), nameof(OnScenes), nameof(OnShow), nameof(OnSoundcheck), nameof(OnPlugins), nameof(OnFailsafe), nameof(OnSetup))]
     private NexAudioTab _tab = NexAudioTab.Mixer;
 
     public bool OnMixer => Tab == NexAudioTab.Mixer;

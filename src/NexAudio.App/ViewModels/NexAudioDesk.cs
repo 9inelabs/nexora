@@ -141,22 +141,24 @@ public sealed partial class ChoiceParam : MixParam
 {
     private readonly Func<MixState, string?> _get;
 
-    public ChoiceParam(string path, string label, IReadOnlyList<Choice> options, Func<MixState, string?> get, Action<string, object> send, bool asNumber = false)
+    public ChoiceParam(string path, string label, IReadOnlyList<Choice> options, Func<MixState, string?> get, Action<string, object> send, bool asNumber = false, bool asInt = false)
         : base(path, label, send)
     {
         _get = get;
         Options = options;
         _asNumber = asNumber;
+        _asInt = asInt;
     }
 
-    private readonly bool _asNumber;
+    private readonly bool _asNumber, _asInt;
     public IReadOnlyList<Choice> Options { get; }
     [ObservableProperty] private Choice? _selected;
 
     partial void OnSelectedChanged(Choice? value)
     {
         if (Refreshing || value is null) return;
-        if (_asNumber && double.TryParse(value.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var n)) Send(Path, n);
+        if (_asInt && int.TryParse(value.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i)) Send(Path, i);
+        else if (_asNumber && double.TryParse(value.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var n)) Send(Path, n);
         else Send(Path, value.Value);
     }
 
@@ -427,7 +429,7 @@ public sealed partial class OutputRow : ObservableObject
         OutputPatch? O(MixState m) => number - 1 < m.Outputs.Count ? m.Outputs[number - 1] : null;
         Source = new ChoiceParam($"{p}.source", "Plays", sources, m => O(m)?.Source, owner.Queue);
         Level = new SliderParam($"{p}.level", "Level", -40, 10, "dB", m => O(m)?.Level, owner.Queue);
-        Delay = new SliderParam($"{p}.delayMs", "Delay", 0, 200, "ms", m => O(m)?.DelayMs, owner.Queue, step: 0.1);
+        Delay = new SliderParam($"{p}.delayMs", "Delay", 0, MixParams.MaxDelayMs, "ms", m => O(m)?.DelayMs, owner.Queue, step: 0.1);
         Mute = new ToggleParam($"{p}.mute", "Mute", m => O(m)?.Mute ?? false, owner.Queue);
         Limit = new ToggleParam($"{p}.limit", "Limiter", m => O(m)?.Limit ?? false, owner.Queue);
         HpfOn = new ToggleParam($"{p}.hpf.on", "Low cut", m => O(m)?.Hpf.On ?? false, owner.Queue);

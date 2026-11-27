@@ -286,10 +286,11 @@ public sealed partial class PreviewForm : ObservableObject
         _go = go;
         Rows.Clear();
         foreach (var r in p.Changes) Rows.Add(r with { Strip = owner.StripLabel(r.StripId, r.Strip) });
-        var kind = p.CueId is not null ? "cue" : p.Snapshot ? "snapshot" : "scene";
+        var kind = p.CueId is not null ? "cue" : p.Id.StartsWith("routing:", StringComparison.Ordinal) ? "routing layout" : p.Snapshot ? "snapshot" : "scene";
         Title = p.CueId is not null ? $"Cue: {p.Name}" : $"Recall the {kind} \"{p.Name}\"?";
         Subtitle = p.Scope == RecallScope.None
             ? "This cue recalls nothing; it only runs its macro or shows its note."
+            : p.Id.StartsWith("routing:", StringComparison.Ordinal) ? $"Changes only the routing (the sound stays as it is) · {(p.Strips == 1 ? "1 strip" : $"{p.Strips} strips")} change"
             : $"Changes {NexAudioViewModel.ScopeText(p.Scope)}" + (p.Fade > 0.05 ? $" · levels glide over {p.Fade:0.#} s" : "") +
               $" · {(p.Strips == 1 ? "1 strip" : $"{p.Strips} strips")} change" + (p.Changes.Count >= 400 ? " (first 400 shown)" : "");
         SafeText = p.KeptSafe.Count == 0 ? "" : $"Kept as they are (recall safe): {string.Join(", ", p.KeptSafe)}.";
