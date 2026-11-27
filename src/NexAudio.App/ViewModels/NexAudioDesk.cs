@@ -210,7 +210,18 @@ public sealed partial class StripView : ObservableObject
     [ObservableProperty] private string _number = "";
     [ObservableProperty] private IBrush? _colour;
     [ObservableProperty] private bool _mute;
+    /// <summary>Completely silent, direct out too; only the hard mute button brings it back.</summary>
+    [ObservableProperty] private bool _hardMute;
+    /// <summary>A mute group or a control group's mute is silencing this strip.</summary>
+    [ObservableProperty] private bool _groupMuted;
     [ObservableProperty] private bool _solo;
+    [ObservableProperty] private bool _soloSafe;
+    /// <summary>"L" or "R" on a linked stereo pair.</summary>
+    [ObservableProperty] private string _pairText = "";
+    /// <summary>The control groups this strip is in.</summary>
+    [ObservableProperty] private IReadOnlyList<GroupChip> _chips = [];
+    /// <summary>Where the fader really is after its VCA masters ("→ -6.0"), when they move it.</summary>
+    [ObservableProperty] private string _vcaText = "";
     [ObservableProperty] private double _pan;
     [ObservableProperty] private bool _stereo;
     [ObservableProperty] private bool _isSelected;
@@ -274,7 +285,16 @@ public sealed partial class StripView : ObservableObject
         var fx = s.Rack.Count(r => !r.Bypass);
         FxText = fx <= 1 ? "FX" : $"FX{fx}";
         Mute = s.Mute;
+        HardMute = s.HardMute;
+        var ctl = ControlRules.Effects(_owner.Mix).GetValueOrDefault(s.Id);
+        GroupMuted = ctl.Muted && !s.Mute && !s.HardMute;
         Solo = s.Solo;
+        SoloSafe = s.SoloSafe;
+        PairText = ControlRules.Partner(_owner.Mix, s) is { } partner ? partner.Number > s.Number ? "L" : "R" : "";
+        if (PairText.Length > 0) Number += $" · {PairText}";
+        Chips = _owner.ChipsFor(s);
+        var eff = ControlRules.Effective(s, ctl);
+        VcaText = (ctl.Offset != 0 || ctl.Silent) && Math.Abs(eff - s.Fader) > 0.05 ? eff <= Db.Floor ? "→ -∞" : $"→ {eff:+0.0;-0.0;0.0}" : "";
         Pan = s.Pan;
         Stereo = s.Stereo;
         EqOn = !s.Eq.IsFlat || s.Hpf.On;
@@ -332,6 +352,10 @@ public sealed partial class StripView : ObservableObject
     }
 
     [RelayCommand] private void ToggleMute() => _owner.Queue($"{Id}.mute", !Mute);
+    [RelayCommand] private void ToggleHardMute() => _owner.Queue($"{Id}.hardMute", !HardMute);
+    public bool CanHardMute => Kind is not StripKind.Stream;
+    public string MuteLabel => HardMute ? "HARD" : "MUTE";
+    partial void OnHardMuteChanged(bool value) => OnPropertyChanged(nameof(MuteLabel));
     [RelayCommand] private void ToggleSolo() => _owner.Queue($"{Id}.solo", !Solo);
     [RelayCommand] private void Select() => _owner.SelectStrip(Id, true);
     [RelayCommand] private void CentrePan() => Pan = 0;

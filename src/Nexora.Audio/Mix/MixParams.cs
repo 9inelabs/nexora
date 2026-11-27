@@ -42,6 +42,226 @@ public static class MixParams
     {
         var seg = path.Split('.');
         if (seg.Length < 2) return false;
+        if (s.Control(seg[0]) is { } cg) return ApplyControl(s, cg, seg, value);
+        var strip = s.Find(seg[0]);
+        if (strip is null) return ApplyOne(s, path, value);
+        var field = seg[1];
+        // Only an odd channel starts a stereo pair (1 with 2, 3 with 4, and so on).
+        if (field == "linked" && (strip.Kind != StripKind.Channel || s.Channels.IndexOf(strip) % 2 == 1)) return false;
+        var oldFader = strip.Fader;
+        if (!ApplyOne(s, path, value)) return false;
+        var now = s.Find(seg[0])!;
+        if (field == "linked" && seg.Length == 2)
+        {
+            if (now.Linked) LinkPair(s, now);
+        }
+        else if (ControlRules.Partner(s, now) is { } partner && Mirrors(seg))
+            ApplyOne(s, partner.Id + path[seg[0].Length..], Mirror(seg, value));
+        // Linked faders follow by the same amount.
+        if (field == "fader" && seg.Length == 2 && Math.Abs(now.Fader - oldFader) > 1e-9) MoveLinked(s, now, now.Fader - oldFader);
+        // Exclusive solo: this strip (and its stereo partner) alone, apart from solo-safe strips.
+        if (field == "solo" && seg.Length == 2 && now.Solo && s.Solo.Exclusive)
+        {
+            var keep = ControlRules.Partner(s, now)?.Id;
+            foreach (var x in s.AllStrips())
+                if (x.Id != now.Id && x.Id != keep && !x.SoloSafe) x.Solo = false;
+        }
+        return true;
+    }
+
+    /// <summary>The other strips a change to this path also moves (the stereo partner, linked faders), so the screen can refresh them.</summary>
+    public static IEnumerable<string> AlsoChanges(MixState s, string path)
+    {
+        var seg = path.Split('.');
+        if (seg.Length < 2) yield break;
+        if (s.Control(seg[0]) is { } g)
+        {
+            foreach (var m in g.Members) yield return m;
+            yield break;
+        }
+        if (s.Find(seg[0]) is not { } st) yield break;
+        var seen = new HashSet<string> { st.Id };
+        if (ControlRules.Partner(s, st) is { } p && seen.Add(p.Id)) yield return p.Id;
+        if (seg[1] != "fader") yield break;
+        foreach (var lg in s.Controls.Where(x => x.Mode == ControlMode.Linked && x.Acts(st.Id)))
+            foreach (var m in lg.Members)
+            {
+                if (seen.Add(m)) yield return m;
+                if (s.Find(m) is { } ms && ControlRules.Partner(s, ms) is { } mp && seen.Add(mp.Id)) yield return mp.Id;
+            }
+    }
+
+    // ---- Stereo link ------------------------------------------------------------------------------
+
+    /// <summary>Settings that belong to each side of a stereo pair on its own: the mic, its name, where it comes from.</summary>
+    private static readonly HashSet<string> OwnSide = ["name", "input", "altInput", "useAlt", "preamp", "phantom", "linked", "directTap", "rack"];
+
+    private static bool Mirrors(string[] seg) => !OwnSide.Contains(seg[1]);
+
+    /// <summary>The partner gets the same change, with left and right swapped on a pan.</summary>
+    private static JsonNode? Mirror(string[] seg, JsonNode? value) =>
+        seg[^1] == "pan" && value is JsonValue v && v.TryGetValue<double>(out var d) ? JsonValue.Create(-d) : value?.DeepClone();
+
+    /// <summary>A new pair: the right side takes everything from the left, and they pan hard left and right.</summary>
+    private static void LinkPair(MixState s, Strip left)
+    {
+        if (ControlRules.Partner(s, left) is not { } right) return;
+        right.TakeProcessing(left, newIds: true);
+        right.Fader = left.Fader;
+        right.Mute = left.Mute;
+        right.Solo = left.Solo;
+        right.ToMain = left.ToMain;
+        right.Groups = [.. left.Groups];
+        right.Sends = left.Sends.Select(x => { var c = x.Clone(); if (c.Pan is { } p) c.Pan = -p; return c; }).ToList();
+        right.StreamLevel = left.StreamLevel;
+        right.StreamOn = left.StreamOn;
+        right.Colour = left.Colour;
+        right.RecallSafe = left.RecallSafe;
+        right.SoloSafe = left.SoloSafe;
+        right.HardMute = left.HardMute;
+        foreach (var g in s.Controls)
+        {
+            g.Members.Remove(right.Id);
+            g.Safe.Remove(right.Id);
+            if (g.Members.Contains(left.Id))
+            {
+                g.Members.Add(right.Id);
+                if (g.Safe.Contains(left.Id)) g.Safe.Add(right.Id);
+            }
+        }
+        left.Pan = -1;
+        right.Pan = 1;
+    }
+
+    // ---- Control groups ---------------------------------------------------------------------------
+
+    private static void MoveLinked(MixState s, Strip moved, double delta)
+    {
+        var done = new HashSet<string> { moved.Id };
+        if (ControlRules.Partner(s, moved) is { } mp) done.Add(mp.Id);
+        foreach (var g in s.Controls.Where(x => x.Mode == ControlMode.Linked && x.Acts(moved.Id)).ToList())
+            foreach (var id in g.Members.Where(g.Acts))
+                if (done.Add(id) && s.Find(id) is { } m)
+                {
+                    Nudge(m, delta);
+                    if (ControlRules.Partner(s, m) is { } p && done.Add(p.Id)) p.Fader = m.Fader;
+                }
+    }
+
+    /// <summary>Moves a fader by an amount, leaving one at the bottom where it is.</summary>
+    private static void Nudge(Strip m, double delta)
+    {
+        if (m.Fader <= Db.Floor + 0.5 && delta < 0) return;
+        m.Fader = Math.Clamp(m.Fader <= Db.Floor + 0.5 ? Db.Floor : m.Fader + delta, Db.Floor, 10);
+    }
+
+    private static bool ApplyControl(MixState s, ControlGroup g, string[] seg, JsonNode? value)
+    {
+        if (seg[1] is "member" or "safe" && seg.Length == 3)
+        {
+            if (s.Find(seg[2]) is not { Kind: not StripKind.Stream } st) return false;
+            var on = value?.GetValue<bool>() ?? false;
+            var ids = new List<string> { st.Id };
+            if (ControlRules.Partner(s, st) is { } p) ids.Add(p.Id);
+            foreach (var id in ids)
+            {
+                if (seg[1] == "member")
+                {
+                    g.Members.Remove(id);
+                    g.Safe.Remove(id);
+                    if (on) g.Members.Add(id);
+                }
+                else
+                {
+                    g.Safe.Remove(id);
+                    if (on && g.Members.Contains(id)) g.Safe.Add(id);
+                }
+            }
+            return true;
+        }
+        var u = SetIn(g, seg[1..], value);
+        if (u is null) return false;
+        u.Id = g.Id;
+        u.Members = g.Members;
+        u.Safe = g.Safe;
+        u.Name ??= "";
+        u.Colour ??= "";
+        u.Fader = Math.Clamp(double.IsFinite(u.Fader) ? u.Fader : 0, Db.Floor, 10);
+        if (u.Mode != g.Mode)
+        {
+            // Changing what the group does never changes the sound: a VCA master or a group mute is handed to the members first.
+            Release(s, g);
+            u.Fader = 0;
+            u.Mute = false;
+        }
+        if (u.Mode == ControlMode.Linked)
+        {
+            u.Mute = false;
+            // The linked group's master moves every member's own fader.
+            var delta = u.Fader - g.Fader;
+            if (Math.Abs(delta) > 1e-9 && seg[1] == "fader")
+                foreach (var id in u.Members.Where(u.Acts))
+                    if (s.Find(id) is { } m) Nudge(m, delta);
+        }
+        s.Controls[s.Controls.IndexOf(g)] = u;
+        return true;
+    }
+
+    /// <summary>Hands a group's master level and mute to its members, so removing the group or changing its mode sounds the same.</summary>
+    private static void Release(MixState s, ControlGroup g)
+    {
+        if (g.Mode == ControlMode.Linked) return;
+        foreach (var id in g.Members.Where(g.Acts))
+        {
+            if (s.Find(id) is not { } m) continue;
+            if (g.Mute) m.Mute = true;
+            if (g.Mode == ControlMode.Vca)
+            {
+                if (g.Fader <= Db.Floor + 0.5) m.Fader = Db.Floor;
+                else Nudge(m, g.Fader);
+            }
+        }
+    }
+
+    /// <summary>Adds a control group with the next free number (cg1 to cg24). Null when all 24 are in use.</summary>
+    public static ControlGroup? AddControl(MixState s, ControlMode mode, string? name = null, string? colour = null, IEnumerable<string>? members = null)
+    {
+        var used = s.Controls.Select(g => int.Parse(g.Id[2..])).ToHashSet();
+        if (used.Count >= MixState.MaxControls) return null;
+        var n = Enumerable.Range(1, MixState.MaxControls).First(i => !used.Contains(i));
+        var g = new ControlGroup { Id = $"cg{n}", Mode = mode, Name = name?.Trim() ?? "", Colour = colour ?? "" };
+        foreach (var id in members ?? [])
+            if (s.Find(id) is { Kind: not StripKind.Stream } st && !g.Members.Contains(st.Id))
+            {
+                g.Members.Add(st.Id);
+                if (ControlRules.Partner(s, st) is { } p && !g.Members.Contains(p.Id)) g.Members.Add(p.Id);
+            }
+        s.Controls.Add(g);
+        s.Controls.Sort((a, b) => int.Parse(a.Id[2..]).CompareTo(int.Parse(b.Id[2..])));
+        return g;
+    }
+
+    /// <summary>Removes a control group. Its members keep sounding the way they did.</summary>
+    public static bool RemoveControl(MixState s, string id)
+    {
+        if (s.Control(id) is not { } g) return false;
+        Release(s, g);
+        s.Controls.Remove(g);
+        return true;
+    }
+
+    /// <summary>Clears every solo except solo-safe strips.</summary>
+    public static void ClearSolos(MixState s)
+    {
+        foreach (var st in s.AllStrips())
+            if (!st.SoloSafe) st.Solo = false;
+    }
+
+    /// <summary>One change, with no knock-on effects.</summary>
+    private static bool ApplyOne(MixState s, string path, JsonNode? value)
+    {
+        var seg = path.Split('.');
+        if (seg.Length < 2) return false;
         switch (seg[0])
         {
             case "out":
@@ -82,6 +302,7 @@ public static class MixParams
                 var u = SetIn(s.Solo, seg[1..], value);
                 if (u is null) return false;
                 u.Level = Math.Clamp(u.Level, -40, 10);
+                u.Level2 = Math.Clamp(u.Level2, -40, 10);
                 s.Solo = u;
                 return true;
             }
@@ -363,6 +584,11 @@ public static class MixParams
         {
             st.Sends.RemoveAll(x => x.Bus == id);
             st.Groups.Remove(id);
+        }
+        foreach (var g in s.Controls)
+        {
+            g.Members.Remove(id);
+            g.Safe.Remove(id);
         }
         foreach (var o in s.Outputs)
             if (o.Source == id || o.Source.StartsWith(id + ":"))

@@ -262,9 +262,31 @@ public sealed class EngineServer : IDisposable
             case "solo.clear":
                 desk.Change(s =>
                 {
-                    foreach (var st in s.AllStrips()) st.Solo = false;
+                    MixParams.ClearSolos(s);
                     return true;
                 });
+                break;
+            case "solo.only":
+                // Auto-solo on select: this strip (and its stereo partner) alone, apart from solo-safe strips.
+                desk.Change(s =>
+                {
+                    if (s.Find(m.Arg("strip") ?? "") is not { Kind: not (StripKind.Main or StripKind.Stream) } st) return false;
+                    MixParams.ClearSolos(s);
+                    st.Solo = true;
+                    if (ControlRules.Partner(s, st) is { } p) p.Solo = true;
+                    return true;
+                });
+                break;
+            case "control.add":
+            {
+                if (!Enum.TryParse<ControlMode>(m.Arg("mode"), true, out var mode)) mode = ControlMode.Vca;
+                var members = (m.Arg("members") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (!desk.Change(s => MixParams.AddControl(s, mode, m.Arg("name"), m.Arg("colour"), members) is not null, "add a control group"))
+                    throw new InvalidOperationException($"All {MixState.MaxControls} control groups are in use.");
+                break;
+            }
+            case "control.remove":
+                desk.Change(s => MixParams.RemoveControl(s, m.Arg("id") ?? ""), "remove a control group");
                 break;
             case "scene.save":
                 await desk.SaveAsync(m.Arg("id"), m.Arg("name") ?? "", m.Arg("notes") ?? "", m.Arg("by") ?? "", Bool(m.Arg("snapshot")),

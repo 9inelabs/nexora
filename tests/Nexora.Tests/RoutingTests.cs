@@ -85,11 +85,11 @@ public class RoutingTests
     }
 
     [Fact]
-    public void A_muted_channel_sends_nothing_from_its_direct_out()
+    public void A_hard_muted_channel_sends_nothing_from_its_direct_out()
     {
         var s = MixRig.Plain();
         s.Channels[0].DirectTap = SendTap.Pre;
-        s.Channels[0].Mute = true;
+        s.Channels[0].HardMute = true;
         s.Outputs[3].Source = "ch:1";
         var (e, i, o) = MixRig.Make(s);
         MixRig.Settle(e, i, o, new() { [0] = 0.25f });

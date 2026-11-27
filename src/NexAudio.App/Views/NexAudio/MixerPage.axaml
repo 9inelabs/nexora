@@ -118,6 +118,8 @@
           <Button Classes="tab small" Classes.selected="{Binding BankLow}" Command="{Binding ShowBankCommand}" CommandParameter="0" Content="Ch 1–16" Padding="10,3" />
           <Button Classes="tab small" Classes.selected="{Binding BankHigh}" Command="{Binding ShowBankCommand}" CommandParameter="1" Content="Ch 17–32" Padding="10,3" />
           <Button Classes="tab small" Classes.selected="{Binding BankBuses}" Command="{Binding ShowBankCommand}" CommandParameter="2" Content="Buses" Padding="10,3" />
+          <Button Classes="tab small" Classes.selected="{Binding BankGroups}" Command="{Binding ShowBankCommand}" CommandParameter="3" Content="Groups" Padding="10,3"
+                  ToolTip.Tip="The control group masters and mute groups" />
         </StackPanel>
       </Border>
       <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
@@ -286,19 +288,80 @@
         <Grid RowDefinitions="Auto,6,*">
           <Grid ColumnDefinitions="Auto,8,*,Auto">
             <Border Width="10" Height="10" CornerRadius="5" Background="{Binding LayerTone}" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="2" FontWeight="SemiBold" FontSize="12.5" Text="{Binding LayerTitle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+              <TextBlock FontWeight="SemiBold" FontSize="12.5" Text="{Binding LayerTitle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              <Border Classes="chip" IsVisible="{Binding IsSpilled}" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock Text="{Binding SpillTitle}" />
+                  <Button Classes="ghost" Padding="2,0" Command="{Binding ClearSpillCommand}" ToolTip.Tip="Show every strip again"><c:Icon Kind="x" Width="9" Height="9" /></Button>
+                </StackPanel>
+              </Border>
+            </StackPanel>
             <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+              <!-- Mute groups, always to hand -->
+              <ItemsControl ItemsSource="{Binding MuteGroups}" IsVisible="{Binding HasMuteGroups}" VerticalAlignment="Center">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ControlGroupView">
+                    <Button Classes="strip mute" Classes.active="{Binding Mute}" Command="{Binding ToggleMuteCommand}" Padding="10,4" MinWidth="96"
+                            ToolTip.Tip="{Binding MemberText}">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Width="8" Height="8" CornerRadius="4" Background="{Binding Colour}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Title}" FontSize="11" />
+                      </StackPanel>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
               <TextBlock Classes="faint small" Text="{Binding LatencyMixText}" VerticalAlignment="Center" />
               <Button Classes="warn small" Command="{Binding ClearSoloCommand}" IsVisible="{Binding AnySolo}" Content="Clear solo" />
             </StackPanel>
           </Grid>
-          <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding ShowStrips}">
             <ItemsControl ItemsSource="{Binding VisibleStrips}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
               </ItemsControl.ItemsPanel>
             </ItemsControl>
           </ScrollViewer>
+          <!-- The control group masters -->
+          <Panel Grid.Row="2" IsVisible="{Binding BankGroups}">
+            <Border Classes="well" Padding="16" IsVisible="{Binding !HasControlGroups}" VerticalAlignment="Top">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="faint" TextWrapping="Wrap" Text="No control groups yet. Make them on the Groups tab: a master fader for the band or the vocals, linked faders, or a mute group." />
+                <Button Classes="small" Command="{Binding ShowTabCommand}" CommandParameter="Groups" Content="Open Groups" HorizontalAlignment="Left" />
+              </StackPanel>
+            </Border>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding ControlGroups}">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ControlGroupView">
+                    <Border Classes="stripcard" Background="{Binding Card}" Width="92">
+                      <Grid RowDefinitions="Auto,4,Auto,4,*,Auto,4,Auto,4,Auto">
+                        <Border CornerRadius="5" Background="{Binding Colour}" Padding="3,3">
+                          <StackPanel Spacing="0">
+                            <TextBlock Text="{Binding ModeText}" FontSize="8.5" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{Binding ScribbleText}" Opacity="0.75" />
+                            <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="Bold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" Foreground="{Binding ScribbleText}" />
+                          </StackPanel>
+                        </Border>
+                        <TextBlock Grid.Row="2" Classes="faint" FontSize="10" HorizontalAlignment="Center" Text="{Binding Count, StringFormat='{}{0} members'}" />
+                        <a:Fader Grid.Row="4" Value="{Binding Fader}" MinHeight="180" IsVisible="{Binding HasFader}" Margin="0,4,0,0" />
+                        <TextBlock Grid.Row="4" Classes="faint small" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasFader}"
+                                   Text="One button mutes every member." />
+                        <Button Grid.Row="5" Classes="ghost" Padding="0" HorizontalAlignment="Center" Command="{Binding ResetFaderCommand}" IsVisible="{Binding HasFader}" ToolTip.Tip="Back to 0 dB">
+                          <TextBlock Classes="mono" FontSize="12.5" Text="{Binding FaderText}" />
+                        </Button>
+                        <Button Grid.Row="7" Classes="strip mute" Classes.active="{Binding Mute}" Command="{Binding ToggleMuteCommand}" Content="MUTE" Padding="0,6" IsVisible="{Binding HasMute}" />
+                        <Button Grid.Row="9" Classes="strip" Classes.selected="{Binding IsSpilled}" Command="{Binding SpillCommand}" Content="SHOW" Padding="0,6"
+                                ToolTip.Tip="Show only this group's members on the faders" />
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Panel>
         </Grid>
       </Border>
       <Border Grid.Column="2" Classes="card" Padding="8">
@@ -433,9 +496,22 @@
             </Button>
           </Grid>
           <!-- How hard the gate and compressor are working -->
-          <StackPanel Grid.Row="8" Spacing="2" ToolTip.Tip="How far the gate (G) and compressor (C) are turning this strip down">
-            <Grid ColumnDefinitions="10,*"><TextBlock Classes="mono" Foreground="{StaticResource GateTone}" FontSize="8.5" Text="G" /><a:BarMeter Grid.Column="1" Height="4" Minimum="0" Maximum="30" Value="{Binding GateGr}" Fill="{StaticResource GateTone}" VerticalAlignment="Center" /></Grid>
-            <Grid ColumnDefinitions="10,*"><TextBlock Classes="mono" Foreground="{StaticResource DynTone}" FontSize="8.5" Text="C" /><a:BarMeter Grid.Column="1" Height="4" Minimum="0" Maximum="20" Value="{Binding CompGr}" Fill="{StaticResource DynTone}" VerticalAlignment="Center" /></Grid>
+          <StackPanel Grid.Row="8" Spacing="2">
+            <StackPanel Spacing="2" ToolTip.Tip="How far the gate (G) and compressor (C) are turning this strip down">
+              <Grid ColumnDefinitions="10,*"><TextBlock Classes="mono" Foreground="{StaticResource GateTone}" FontSize="8.5" Text="G" /><a:BarMeter Grid.Column="1" Height="4" Minimum="0" Maximum="30" Value="{Binding GateGr}" Fill="{StaticResource GateTone}" VerticalAlignment="Center" /></Grid>
+              <Grid ColumnDefinitions="10,*"><TextBlock Classes="mono" Foreground="{StaticResource DynTone}" FontSize="8.5" Text="C" /><a:BarMeter Grid.Column="1" Height="4" Minimum="0" Maximum="20" Value="{Binding CompGr}" Fill="{StaticResource DynTone}" VerticalAlignment="Center" /></Grid>
+            </StackPanel>
+            <!-- The control groups this strip is in -->
+            <ItemsControl ItemsSource="{Binding Chips}" Height="14" ClipToBounds="True" Margin="0,2,0,0">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="2" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:GroupChip">
+                  <Border CornerRadius="3" Background="{Binding Colour}" Padding="3,0" Opacity="{Binding Opacity}" ToolTip.Tip="{Binding Tip}">
+                    <TextBlock Text="{Binding Text}" FontSize="8.5" FontWeight="Bold" Foreground="#121316" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
           </StackPanel>
           <a:Fader Grid.Row="9" Value="{Binding Fader}" MinHeight="180" IsEnabled="{Binding FaderEnabled}" Margin="0,4,0,0"
                    Meters="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).StripMeters}"
@@ -443,12 +519,15 @@
           <Grid Grid.Row="10" ColumnDefinitions="*,Auto">
             <StackPanel Spacing="0" VerticalAlignment="Center">
               <TextBlock Classes="mono" FontSize="12.5" Text="{Binding FaderText}" />
+              <TextBlock Classes="mono" FontSize="9" Foreground="{StaticResource Accent}" Text="{Binding VcaText}" IsVisible="{Binding VcaText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                         ToolTip.Tip="Where this fader really is, after its control group masters" />
               <TextBlock FontSize="8.5" FontWeight="Bold" Foreground="{Binding LayerTone}" Text="{Binding LayerNote}" TextTrimming="CharacterEllipsis" IsVisible="{Binding OnLayer}" />
             </StackPanel>
             <a:Knob Grid.Column="1" Width="34" Height="44" Bipolar="True" Label="" Text="{Binding PanText}"
                     Position="{Binding PanPosition}" ResetCommand="{Binding CentrePanCommand}" ToolTip.Tip="Pan (balance on stereo strips). Double-click to centre." />
           </Grid>
-          <Button Grid.Row="12" Classes="strip mute" Classes.active="{Binding Mute}" Command="{Binding ToggleMuteCommand}" Content="MUTE" Padding="0,6" />
+          <Button Grid.Row="12" Classes="strip mute" Classes.active="{Binding Mute}" Classes.group="{Binding GroupMuted}" Classes.hard="{Binding HardMute}"
+                  Command="{Binding ToggleMuteCommand}" Content="{Binding MuteLabel}" Padding="0,6" />
           <Button Grid.Row="14" Classes="strip solo" Classes.active="{Binding Solo}" Command="{Binding ToggleSoloCommand}" Content="SOLO" Padding="0,6" IsVisible="{Binding CanSolo}" />
         </Grid>
       </Border>

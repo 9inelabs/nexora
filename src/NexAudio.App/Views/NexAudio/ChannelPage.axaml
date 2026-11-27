@@ -925,7 +925,9 @@
           <a:Knob Grid.Row="8" Classes="small" HorizontalAlignment="Center" Bipolar="True" Label="Pan" Text="{Binding PanText}"
                   Position="{Binding PanPosition}" ResetCommand="{Binding CentrePanCommand}" />
           <StackPanel Grid.Row="10" Spacing="6">
-            <Button Classes="strip mute" Classes.active="{Binding Mute}" Command="{Binding ToggleMuteCommand}" Content="MUTE" Padding="0,8" />
+            <Button Classes="strip mute" Classes.active="{Binding Mute}" Classes.group="{Binding GroupMuted}" Command="{Binding ToggleMuteCommand}" Content="MUTE" Padding="0,8" />
+            <Button Classes="strip mute" Classes.hard="{Binding HardMute}" Command="{Binding ToggleHardMuteCommand}" Content="HARD MUTE" Padding="0,6" FontSize="10" IsVisible="{Binding CanHardMute}"
+                    ToolTip.Tip="Completely silent, the direct out too. Scenes, mute groups and control groups cannot bring it back: only this button does." />
             <Button Classes="strip solo" Classes.active="{Binding Solo}" Command="{Binding ToggleSoloCommand}" Content="SOLO" Padding="0,8" IsVisible="{Binding CanSolo}" />
           </StackPanel>
         </Grid>

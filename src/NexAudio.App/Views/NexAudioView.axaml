@@ -41,6 +41,19 @@
       <Setter Property="Background" Value="{StaticResource Live}" />
       <Setter Property="Foreground" Value="White" />
     </Style>
+    <!-- A group's mute is holding this strip down: the mute button shows it, but the strip's own mute is off -->
+    <Style Selector="Button.strip.mute.group /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{StaticResource Live}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="Background" Value="#33FF5A5F" />
+    </Style>
+    <!-- Hard mute: dark red with a bright edge, so it never looks like an ordinary mute -->
+    <Style Selector="Button.strip.mute.hard /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#7A1F24" />
+      <Setter Property="BorderBrush" Value="#FF5A5F" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
     <Style Selector="Button.strip.solo.active /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{StaticResource Accent}" />
       <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
@@ -219,6 +232,7 @@
           <TextBlock Text="Routing" />
         </StackPanel>
       </Button>
+      <Button Classes="tab" Classes.selected="{Binding OnGroups}" Command="{Binding ShowTabCommand}" CommandParameter="Groups" Content="Groups" />
       <Button Classes="tab" Classes.selected="{Binding OnStream}" Command="{Binding ShowTabCommand}" CommandParameter="Stream" Content="Stream" />
       <Button Classes="tab" Classes.selected="{Binding OnScenes}" Command="{Binding ShowTabCommand}" CommandParameter="Scenes" Content="Scenes" />
       <Button Classes="tab" Classes.selected="{Binding OnShow}" Command="{Binding ShowTabCommand}" CommandParameter="Show" Content="Show" />
@@ -281,6 +295,7 @@
       <na:ChannelPage IsVisible="{Binding OnChannel}" />
       <na:OutputsPage IsVisible="{Binding OnOutputs}" />
       <na:RoutingPage IsVisible="{Binding OnRouting}" />
+      <na:GroupsPage IsVisible="{Binding OnGroups}" />
       <na:StreamPage IsVisible="{Binding OnStream}" />
       <na:ScenesPage IsVisible="{Binding OnScenes}" />
       <na:ShowPage IsVisible="{Binding OnShow}" />
