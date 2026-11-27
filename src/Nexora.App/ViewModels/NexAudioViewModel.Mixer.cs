@@ -416,6 +416,13 @@ public sealed partial class NexAudioViewModel
                 var gid = g.Id;
                 route.Items.Add(new ToggleParam($"{id}.group.{gid}", $"Through {NameOf(g)}", m => S(m)?.Groups.Contains(gid) ?? false, q));
             }
+        if (s.Kind is StripKind.Mix or StripKind.Fx or StripKind.Matrix)
+        {
+            var taps = MixState.Taps.Select(t => new Choice(t.Tap.ToString(), t.Name)).ToList();
+            route.Items.Add(new ChoiceParam($"{id}.sendsFrom", "Every send to this bus is taken", taps, m => S(m) is { } b ? MixState.DefaultTap(b).ToString() : null, q));
+        }
+        if (s.Kind is StripKind.Mix or StripKind.Fx or StripKind.Group or StripKind.Matrix)
+            route.Items.Add(new ToggleParam($"{id}.stereo", "Stereo (left and right)", m => S(m)?.Stereo ?? false, q));
         route.Items.Add(new ToggleParam($"{id}.recallSafe", "Scenes leave this strip alone", m => S(m)?.RecallSafe ?? false, q));
         ChannelSections.Add(route);
 

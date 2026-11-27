@@ -5,6 +5,30 @@
              x:Class="Nexora.App.Views.NexAudio.MixerPage"
              x:DataType="vm:NexAudioViewModel">
   <UserControl.Styles>
+    <!-- Tappable choices on the new-bus card -->
+    <Style Selector="ListBox.pick">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox.pick ListBoxItem">
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="Padding" Value="8,10" />
+      <Setter Property="MinHeight" Value="44" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ListBox.pick ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#26E2BE76" />
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="ListBox.pick ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{StaticResource Line2}" />
+    </Style>
     <!-- Bus tags -->
     <Style Selector="Button.bustag">
       <Setter Property="Padding" Value="0" />
@@ -130,11 +154,12 @@
         </ItemsControl>
       </ScrollViewer>
       <StackPanel Grid.Column="4" Spacing="4" VerticalAlignment="Center">
-        <Button Classes="ghost small" Command="{Binding AddMixBusCommand}" ToolTip.Tip="Add a monitor mix (wedge, in-ear, side fill)">
-          <StackPanel Orientation="Horizontal" Spacing="5"><c:Icon Kind="plus" Width="11" Height="11" /><TextBlock Text="Mix" /></StackPanel>
-        </Button>
-        <Button Classes="ghost small" Command="{Binding AddFxBusCommand}" ToolTip.Tip="Add an effect bus (reverb, delay)">
-          <StackPanel Orientation="Horizontal" Spacing="5"><c:Icon Kind="plus" Width="11" Height="11" /><TextBlock Text="Effect" /></StackPanel>
+        <Button Classes="ghost" Command="{Binding OpenNewBusCommand}" Height="62" Padding="14,0"
+                ToolTip.Tip="Add a monitor mix, subgroup, effect or matrix, and choose where its sends are taken from">
+          <StackPanel Spacing="3" HorizontalAlignment="Center">
+            <c:Icon Kind="plus" Width="16" Height="16" HorizontalAlignment="Center" />
+            <TextBlock Text="New bus" FontSize="12" FontWeight="SemiBold" />
+          </StackPanel>
         </Button>
       </StackPanel>
     </Grid>
@@ -282,6 +307,87 @@
         </StackPanel>
       </Border>
     </Grid>
+    <!-- NEW BUS: kind, name, mono or stereo, tap point, and the other settings for that kind. -->
+    <Border Grid.Row="0" Grid.RowSpan="5" Background="#B3000000" IsVisible="{Binding NewBus.IsOpen}" ZIndex="10">
+      <Border Classes="card" Width="640" Padding="22,18" HorizontalAlignment="Center" VerticalAlignment="Center" DataContext="{Binding NewBus}" x:DataType="vm:NewBusForm">
+        <StackPanel Spacing="14">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="2">
+              <TextBlock Classes="sectitle" Text="New bus" />
+              <TextBlock Classes="faint small" Text="{Binding Hint}" TextWrapping="Wrap" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="ghost" Padding="8" Command="{Binding CancelCommand}" ToolTip.Tip="Close" VerticalAlignment="Top">
+              <c:Icon Kind="x" Width="14" Height="14" />
+            </Button>
+          </Grid>
+
+          <StackPanel Spacing="6">
+            <TextBlock Classes="eyebrow" Text="WHAT KIND" />
+            <ListBox Classes="pick" ItemsSource="{Binding Kinds}" SelectedItem="{Binding Kind}">
+              <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:BusKindChoice">
+                  <TextBlock Text="{Binding Label}" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
+
+          <Grid ColumnDefinitions="*,14,Auto">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="eyebrow" Text="NAME" />
+              <TextBox Text="{Binding Name}" Watermark="{Binding NamePlaceholder}" MaxLength="24" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Spacing="6">
+              <TextBlock Classes="eyebrow" Text="CHANNELS" />
+              <ToggleButton Classes="pill" IsChecked="{Binding Stereo}" Content="{Binding StereoText}" MinHeight="38" MinWidth="120"
+                            ToolTip.Tip="On: left and right, like the main mix. Off: one mono signal (most wedges)." />
+            </StackPanel>
+          </Grid>
+
+          <StackPanel Spacing="6" IsVisible="{Binding ShowTap}">
+            <TextBlock Classes="eyebrow" Text="TAP POINT: WHERE EACH CHANNEL'S SEND IS TAKEN FROM" />
+            <ListBox Classes="pick" ItemsSource="{Binding Taps}" SelectedItem="{Binding Tap}">
+              <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:TapChoice">
+                  <StackPanel Spacing="1" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding Short}" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding Name}" FontSize="9.5" Classes="faint" TextWrapping="Wrap" TextAlignment="Center" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Classes="muted small" Text="{Binding TapNote}" TextWrapping="Wrap" />
+            <TextBlock Classes="faint small" Text="You can change it later on the bus's page; every channel's send moves with it." TextWrapping="Wrap" />
+          </StackPanel>
+
+          <StackPanel Spacing="6" IsVisible="{Binding !ShowTap}">
+            <TextBlock Classes="eyebrow" Text="TAP POINT" />
+            <TextBlock Classes="muted small" Text="Channels go through a subgroup after their faders and mutes, so the subgroup fader rides them all together." TextWrapping="Wrap" />
+          </StackPanel>
+
+          <Grid ColumnDefinitions="Auto,24,*">
+            <StackPanel Spacing="6" IsVisible="{Binding ShowToMain}">
+              <TextBlock Classes="eyebrow" Text="GOES TO" />
+              <CheckBox Content="The main mix (L R)" IsChecked="{Binding ToMain}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Spacing="6" IsVisible="{Binding ShowEffect}">
+              <TextBlock Classes="eyebrow" Text="STARTS WITH" />
+              <ComboBox ItemsSource="{Binding Effects}" SelectedItem="{Binding Effect}" MinWidth="200" HorizontalAlignment="Left">
+                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:Choice"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+          </Grid>
+
+          <Grid ColumnDefinitions="*,Auto,8,Auto">
+            <TextBlock Classes="faint small" Text="{Binding RoomText}" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="ghost" Content="Cancel" Command="{Binding CancelCommand}" />
+            <Button Grid.Column="3" Classes="primary" Content="Create bus" Command="{Binding CreateCommand}" IsEnabled="{Binding CanCreate}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+    </Border>
   </Grid>
 
   <UserControl.DataTemplates>

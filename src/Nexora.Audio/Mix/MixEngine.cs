@@ -57,6 +57,12 @@ internal sealed class StripRt
         PostR = new float[maxFrames];
         InL = new float[maxFrames];
         InR = new float[maxFrames];
+        TapInL = new float[maxFrames];
+        TapInR = new float[maxFrames];
+        TapPreEqL = new float[maxFrames];
+        TapPreEqR = new float[maxFrames];
+        TapPostEqL = new float[maxFrames];
+        TapPostEqR = new float[maxFrames];
         LatePreL = new float[maxFrames];
         LatePostL = new float[maxFrames];
         LatePostR = new float[maxFrames];
@@ -75,6 +81,9 @@ internal sealed class StripRt
     public readonly StripKind Kind;
     public readonly bool Stereo;
     public readonly float[] L, R, PreL, PreR, PostL, PostR, InL, InR, LatePreL, LatePostL, LatePostR;
+    /// <summary>Copies at the earlier tap points, filled only while some send uses them.</summary>
+    public readonly float[] TapInL, TapInR, TapPreEqL, TapPreEqR, TapPostEqL, TapPostEqR;
+    public volatile bool NeedTapIn, NeedTapPreEq, NeedTapPostEq;
     public readonly StripFilters Filters;
     public readonly Gate Gate;
     public readonly Compressor Comp;
@@ -108,21 +117,24 @@ internal sealed class StripRt
 /// <summary>A feed from one strip into another: a send, a group assignment, or a strip's place in the main mix.</summary>
 internal sealed class Feed
 {
-    public Feed(StripRt from, StripRt to, bool pre)
+    public Feed(StripRt from, StripRt to, SendTap tap)
     {
         From = from;
         To = to;
-        Pre = pre;
+        Tap = tap;
+        Pre = tap != SendTap.Post;
     }
 
     public readonly StripRt From;
     public readonly StripRt To;
+    public readonly SendTap Tap;
+    /// <summary>Taken anywhere before the fader (so a mute must silence it).</summary>
     public readonly bool Pre;
     public volatile float GainL, GainR;
     /// <summary>The source has already been delayed to line up with the effect and group stage.</summary>
     public volatile bool UseLate;
     public SmoothGain SL, SR;
-    public string Key => $"{From.Id}>{To.Id}>{(Pre ? "pre" : "post")}";
+    public string Key => $"{From.Id}>{To.Id}>{Tap}";
 }
 
 internal enum OutSource
@@ -273,9 +285,9 @@ public sealed class MixEngine
 
             // Feeds.
             var feedsSeen = new HashSet<string>();
-            Feed MakeFeed(Strip from, Strip to, bool pre, float gl, float gr, bool late)
+            Feed MakeFeed(Strip from, Strip to, SendTap tap, float gl, float gr, bool late)
             {
-                var f = new Feed(_strips[from.Id], _strips[to.Id], pre);
+                var f = new Feed(_strips[from.Id], _strips[to.Id], tap);
                 if (_feeds.TryGetValue(f.Key, out var old)) f = old;
                 else _feeds[f.Key] = f;
                 f.GainL = gl;
@@ -306,14 +318,14 @@ public sealed class MixEngine
                 if (src.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group && src.ToMain)
                 {
                     var (pl, pr) = PanGains(src.Pan, src.Stereo);
-                    list.Add(MakeFeed(src, s.Main, false, pl, pr, lateForC));
+                    list.Add(MakeFeed(src, s.Main, SendTap.Post, pl, pr, lateForC));
                 }
                 if (src.Kind is StripKind.Channel or StripKind.Fx)
                     foreach (var g in src.Groups)
                         if (s.Find(g) is { Kind: StripKind.Group } grp)
                         {
                             var (pl, pr) = PanGains(src.Pan, src.Stereo);
-                            list.Add(MakeFeed(src, grp, false, pl, pr, false));
+                            list.Add(MakeFeed(src, grp, SendTap.Post, pl, pr, false));
                         }
                 foreach (var send in src.Sends)
                 {
@@ -321,17 +333,25 @@ public sealed class MixEngine
                     var g = Db.ToGain(send.Level);
                     var (pl, pr) = bus.Stereo ? PanGains(send.Pan ?? src.Pan, src.Stereo) : (1f, 1f);
                     var late = lateForC && bus.Kind is not StripKind.Fx;
-                    list.Add(MakeFeed(src, bus, send.Tap == SendTap.Pre, g * pl, g * pr, late));
+                    list.Add(MakeFeed(src, bus, send.Tap, g * pl, g * pr, late));
                 }
                 // The stream's own balance: every strip has a stream level, taken before its fader.
                 if (s.StreamSettings.Source == StreamSource.Own && src.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group && src.StreamOn)
                 {
                     var g = Db.ToGain(src.StreamLevel);
                     var (pl, pr) = PanGains(src.Pan, src.Stereo);
-                    list.Add(MakeFeed(src, s.Stream, true, g * pl, g * pr, lateForC));
+                    list.Add(MakeFeed(src, s.Stream, SendTap.Pre, g * pl, g * pr, lateForC));
                 }
             }
             foreach (var dead in _feeds.Keys.Where(k => !feedsSeen.Contains(k)).ToList()) _feeds.Remove(dead);
+            // Only strips with a send at an early tap point copy their sound there.
+            var live = channelFeeds.Concat(fxFeeds).Concat(groupFeeds).Concat(mixFeeds).Concat(mainFeeds).ToList();
+            foreach (var rt in _strips.Values)
+            {
+                rt.NeedTapIn = live.Any(f => f.From == rt && f.Tap == SendTap.Input);
+                rt.NeedTapPreEq = live.Any(f => f.From == rt && f.Tap == SendTap.PreEq);
+                rt.NeedTapPostEq = live.Any(f => f.From == rt && f.Tap == SendTap.PostEq);
+            }
             topo.ChannelFeeds = [.. channelFeeds];
             topo.FxFeeds = [.. fxFeeds];
             topo.GroupFeeds = [.. groupFeeds];
@@ -692,6 +712,12 @@ public sealed class MixEngine
         if (t.Analyse is { } an) Analyser.Push(an.PostL, an.Stereo ? an.PostR : null, frames);
     }
 
+    private static void Tap(float[] l, float[]? r, float[] toL, float[] toR, int frames)
+    {
+        Array.Copy(l, toL, frames);
+        if (r is not null) Array.Copy(r, toR, frames);
+    }
+
     private static void Clear(StripRt b, int frames)
     {
         Array.Clear(b.InL, 0, frames);
@@ -704,7 +730,18 @@ public sealed class MixEngine
         {
             var s = f.From;
             float[] l, r;
-            if (f.UseLate && s.LatePost is not null)
+            if (f.Tap is SendTap.Input or SendTap.PreEq or SendTap.PostEq)
+            {
+                // Early taps come straight from the strip (they do not wait for plugin delay compensation).
+                (l, r) = f.Tap switch
+                {
+                    SendTap.Input => (s.TapInL, s.TapInR),
+                    SendTap.PreEq => (s.TapPreEqL, s.TapPreEqR),
+                    _ => (s.TapPostEqL, s.TapPostEqR),
+                };
+                if (!s.Stereo) r = l;
+            }
+            else if (f.UseLate && s.LatePost is not null)
             {
                 l = f.Pre ? s.LatePreL : s.LatePostL;
                 r = f.Pre ? s.LatePreL : s.Stereo ? s.LatePostR : s.LatePostL;
@@ -757,6 +794,7 @@ public sealed class MixEngine
             s.InDelayL.Process(s.L, frames, s.InDelay);
             if (r is not null) s.InDelayR.Process(r, frames, s.InDelay);
         }
+        if (s.NeedTapIn) Tap(s.L, r, s.TapInL, s.TapInR, frames);
         // Low and high cut, then the drive, then any inserts placed before the EQ and dynamics.
         s.Filters.RunCuts(s.L, r, frames);
         s.Drive.Run(s.L, r, frames);
@@ -774,13 +812,17 @@ public sealed class MixEngine
         {
             s.Gate.Run(s.L, r, frames);
             s.Comp.Run(s.L, r, frames);
+            if (s.NeedTapPreEq) Tap(s.L, r, s.TapPreEqL, s.TapPreEqR, frames);
             s.Filters.RunEq(s.L, r, frames);
             s.DynEq.Run(s.L, r, frames);
+            if (s.NeedTapPostEq) Tap(s.L, r, s.TapPostEqL, s.TapPostEqR, frames);
         }
         else
         {
+            if (s.NeedTapPreEq) Tap(s.L, r, s.TapPreEqL, s.TapPreEqR, frames);
             s.Filters.RunEq(s.L, r, frames);
             s.DynEq.Run(s.L, r, frames);
+            if (s.NeedTapPostEq) Tap(s.L, r, s.TapPostEqL, s.TapPostEqR, frames);
             s.Gate.Run(s.L, r, frames);
             s.Comp.Run(s.L, r, frames);
         }

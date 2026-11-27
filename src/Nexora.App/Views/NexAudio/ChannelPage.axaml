@@ -419,16 +419,15 @@
                 <ItemsControl ItemsSource="{Binding Ch.Sends}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:SendView">
-                      <Grid ColumnDefinitions="4,6,70,6,*,6,46,4,Auto,2,Auto" Margin="0,2">
+                      <Grid ColumnDefinitions="4,6,74,6,*,4,48,4,Auto" Margin="0,3">
                         <Border CornerRadius="2" Background="{Binding Tone}" />
-                        <StackPanel Grid.Column="2" Spacing="0" VerticalAlignment="Center">
-                          <TextBlock FontSize="11.5" FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                          <TextBlock Classes="faint" FontSize="8.5" FontWeight="Bold" Text="{Binding Kind}" />
+                        <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
+                          <TextBlock FontSize="11.5" FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Kind}" />
+                          <ComboBox Classes="tap" Width="74" Height="20" MinHeight="20" Padding="4,0,0,0" FontSize="9" ItemsSource="{Binding Taps}" SelectedItem="{Binding Tap}" ToolTip.Tip="Where this send is taken from" />
                         </StackPanel>
                         <Slider Grid.Column="4" Classes="send" Minimum="0" Maximum="1000" Value="{Binding Level.Position}" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="6" Classes="mono" FontSize="10.5" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding Level.Text}" />
                         <ToggleButton Grid.Column="8" Classes="mini" IsChecked="{Binding On.Value}" Content="ON" />
-                        <ToggleButton Grid.Column="10" Classes="mini input" IsChecked="{Binding Pre}" Content="PRE" />
                       </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
@@ -868,10 +867,10 @@
               <StackPanel Spacing="12">
                 <StackPanel Spacing="2">
                   <TextBlock Classes="sectitle" Text="Sends" />
-                  <TextBlock Classes="faint small" Text="How much of this strip goes to each monitor mix and effect. PRE takes it before the fader, so the wedges stay put when the front-of-house fader moves." />
+                  <TextBlock Classes="faint small" Text="How much of this strip goes to each monitor mix and effect. The tap point under each knob says where the send is taken from: the input, before or after the EQ, or before (PRE) or after (POST) the fader. PRE keeps the wedges put when the front-of-house fader moves." TextWrapping="Wrap" />
                 </StackPanel>
                 <ItemsControl ItemsSource="{Binding Ch.Sends}">
-                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal" ItemWidth="112" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal" ItemWidth="120" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:SendView">
                       <Border Background="{StaticResource Surface2}" CornerRadius="10" Padding="8,10" Margin="0,0,10,10">
@@ -881,8 +880,8 @@
                           <c:Knob Source="{Binding Level}" ShowLabel="False" Height="86" IsActive="{Binding On.Value}" HorizontalAlignment="Center" />
                           <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
                             <ToggleButton Classes="pill" MinWidth="0" Padding="8,4" IsChecked="{Binding On.Value}" Content="ON" />
-                            <ToggleButton Classes="pill" MinWidth="0" Padding="8,4" IsChecked="{Binding Pre}" Content="PRE" />
                           </StackPanel>
+                          <ComboBox Classes="tap" ItemsSource="{Binding Taps}" SelectedItem="{Binding Tap}" HorizontalAlignment="Center" ToolTip.Tip="Where this send is taken from" />
                         </StackPanel>
                       </Border>
                     </DataTemplate>

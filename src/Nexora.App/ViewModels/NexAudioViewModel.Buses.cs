@@ -91,11 +91,41 @@ public sealed partial class NexAudioViewModel
 
     internal void EditBus(string id) => OpenStripSection(id, nameof(ChannelSection.Home));
 
-    [RelayCommand]
-    private Task AddMixBus() => Command("bus.add", new() { ["kind"] = nameof(StripKind.Mix) });
+    /// <summary>The new-bus card: what kind, its name, mono or stereo, and where its sends are taken from.</summary>
+    public NewBusForm NewBus => _newBus ??= new NewBusForm(this);
+    private NewBusForm? _newBus;
 
     [RelayCommand]
-    private Task AddFxBus() => Command("bus.add", new() { ["kind"] = nameof(StripKind.Fx) });
+    private void OpenNewBus()
+    {
+        NewBus.Reset();
+        NewBus.IsOpen = true;
+    }
+
+    /// <summary>How many more buses of a kind there is room for.</summary>
+    internal int RoomFor(StripKind kind) => kind switch
+    {
+        StripKind.Mix => MixState.MaxMix,
+        StripKind.Group => MixState.MaxGroups,
+        StripKind.Matrix => MixState.MaxMatrix,
+        StripKind.Fx => MixState.MaxFx,
+        _ => 0,
+    } - _mix.BusesOf(kind).Count();
+
+    internal async Task CreateBus(NewBusForm f)
+    {
+        var args = new Dictionary<string, string>
+        {
+            ["kind"] = f.Kind.Kind.ToString(),
+            ["stereo"] = f.Stereo ? "true" : "false",
+        };
+        if (f.Name.Trim() is { Length: > 0 } name) args["name"] = name;
+        if (f.ShowTap && f.Tap is { } tap) args["tap"] = tap.Tap.ToString();
+        if (f.ShowToMain) args["toMain"] = f.ToMain ? "true" : "false";
+        if (f.ShowEffect && f.Effect is { } fx) args["effect"] = fx.Value;
+        await Command("bus.add", args);
+        f.IsOpen = false;
+    }
 
     /// <summary>Called with the meters 30 times a second.</summary>
     private void UpdateBusMeters(float[] l, float[] r)
@@ -166,4 +196,110 @@ public sealed partial class BusTagView(NexAudioViewModel owner, Strip s, int met
 
     [RelayCommand] private void Show() => owner.ShowBus(Id);
     [RelayCommand] private void Edit() => owner.EditBus(Id);
+}
+
+/// <summary>A kind of bus on the new-bus card.</summary>
+public sealed record BusKindChoice(StripKind Kind, string Label, string Hint)
+{
+    public static IReadOnlyList<BusKindChoice> All { get; } =
+    [
+        new(StripKind.Mix, "Monitor mix", "A wedge, in-ear or side fill. Each channel gets its own send level."),
+        new(StripKind.Group, "Subgroup", "Drums, vocals, choir or band: channels go through it to the main mix, after their faders, so one fader rides the lot."),
+        new(StripKind.Fx, "Effect", "A reverb or delay that channels send to; its return goes back into the mix."),
+        new(StripKind.Matrix, "Matrix", "Lobby, overflow room or delay speakers, built from the main mix, subgroups and mixes."),
+    ];
+}
+
+/// <summary>The new-bus card on the mixer.</summary>
+public sealed partial class NewBusForm : ObservableObject
+{
+    private readonly NexAudioViewModel _owner;
+
+    public NewBusForm(NexAudioViewModel owner)
+    {
+        _owner = owner;
+        _kind = BusKindChoice.All[0];
+        Reset();
+    }
+
+    public IReadOnlyList<BusKindChoice> Kinds => BusKindChoice.All;
+    public IReadOnlyList<TapChoice> Taps => TapChoice.All;
+    public IReadOnlyList<Choice> Effects { get; } =
+    [
+        new("hall", "Hall reverb"),
+        new("room", "Room reverb"),
+        new("plate", "Plate reverb"),
+        new("delay", "Delay (echo)"),
+    ];
+
+    [ObservableProperty] private bool _isOpen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowTap), nameof(ShowToMain), nameof(ShowEffect), nameof(Hint), nameof(RoomText), nameof(CanCreate), nameof(TapNote), nameof(NamePlaceholder))]
+    private BusKindChoice _kind;
+
+    [ObservableProperty] private string _name = "";
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(StereoText))] private bool _stereo;
+    public string StereoText => Stereo ? "Stereo (L R)" : "Mono";
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(TapNote))] private TapChoice? _tap;
+    [ObservableProperty] private bool _toMain = true;
+    [ObservableProperty] private Choice? _effect;
+
+    /// <summary>Subgroups always take their channels after the fader, so they have no tap point to choose.</summary>
+    public bool ShowTap => Kind.Kind is StripKind.Mix or StripKind.Fx or StripKind.Matrix;
+    public bool ShowToMain => Kind.Kind is StripKind.Group or StripKind.Fx;
+    public bool ShowEffect => Kind.Kind == StripKind.Fx;
+    public string Hint => Kind.Hint;
+    public bool CanCreate => _owner.RoomFor(Kind.Kind) > 0;
+    public string NamePlaceholder => Kind.Kind switch
+    {
+        StripKind.Mix => "For example: Drummer's in-ear",
+        StripKind.Group => "For example: Choir",
+        StripKind.Fx => "For example: Vocal reverb",
+        _ => "For example: Overflow room",
+    };
+
+    public string RoomText => _owner.RoomFor(Kind.Kind) switch
+    {
+        <= 0 => "There is no room for another of these.",
+        1 => "Room for 1 more.",
+        var n => $"Room for {n} more.",
+    };
+
+    public string TapNote => Tap?.Tap switch
+    {
+        SendTap.Input => "Straight from the input: no EQ, gate or compressor, and the fader does not change it.",
+        SendTap.PreEq => "After the low cut and drive, before the EQ and dynamics. The fader does not change it.",
+        SendTap.PostEq => "With the channel's EQ, before the gate and compressor. The fader does not change it.",
+        SendTap.Pre => "With all the channel's processing, but the fader does not change it. Usual for wedges and in-ears.",
+        SendTap.Post => "Follows the channel's fader and mute. Usual for reverbs, delays and the lobby.",
+        _ => "",
+    };
+
+    partial void OnKindChanged(BusKindChoice value) => Defaults();
+
+    /// <summary>Back to the usual settings for the chosen kind.</summary>
+    public void Reset()
+    {
+        Name = "";
+        if (Kind.Kind is var k && _owner.RoomFor(k) <= 0)
+            Kind = BusKindChoice.All.FirstOrDefault(x => _owner.RoomFor(x.Kind) > 0) ?? Kind;
+        Defaults();
+        OnPropertyChanged(nameof(RoomText));
+        OnPropertyChanged(nameof(CanCreate));
+    }
+
+    private void Defaults()
+    {
+        Stereo = Kind.Kind is StripKind.Fx or StripKind.Group;
+        var tap = Kind.Kind == StripKind.Mix ? SendTap.Pre : SendTap.Post;
+        Tap = TapChoice.All.First(t => t.Tap == tap);
+        ToMain = true;
+        Effect = Effects[0];
+    }
+
+    [RelayCommand] private void PickKind(BusKindChoice k) => Kind = k;
+    [RelayCommand] private void PickTap(TapChoice t) => Tap = t;
+    [RelayCommand] private Task Create() => _owner.CreateBus(this);
+    [RelayCommand] private void Cancel() => IsOpen = false;
 }

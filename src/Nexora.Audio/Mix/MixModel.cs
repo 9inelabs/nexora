@@ -42,6 +42,12 @@ public enum SendTap
     Post,
     /// <summary>Before the fader: monitors stay put when the front-of-house fader moves.</summary>
     Pre,
+    /// <summary>Straight from the input, after the trim and delay, before any filter or processing.</summary>
+    Input,
+    /// <summary>After the low/high cut, drive and inserts placed before the EQ; before the EQ and dynamics.</summary>
+    PreEq,
+    /// <summary>Right after the EQ and dynamic EQ (with "Dynamics first", after everything but the fader).</summary>
+    PostEq,
 }
 
 public enum StreamSource
@@ -296,6 +302,8 @@ public sealed class Strip
 
     /// <summary>Goes to the main left and right (channels, effects and groups).</summary>
     public bool ToMain { get; set; } = true;
+    /// <summary>Mixes, effects and matrices: the tap point new sends to this bus start with (null: the usual one for the kind).</summary>
+    public SendTap? SendsFrom { get; set; }
     /// <summary>The groups this channel feeds (after its fader).</summary>
     public List<string> Groups { get; set; } = [];
     /// <summary>Sends to mix, effect and matrix buses.</summary>
@@ -348,7 +356,7 @@ public sealed class Strip
     {
         Id = Id, Kind = Kind, Name = Name, Colour = Colour, Stereo = Stereo, Trim = Trim, Invert = Invert, DelayMs = DelayMs,
         Hpf = Hpf.Clone(), Lpf = Lpf.Clone(), Drive = Drive.Clone(), Eq = Eq.Clone(), DynEq = DynEq.Clone(), Gate = Gate.Clone(), Comp = Comp.Clone(),
-        Order = Order, Rack = Rack.Select(r => r.Clone()).ToList(), Pan = Pan, Fader = Fader, Mute = Mute, Solo = Solo, ToMain = ToMain,
+        Order = Order, Rack = Rack.Select(r => r.Clone()).ToList(), Pan = Pan, Fader = Fader, Mute = Mute, Solo = Solo, ToMain = ToMain, SendsFrom = SendsFrom,
         Groups = [.. Groups], Sends = Sends.Select(s => s.Clone()).ToList(), StreamLevel = StreamLevel, StreamOn = StreamOn,
         Preamp = Preamp, Phantom = Phantom, RecallSafe = RecallSafe,
     };
@@ -489,6 +497,21 @@ public sealed class MixState
         return b;
     }
 
+    /// <summary>Where a new send to this bus is taken from: the bus's own choice, or before the fader for monitor mixes and after it for the rest.</summary>
+    public static SendTap DefaultTap(Strip bus) => bus.SendsFrom ?? (bus.Kind == StripKind.Mix ? SendTap.Pre : SendTap.Post);
+
+    /// <summary>The tap points in the order a strip runs them, with short names for the screens.</summary>
+    public static readonly IReadOnlyList<(SendTap Tap, string Short, string Name)> Taps =
+    [
+        (SendTap.Input, "IN", "Input (before any processing)"),
+        (SendTap.PreEq, "PRE EQ", "Before the EQ"),
+        (SendTap.PostEq, "POST EQ", "After the EQ"),
+        (SendTap.Pre, "PRE", "Before the fader"),
+        (SendTap.Post, "POST", "After the fader"),
+    ];
+
+    public static string TapShort(SendTap t) => Taps.First(x => x.Tap == t).Short;
+
     public static string KindLabel(StripKind k) => k switch
     {
         StripKind.Channel => "Channel",
@@ -583,6 +606,7 @@ public sealed class MixState
             s.Sends ??= [];
             s.Name ??= "";
             s.Colour ??= "";
+            if (s.Kind is not (StripKind.Mix or StripKind.Fx or StripKind.Matrix)) s.SendsFrom = null;
             foreach (var r in s.Rack)
             {
                 r.Params ??= [];

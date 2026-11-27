@@ -82,7 +82,7 @@ public static class MixParams
             if (bus is null || !Routing.CanSend(strip, bus)) return false;
             var send = strip.SendTo(bus.Id);
             var created = send is null;
-            send ??= new Send { Bus = bus.Id, Level = Db.Floor, On = true, Tap = bus.Kind == StripKind.Mix ? SendTap.Pre : SendTap.Post };
+            send ??= new Send { Bus = bus.Id, Level = Db.Floor, On = true, Tap = MixState.DefaultTap(bus) };
             var u = SetIn(send, seg[3..], value);
             if (u is null) return false;
             u.Bus = bus.Id;
@@ -98,6 +98,17 @@ public static class MixParams
             var on = value?.GetValue<bool>() ?? false;
             strip.Groups.Remove(g.Id);
             if (on) strip.Groups.Add(g.Id);
+            return true;
+        }
+        if (field == "sendsFrom" && seg.Length == 2)
+        {
+            // A bus's tap point: every send to it moves there, and new sends start there.
+            if (strip.Kind is not (StripKind.Mix or StripKind.Fx or StripKind.Matrix)) return false;
+            if (!Enum.TryParse<SendTap>(value?.GetValue<string>(), true, out var tap)) return false;
+            strip.SendsFrom = tap;
+            foreach (var x in s.AllStrips())
+                foreach (var send in x.Sends)
+                    if (send.Bus == strip.Id) send.Tap = tap;
             return true;
         }
         if (field == "rack" && seg.Length >= 4)
@@ -271,7 +282,27 @@ public static class MixParams
     // ---- Changes to the shape of the mix (sent as commands, answered with the whole mix) ----------
 
     /// <summary>Adds a bus of this kind with the next free number. Returns null when there is no room left.</summary>
-    public static Strip? AddBus(MixState s, StripKind kind, string? name = null)
+    /// <summary>Adds a bus with the choices from the new-bus card. Null when that kind is full.</summary>
+    public static Strip? AddBus(MixState s, StripKind kind, string? name, NewBusOptions o)
+    {
+        var effect = kind == StripKind.Fx ? EffectFor(o.Effect) : null;
+        var bus = AddBus(s, kind, name, effect);
+        if (bus is null) return null;
+        if (o.Stereo is { } st) bus.Stereo = st;
+        if (o.ToMain is { } tm && kind is StripKind.Fx or StripKind.Group) bus.ToMain = tm;
+        if (o.Tap is { } tap && kind is StripKind.Mix or StripKind.Fx or StripKind.Matrix) bus.SendsFrom = tap;
+        if (!string.IsNullOrWhiteSpace(o.Colour)) bus.Colour = o.Colour;
+        return bus;
+    }
+
+    private static RackItem EffectFor(string? choice) => choice switch
+    {
+        "room" or "plate" or "hall" => Effects.Default("reverb", choice),
+        "delay" => Effects.Default("delay"),
+        _ => Effects.Default("reverb", "hall"),
+    };
+
+    public static Strip? AddBus(MixState s, StripKind kind, string? name = null, RackItem? effect = null)
     {
         var max = kind switch
         {
@@ -284,7 +315,7 @@ public static class MixParams
         var used = s.BusesOf(kind).Select(b => b.Number).ToHashSet();
         if (used.Count >= max) return null;
         var n = Enumerable.Range(1, max).First(i => !used.Contains(i));
-        var bus = MixState.NewBus(kind, n, name, kind == StripKind.Fx ? Effects.Default("reverb", "hall") : null);
+        var bus = MixState.NewBus(kind, n, name, kind == StripKind.Fx ? effect ?? Effects.Default("reverb", "hall") : null);
         s.Buses.Add(bus);
         return bus;
     }
@@ -377,3 +408,6 @@ public static class MixParams
         return true;
     }
 }
+
+/// <summary>What the new-bus card chose. Anything left null keeps the usual setting for that kind.</summary>
+public sealed record NewBusOptions(SendTap? Tap = null, bool? Stereo = null, bool? ToMain = null, string? Effect = null, string? Colour = null);

@@ -303,7 +303,7 @@ public sealed partial class StripView : ObservableObject
             var send = s.SendTo(layer.Id);
             Fader = can && send is { On: true } ? send.Level : Db.Floor;
             FaderEnabled = can;
-            LayerNote = can ? (send?.Tap ?? (layer.Kind == StripKind.Mix ? SendTap.Pre : SendTap.Post)).ToString().ToUpperInvariant() : "—";
+            LayerNote = can ? MixState.TapShort(send?.Tap ?? MixState.DefaultTap(layer)) : "—";
         }
         OnPropertyChanged(nameof(PanText));
         OnPropertyChanged(nameof(PanPosition));

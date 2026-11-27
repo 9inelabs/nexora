@@ -167,7 +167,12 @@ public sealed class EngineServer : IDisposable
         {
             case "bus.add":
                 if (!Enum.TryParse<StripKind>(m.Arg("kind"), true, out var kind)) throw new InvalidOperationException("Pick the kind of bus.");
-                if (!desk.Change(s => MixParams.AddBus(s, kind, m.Arg("name")) is not null, "add a bus"))
+                var opts = new NewBusOptions(
+                    Enum.TryParse<SendTap>(m.Arg("tap"), true, out var tap) ? tap : null,
+                    bool.TryParse(m.Arg("stereo"), out var stereo) ? stereo : null,
+                    bool.TryParse(m.Arg("toMain"), out var toMain) ? toMain : null,
+                    m.Arg("effect"), m.Arg("colour"));
+                if (!desk.Change(s => MixParams.AddBus(s, kind, m.Arg("name"), opts) is not null, "add a bus"))
                     throw new InvalidOperationException("There is no room for another bus of that kind.");
                 break;
             case "bus.remove":

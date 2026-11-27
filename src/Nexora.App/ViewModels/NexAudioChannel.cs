@@ -112,7 +112,7 @@ public sealed partial class SendView : ObservableObject
         _path = $"{id}.send.{bid}";
         _q = q;
         _get = m => m.Find(id)?.SendTo(bid);
-        _default = bus.Kind == StripKind.Mix ? SendTap.Pre : SendTap.Post;
+        _default = MixState.DefaultTap(bus);
         Name = name;
         Kind = MixState.KindLabel(bus.Kind).ToUpperInvariant() + (bus.Number > 0 ? $" {bus.Number}" : "");
         Tone = new Avalonia.Media.SolidColorBrush(NexAudioViewModel.ColourOf(bus));
@@ -125,11 +125,13 @@ public sealed partial class SendView : ObservableObject
     public Avalonia.Media.IBrush Tone { get; }
     public SliderParam Level { get; }
     public ToggleParam On { get; }
-    [ObservableProperty] private bool _pre;
+    /// <summary>Where this send is taken from: input, before or after the EQ, before or after the fader.</summary>
+    public IReadOnlyList<TapChoice> Taps => TapChoice.All;
+    [ObservableProperty] private TapChoice? _tap;
 
-    partial void OnPreChanged(bool value)
+    partial void OnTapChanged(TapChoice? value)
     {
-        if (!_refreshing) _q($"{_path}.tap", value ? "Pre" : "Post");
+        if (!_refreshing && value is not null) _q($"{_path}.tap", value.Tap.ToString());
     }
 
     public void Refresh(MixState m)
@@ -137,9 +139,17 @@ public sealed partial class SendView : ObservableObject
         Level.Refresh(m);
         On.Refresh(m);
         _refreshing = true;
-        Pre = (_get(m)?.Tap ?? _default) == SendTap.Pre;
+        var t = _get(m)?.Tap ?? _default;
+        Tap = TapChoice.All.First(x => x.Tap == t);
         _refreshing = false;
     }
+}
+
+/// <summary>A tap point, for the pickers on sends, buses and the new-bus card.</summary>
+public sealed record TapChoice(SendTap Tap, string Short, string Name)
+{
+    public static IReadOnlyList<TapChoice> All { get; } = MixState.Taps.Select(t => new TapChoice(t.Tap, t.Short, t.Name)).ToList();
+    public override string ToString() => Name;
 }
 
 /// <summary>One of the eight rack places on the Effects page.</summary>
