@@ -1,0 +1,225 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexAudio.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:a="using:NexAudio.App.Controls"
+             x:Class="NexAudio.App.Views.NexAudio.RoutingPage"
+             x:DataType="vm:NexAudioViewModel">
+  <Grid RowDefinitions="Auto,10,*">
+    <!-- Sections of the routing tab -->
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <Button Classes="tab small" Classes.selected="{Binding OnRtGrid}" Command="{Binding ShowRoutingCommand}" CommandParameter="Grid" Content="Bus routing" />
+        <Button Classes="tab small" Classes.selected="{Binding OnRtInputs}" Command="{Binding ShowRoutingCommand}" CommandParameter="Inputs" Content="Inputs and direct outs" />
+        <Button Classes="tab small" Classes.selected="{Binding OnRtLayouts}" Command="{Binding ShowRoutingCommand}" CommandParameter="Layouts" Content="Routing layouts" />
+        <Button Classes="tab small" Classes.selected="{Binding OnRtSignal}" Command="{Binding ShowRoutingCommand}" CommandParameter="Signal">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Ellipse Width="7" Height="7" Fill="{StaticResource Live}" IsVisible="{Binding ToneOn}" VerticalAlignment="Center" />
+            <TextBlock Text="Test signal" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+      <Border Grid.Column="1" Classes="chip live" IsVisible="{Binding ToneOn}" ToolTip.Tip="The test signal is playing into a bus (Test signal)">
+        <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="TEST SIGNAL ON" /></StackPanel>
+      </Border>
+    </Grid>
+
+    <!-- Bus routing: the grid, with the trace beside it -->
+    <Grid Grid.Row="2" ColumnDefinitions="*,12,300" IsVisible="{Binding OnRtGrid}">
+      <Border Classes="card" Padding="14,12">
+        <Grid RowDefinitions="Auto,8,*,8,Auto">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="3">
+              <TextBlock Classes="h3" Text="Where everything goes" />
+              <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Every channel and bus down the left, every bus it can feed across the top. Tap a crossing to make or remove a route. Tap a name to trace its whole path. A cross means that route would feed back into itself, so it is blocked." />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Top" Margin="12,2,0,0">
+              <StackPanel Orientation="Horizontal" Spacing="5"><Border Width="14" Height="10" CornerRadius="3" Background="{StaticResource Accent}" /><TextBlock Classes="faint small" Text="On" /></StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="5"><Border Width="14" Height="10" CornerRadius="3" BorderThickness="1.3" BorderBrush="{StaticResource Accent}" /><TextBlock Classes="faint small" Text="Send switched off" /></StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="5"><TextBlock Text="×" Foreground="{StaticResource Live}" FontWeight="Bold" /><TextBlock Classes="faint small" Text="Would loop" /></StackPanel>
+            </StackPanel>
+          </Grid>
+          <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <a:RouteGrid x:Name="Grid" Map="{Binding RouteMap}" HorizontalAlignment="Left" VerticalAlignment="Top" />
+          </ScrollViewer>
+          <Border Grid.Row="4" Classes="well" Padding="10,6" MinHeight="30">
+            <TextBlock Classes="small" Text="{Binding RouteHint}" TextWrapping="Wrap" Foreground="{StaticResource Text2}" />
+          </Border>
+        </Grid>
+      </Border>
+      <StackPanel Grid.Column="2" Spacing="12">
+        <Border Classes="card" Padding="14,12">
+          <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="h3" Text="Signal trace" />
+              <Button Grid.Column="1" Classes="ghost small" Command="{Binding ClearTraceCommand}" Content="Clear" IsVisible="{Binding HasTrace}" />
+            </Grid>
+            <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Tap any name on the grid to light up everything its sound passes through, and everything that feeds it." IsVisible="{Binding !HasTrace}" />
+            <StackPanel Spacing="8" IsVisible="{Binding HasTrace}">
+              <TextBlock FontWeight="SemiBold" Foreground="{StaticResource Accent}" Text="{Binding TraceTitle}" />
+              <StackPanel Spacing="2">
+                <TextBlock Classes="eyebrow" Text="FED BY" />
+                <TextBlock Classes="small" TextWrapping="Wrap" Text="{Binding TraceFrom}" />
+              </StackPanel>
+              <StackPanel Spacing="2">
+                <TextBlock Classes="eyebrow" Text="GOES TO" />
+                <TextBlock Classes="small" TextWrapping="Wrap" Text="{Binding TraceTo}" />
+              </StackPanel>
+              <StackPanel Spacing="2">
+                <TextBlock Classes="eyebrow" Text="HEARD ON" />
+                <TextBlock Classes="small" TextWrapping="Wrap" Text="{Binding TraceOutputs}" />
+              </StackPanel>
+              <StackPanel Spacing="2">
+                <TextBlock Classes="eyebrow" Text="DELAY" />
+                <TextBlock Classes="small" TextWrapping="Wrap" Text="{Binding TraceDelay}" />
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <Border Classes="card" Padding="14,12">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h3" Text="Delay line-up" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Plugins and look-ahead limiters make their sound a little late. NEX-Audio delays every faster path into the same bus to match, so nothing smears or combs." />
+            <TextBlock Classes="small mono" TextWrapping="Wrap" Text="{Binding LatencyText}" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Grid>
+
+    <!-- Inputs and direct outs -->
+    <Border Grid.Row="2" Classes="card" Padding="16" IsVisible="{Binding OnRtInputs}">
+      <Grid RowDefinitions="Auto,12,Auto,6,*">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="3">
+            <TextBlock Classes="h3" Text="What each channel hears" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Pick the X32 card input for each channel and a second one to switch to (a spare mic, or a playback track). Switching keeps the channel's EQ, dynamics and effects. The direct out sends the channel straight to an X32 output, for recording or a feed, from the point you choose." />
+            <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding AltSummary}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+            <Button Command="{Binding AllAlternateCommand}" Content="All to alternate" ToolTip.Tip="Every channel that has an alternate input switches to it" />
+            <Button Classes="ghost" Command="{Binding AllMainCommand}" Content="All back to main" />
+          </StackPanel>
+        </Grid>
+        <Grid Grid.Row="2" ColumnDefinitions="44,8,150,8,110,8,110,8,74,8,*,8,110,8,170" Margin="10,0">
+          <TextBlock Classes="eyebrow" Text="CH" />
+          <TextBlock Grid.Column="2" Classes="eyebrow" Text="NAME" />
+          <TextBlock Grid.Column="4" Classes="eyebrow" Text="INPUT" />
+          <TextBlock Grid.Column="6" Classes="eyebrow" Text="ALTERNATE" />
+          <TextBlock Grid.Column="8" Classes="eyebrow" Text="USE ALT" />
+          <TextBlock Grid.Column="10" Classes="eyebrow" Text="DELAY (UP TO 1.3 S)" />
+          <TextBlock Grid.Column="12" Classes="eyebrow" Text="DIRECT FROM" />
+          <TextBlock Grid.Column="14" Classes="eyebrow" Text="DIRECT OUT TO" />
+        </Grid>
+        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding InputRows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:InputRow">
+                <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="10,4" Margin="0,0,0,5">
+                  <Grid ColumnDefinitions="44,8,150,8,110,8,110,8,74,8,*,8,110,8,170">
+                    <Border Background="{Binding Colour}" CornerRadius="5" Padding="6,2" VerticalAlignment="Center" HorizontalAlignment="Left" MinWidth="30">
+                      <TextBlock Text="{Binding NumberText}" Classes="mono" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" />
+                    </Border>
+                    <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                    <ComboBox Grid.Column="4" ItemsSource="{Binding Main.Options}" SelectedItem="{Binding Main.Selected}" HorizontalAlignment="Stretch" VerticalAlignment="Center" FontSize="12.5" />
+                    <ComboBox Grid.Column="6" ItemsSource="{Binding Alt.Options}" SelectedItem="{Binding Alt.Selected}" HorizontalAlignment="Stretch" VerticalAlignment="Center" FontSize="12.5" />
+                    <ToggleSwitch Grid.Column="8" IsChecked="{Binding UseAlt.Value}" IsEnabled="{Binding HasAlt}" OnContent="" OffContent="" Margin="0,-6" />
+                    <Grid Grid.Column="10" ColumnDefinitions="*,6,64">
+                      <Slider Classes="param" Minimum="0" Maximum="1000" Value="{Binding Delay.Position}" />
+                      <TextBlock Grid.Column="2" Classes="mono small" Text="{Binding Delay.Text}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                    </Grid>
+                    <ComboBox Grid.Column="12" ItemsSource="{Binding DirectTap.Options}" SelectedItem="{Binding DirectTap.Selected}" HorizontalAlignment="Stretch" VerticalAlignment="Center" FontSize="12.5" />
+                    <ComboBox Grid.Column="14" ItemsSource="{Binding Outs}" SelectedItem="{Binding DirectOut}" HorizontalAlignment="Stretch" VerticalAlignment="Center" FontSize="12.5" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+    </Border>
+
+    <!-- Routing layouts -->
+    <Border Grid.Row="2" Classes="card" Padding="16" IsVisible="{Binding OnRtLayouts}" MaxWidth="900" HorizontalAlignment="Left">
+      <Grid RowDefinitions="Auto,10,Auto,12,*">
+        <StackPanel Spacing="3">
+          <TextBlock Classes="h3" Text="Routing layouts" />
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="A layout saves where everything goes: which buses exist, each channel's inputs and direct out, every route to the main mix, groups and sends, and what each output plays. Recalling one leaves the sound alone (EQ, dynamics, effects, faders and speaker settings). Use the eye to compare it with the desk first. It can be undone." />
+        </StackPanel>
+        <Grid Grid.Row="2" ColumnDefinitions="*,8,Auto">
+          <TextBox Text="{Binding NewRoutingName}" Watermark="Name, for example Youth service or Concert" />
+          <Button Grid.Column="2" Classes="primary" Command="{Binding SaveRoutingCommand}" Content="Save the routing as a layout" />
+        </Grid>
+        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding RoutingRows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:RoutingRow">
+                <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="12,8" Margin="0,0,0,6">
+                  <Grid ColumnDefinitions="*,8,Auto">
+                    <StackPanel Spacing="1" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                      <TextBlock Classes="faint small" Text="{Binding Detail}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                      <Button Classes="ghost small" Command="{Binding PreviewCommand}" ToolTip.Tip="Compare it with the desk first"><c:Icon Kind="eye" Width="12" Height="12" /></Button>
+                      <Button Classes="primary small" Command="{Binding RecallCommand}" Content="Recall" />
+                      <Button Classes="ghost small" Command="{Binding UpdateCommand}" Content="Save over" IsVisible="{Binding CanChange}" ToolTip.Tip="Replace this with the routing as it is now" />
+                      <Button Classes="ghost small" Command="{Binding DeleteCommand}" IsVisible="{Binding CanChange}" ToolTip.Tip="Delete"><c:Icon Kind="x" Width="11" Height="11" /></Button>
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+    </Border>
+
+    <!-- Test signal -->
+    <Border Grid.Row="2" Classes="card" Padding="16" IsVisible="{Binding OnRtSignal}" MaxWidth="760" HorizontalAlignment="Left" VerticalAlignment="Top">
+      <StackPanel Spacing="12">
+        <StackPanel Spacing="3">
+          <TextBlock Classes="h3" Text="Test signal" />
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="A sine tone, pink noise or white noise for checking speakers and lines. It plays on any output set to Test signal (Outputs tab), and into one bus when you start it, so you hear that bus's EQ, limiter and routing. It never goes above -6 dB, and it is always off when NEX-Audio starts." />
+        </StackPanel>
+        <Grid ColumnDefinitions="110,10,*" RowDefinitions="Auto,10,Auto,10,Auto,10,Auto">
+          <TextBlock Classes="flabel" Text="Signal" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="2" ItemsSource="{Binding ToneKind.Options}" SelectedItem="{Binding ToneKind.Selected}" MinWidth="200" />
+          <TextBlock Grid.Row="2" Classes="flabel" Text="Frequency" VerticalAlignment="Center" IsVisible="{Binding ToneIsSine}" />
+          <Grid Grid.Row="2" Grid.Column="2" ColumnDefinitions="*,8,70" IsVisible="{Binding ToneIsSine}">
+            <Slider Classes="param" Minimum="0" Maximum="1000" Value="{Binding ToneFreq.Position}" />
+            <TextBlock Grid.Column="2" Classes="mono small" Text="{Binding ToneFreq.Text}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+          </Grid>
+          <TextBlock Grid.Row="4" Classes="flabel" Text="Level" VerticalAlignment="Center" />
+          <Grid Grid.Row="4" Grid.Column="2" ColumnDefinitions="*,8,70">
+            <Slider Classes="param" Minimum="0" Maximum="1000" Value="{Binding ToneLevel.Position}" />
+            <TextBlock Grid.Column="2" Classes="mono small" Text="{Binding ToneLevel.Text}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+          </Grid>
+          <TextBlock Grid.Row="6" Classes="flabel" Text="Play into" VerticalAlignment="Center" />
+          <ComboBox Grid.Row="6" Grid.Column="2" ItemsSource="{Binding ToneBus.Options}" SelectedItem="{Binding ToneBus.Selected}" MinWidth="260" />
+        </Grid>
+        <Border Classes="well" Padding="12,10">
+          <Grid ColumnDefinitions="*,10,Auto">
+            <StackPanel Spacing="2" VerticalAlignment="Center">
+              <TextBlock FontWeight="SemiBold" Text="{Binding ToneStateText}" />
+              <TextBlock Classes="faint small" Text="{Binding ToneOutputsText}" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <Button Classes="primary" Command="{Binding AskToneCommand}" Content="Start" IsVisible="{Binding !ToneOn}" />
+              <Button Classes="warn" Command="{Binding StopToneCommand}" Content="Stop the test signal" IsVisible="{Binding ToneOn}" />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <Border Background="{StaticResource TintWarn}" BorderBrush="{StaticResource Warn}" BorderThickness="1" CornerRadius="8" Padding="12,10" IsVisible="{Binding ToneConfirming}">
+          <Grid ColumnDefinitions="Auto,10,*,10,Auto">
+            <c:Icon Kind="info" Width="16" Height="16" Foreground="{StaticResource Warn}" VerticalAlignment="Top" />
+            <TextBlock Grid.Column="2" Foreground="{StaticResource Warn}" TextWrapping="Wrap" Text="{Binding ToneConfirmText}" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <Button Classes="ghost small" Command="{Binding StopToneCommand}" Content="Cancel" />
+              <Button Classes="warn small" Command="{Binding StartToneCommand}" Content="Play it" />
+            </StackPanel>
+          </Grid>
+        </Border>
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

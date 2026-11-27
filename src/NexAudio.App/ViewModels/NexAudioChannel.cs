@@ -192,7 +192,7 @@ public sealed class ChannelControls
         Phantom = new ToggleParam($"{id}.phantom", "+48 V", m => S(m)?.Phantom ?? false, q);
         Trim = new SliderParam($"{id}.trim", "Trim", -24, 24, "dB", m => S(m)?.Trim, q, step: 0.5, def: 0);
         Invert = new ToggleParam($"{id}.invert", "Polarity flip", m => S(m)?.Invert ?? false, q);
-        Delay = new SliderParam($"{id}.delayMs", "Delay", 0, 100, "ms", m => S(m)?.DelayMs, q, step: 0.1, def: 0);
+        Delay = new SliderParam($"{id}.delayMs", "Delay", 0, MixParams.MaxDelayMs, "ms", m => S(m)?.DelayMs, q, step: 0.1, def: 0);
         HpfOn = new ToggleParam($"{id}.hpf.on", "Low cut", m => S(m)?.Hpf.On ?? false, q);
         HpfFreq = new SliderParam($"{id}.hpf.freq", "Low cut", 20, 600, "Hz", m => S(m)?.Hpf.Freq, q, log: true, def: 80);
         HpfSlope = new ChoiceParam($"{id}.hpf.slope", "Slope", [new("12", "12 dB"), new("24", "24 dB")], m => S(m)?.Hpf.Slope.ToString(CultureInfo.InvariantCulture), q, asNumber: true);

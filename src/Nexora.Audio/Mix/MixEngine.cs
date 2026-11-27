@@ -63,9 +63,6 @@ internal sealed class StripRt
         TapPreEqR = new float[maxFrames];
         TapPostEqL = new float[maxFrames];
         TapPostEqR = new float[maxFrames];
-        LatePreL = new float[maxFrames];
-        LatePostL = new float[maxFrames];
-        LatePostR = new float[maxFrames];
         Filters = new StripFilters(sampleRate, maxFrames);
         Gate = new Gate(sampleRate, maxFrames);
         Comp = new Compressor(sampleRate, maxFrames);
@@ -80,7 +77,7 @@ internal sealed class StripRt
     public readonly string Id;
     public readonly StripKind Kind;
     public readonly bool Stereo;
-    public readonly float[] L, R, PreL, PreR, PostL, PostR, InL, InR, LatePreL, LatePostL, LatePostR;
+    public readonly float[] L, R, PreL, PreR, PostL, PostR, InL, InR;
     /// <summary>Copies at the earlier tap points, filled only while some send uses them.</summary>
     public readonly float[] TapInL, TapInR, TapPreEqL, TapPreEqR, TapPostEqL, TapPostEqR;
     public volatile bool NeedTapIn, NeedTapPreEq, NeedTapPostEq;
@@ -94,8 +91,8 @@ internal sealed class StripRt
     public volatile RackSlot[] Rack = [];
     public volatile StripRt? GateKey, CompKey;
     public volatile bool DynamicsFirst;
-    public readonly DelayLine InDelayL, InDelayR;
-    public DelayLine? PdcL, PdcR, LatePre, LatePost, LatePostRd;
+    /// <summary>Replaced (on the control thread) by a longer one when the delay needs more room.</summary>
+    public volatile DelayLine InDelayL, InDelayR;
     public string? LastFilters, LastGate, LastComp, LastDrive, LastDynEq;
 
     // Targets, written by the control thread (single floats and ints, so always whole).
@@ -104,8 +101,6 @@ internal sealed class StripRt
     public volatile float FaderL = 1, FaderR = 1; // fader, mute and pan for the main mix
     public volatile float Fader = 1;           // fader and mute only (for sends to mono buses)
     public volatile int InDelay;               // samples
-    public volatile int Pdc;                   // samples, to line up with the slowest strip in its stage
-    public volatile int Late;                  // samples, extra for paths that skip the effect and group stage
     public volatile bool Muted;
 
     public SmoothGain GTrim, GFaderL, GFaderR;
@@ -131,8 +126,9 @@ internal sealed class Feed
     /// <summary>Taken anywhere before the fader (so a mute must silence it).</summary>
     public readonly bool Pre;
     public volatile float GainL, GainR;
-    /// <summary>The source has already been delayed to line up with the effect and group stage.</summary>
-    public volatile bool UseLate;
+    /// <summary>Samples this feed waits, so it arrives in line with the slowest path into the same bus (plugins, look-ahead).</summary>
+    public volatile int Delay;
+    public volatile DelayLine? DL, DR;
     public SmoothGain SL, SR;
     public string Key => $"{From.Id}>{To.Id}>{Tap}";
 }
@@ -154,18 +150,20 @@ internal sealed class OutputRt
     {
         Filters = new StripFilters(sampleRate, maxFrames);
         Limiter = new Limiter(sampleRate, maxFrames);
-        Delay = new DelayLine((int)(0.5 * sampleRate) + 8);
+        Delay = new DelayLine((int)(0.1 * sampleRate) + 8);
     }
 
     public volatile OutSource Kind = OutSource.Off;
     public volatile int Input = -1;
     public volatile StripRt? Strip;
+    /// <summary>For a channel's direct out: where in the channel it is taken from.</summary>
+    public volatile SendTap Tap = SendTap.Post;
     public volatile float Gain = 1;
     public volatile int DelaySamples;
     public volatile bool Limit;
     public readonly StripFilters Filters;
     public readonly Limiter Limiter;
-    public readonly DelayLine Delay;
+    public volatile DelayLine Delay;
     public SmoothGain G;
     public string? LastFilters, LastLimiter;
 }
@@ -174,10 +172,18 @@ internal sealed class OutputRt
 internal sealed class Topology
 {
     public StripRt[] Channels = [];
-    public StripRt[] Fx = [], Groups = [], Mixes = [], Matrices = [];
+    /// <summary>Every strip that is not a channel, in the routing map's order, each with the feeds it sends on.</summary>
+    public StripRt[] Steps = [];
+    public Feed[][] StepFeeds = [];
     public StripRt Main = null!, Mono = null!, Stream = null!;
     public StripRt[] All = [];
-    public Feed[] ChannelFeeds = [], FxFeeds = [], GroupFeeds = [], MixFeeds = [], MainFeeds = [];
+    public Feed[] ChannelFeeds = [];
+    /// <summary>The bus the test signal plays into, if any.</summary>
+    public StripRt? ToneInto;
+    public bool ToneUsed;
+    public ToneKind ToneKind;
+    public double ToneFreq = 1000;
+    public float ToneGain = 0.125893f;
     public StripRt[] Soloed = [];
     public bool SoloAfl;
     public float SoloGain = 1;
@@ -194,8 +200,6 @@ internal sealed class Topology
 /// </summary>
 public sealed class MixEngine
 {
-    private const float ToneLevel = 0.125893f; // -18 dBFS
-
     private readonly int _inputs, _outputs, _maxFrames;
     private readonly double _sr;
     private readonly Dictionary<string, StripRt> _strips = [];
@@ -218,6 +222,9 @@ public sealed class MixEngine
         _outs = new OutputRt[outputs];
         for (var o = 0; o < outputs; o++) _outs[o] = new OutputRt(maxFrames, sampleRate);
         _mono = new float[maxFrames];
+        _scrL = new float[maxFrames];
+        _scrR = new float[maxFrames];
+        _tone = new float[maxFrames];
         _monitor = new StripRt("mon", StripKind.Mix, true, maxFrames, sampleRate);
         Loudness = new LoudnessMeter(sampleRate);
         Analyser = new Analyser(sampleRate);
@@ -258,106 +265,107 @@ public sealed class MixEngine
             }
 
             topo.Channels = s.Channels.Select(Get).ToArray();
-            for (var i = 0; i < topo.Channels.Length; i++) topo.Channels[i].Input = i < _inputs ? i : -1;
-            topo.Fx = s.BusesOf(StripKind.Fx).Select(Get).ToArray();
-            topo.Groups = s.BusesOf(StripKind.Group).Select(Get).ToArray();
-            topo.Mixes = s.BusesOf(StripKind.Mix).Select(Get).ToArray();
-            topo.Matrices = s.BusesOf(StripKind.Matrix).Select(Get).ToArray();
+            for (var i = 0; i < topo.Channels.Length; i++)
+            {
+                var c = s.Channels[i];
+                var n = c.UseAlt && c.AltInput > 0 ? c.AltInput : c.Input;
+                topo.Channels[i].Input = n >= 1 && n <= _inputs ? n - 1 : -1;
+            }
+            var order = Routing.Order(s) ?? s.AllStrips().OrderBy(x => Routing.Stage(x.Kind)).ToList();
+            var steps = order.Where(x => x.Kind != StripKind.Channel).ToList();
+            topo.Steps = steps.Select(Get).ToArray();
             topo.Main = Get(s.Main);
             topo.Mono = Get(s.Mono);
             topo.Stream = Get(s.Stream);
-            topo.All = s.AllStrips().Select(x => _strips[x.Id]).ToArray();
+            topo.All = s.AllStrips().Select(Get).ToArray();
             foreach (var dead in _strips.Keys.Where(k => !seen.Contains(k)).ToList()) _strips.Remove(dead);
 
             // Settings for every strip's own processing.
             foreach (var st in s.AllStrips()) Configure(st, _strips[st.Id]);
 
-            // Line everything up: strips in the same stage wait for the slowest one.
-            var chLat = s.Channels.Select(RackLatency).DefaultIfEmpty(0).Max();
-            foreach (var c in s.Channels) _strips[c.Id].Pdc = chLat - RackLatency(c);
-            var stageB = s.Buses.Where(b => b.Kind is StripKind.Fx or StripKind.Group).ToList();
-            var bLat = stageB.Select(RackLatency).DefaultIfEmpty(0).Max();
-            foreach (var b in stageB) _strips[b.Id].Pdc = bLat - RackLatency(b);
-            foreach (var c in s.Channels) _strips[c.Id].Late = bLat;
-            foreach (var b in s.Buses.Where(b => b.Kind is not (StripKind.Fx or StripKind.Group))) _strips[b.Id].Pdc = 0;
-            foreach (var x in new[] { s.Main, s.Mono, s.Stream }) _strips[x.Id].Pdc = 0;
-            MixLatency = chLat + bLat + RackLatency(s.Main);
-
-            // Feeds.
+            // Feeds: every route to the main mix, group assignment and send, grouped by the strip that sends.
             var feedsSeen = new HashSet<string>();
-            Feed MakeFeed(Strip from, Strip to, SendTap tap, float gl, float gr, bool late)
+            var bySource = new Dictionary<string, List<Feed>>();
+            Feed MakeFeed(Strip from, Strip to, SendTap tap, float gl, float gr)
             {
                 var f = new Feed(_strips[from.Id], _strips[to.Id], tap);
                 if (_feeds.TryGetValue(f.Key, out var old)) f = old;
                 else _feeds[f.Key] = f;
                 f.GainL = gl;
                 f.GainR = gr;
-                f.UseLate = late;
                 feedsSeen.Add(f.Key);
+                if (!bySource.TryGetValue(from.Id, out var list)) bySource[from.Id] = list = [];
+                list.Add(f);
                 return f;
             }
 
             var anySolo = s.AllStrips().Any(x => x.Solo);
-            var channelFeeds = new List<Feed>();
-            var fxFeeds = new List<Feed>();
-            var groupFeeds = new List<Feed>();
-            var mixFeeds = new List<Feed>();
-            var mainFeeds = new List<Feed>();
-
-            foreach (var src in s.Channels.Concat(s.Buses).Append(s.Main).Append(s.Mono))
+            foreach (var src in s.AllStrips())
             {
-                var list = src.Kind switch
-                {
-                    StripKind.Channel => channelFeeds,
-                    StripKind.Fx => fxFeeds,
-                    StripKind.Group => groupFeeds,
-                    StripKind.Mix => mixFeeds,
-                    _ => mainFeeds,
-                };
-                var lateForC = src.Kind == StripKind.Channel; // channels skip the effect/group stage on some paths
                 if (src.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group && src.ToMain)
                 {
                     var (pl, pr) = PanGains(src.Pan, src.Stereo);
-                    list.Add(MakeFeed(src, s.Main, SendTap.Post, pl, pr, lateForC));
+                    MakeFeed(src, s.Main, SendTap.Post, pl, pr);
                 }
-                if (src.Kind is StripKind.Channel or StripKind.Fx)
-                    foreach (var g in src.Groups)
-                        if (s.Find(g) is { Kind: StripKind.Group } grp)
-                        {
-                            var (pl, pr) = PanGains(src.Pan, src.Stereo);
-                            list.Add(MakeFeed(src, grp, SendTap.Post, pl, pr, false));
-                        }
+                foreach (var g in src.Groups)
+                    if (s.Find(g) is { } grp && Routing.CanGroup(src, grp))
+                    {
+                        var (pl, pr) = PanGains(src.Pan, src.Stereo);
+                        MakeFeed(src, grp, SendTap.Post, pl, pr);
+                    }
                 foreach (var send in src.Sends)
                 {
                     if (!send.On || send.Level <= Db.Floor || s.Find(send.Bus) is not { } bus || !Routing.CanSend(src, bus)) continue;
                     var g = Db.ToGain(send.Level);
                     var (pl, pr) = bus.Stereo ? PanGains(send.Pan ?? src.Pan, src.Stereo) : (1f, 1f);
-                    var late = lateForC && bus.Kind is not StripKind.Fx;
-                    list.Add(MakeFeed(src, bus, send.Tap, g * pl, g * pr, late));
+                    MakeFeed(src, bus, send.Tap, g * pl, g * pr);
                 }
                 // The stream's own balance: every strip has a stream level, taken before its fader.
                 if (s.StreamSettings.Source == StreamSource.Own && src.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group && src.StreamOn)
                 {
                     var g = Db.ToGain(src.StreamLevel);
                     var (pl, pr) = PanGains(src.Pan, src.Stereo);
-                    list.Add(MakeFeed(src, s.Stream, SendTap.Pre, g * pl, g * pr, lateForC));
+                    MakeFeed(src, s.Stream, SendTap.Pre, g * pl, g * pr);
                 }
             }
             foreach (var dead in _feeds.Keys.Where(k => !feedsSeen.Contains(k)).ToList()) _feeds.Remove(dead);
-            // Only strips with a send at an early tap point copy their sound there.
-            var live = channelFeeds.Concat(fxFeeds).Concat(groupFeeds).Concat(mixFeeds).Concat(mainFeeds).ToList();
-            foreach (var rt in _strips.Values)
-            {
-                rt.NeedTapIn = live.Any(f => f.From == rt && f.Tap == SendTap.Input);
-                rt.NeedTapPreEq = live.Any(f => f.From == rt && f.Tap == SendTap.PreEq);
-                rt.NeedTapPostEq = live.Any(f => f.From == rt && f.Tap == SendTap.PostEq);
-            }
-            topo.ChannelFeeds = [.. channelFeeds];
-            topo.FxFeeds = [.. fxFeeds];
-            topo.GroupFeeds = [.. groupFeeds];
-            topo.MixFeeds = [.. mixFeeds];
-            topo.MainFeeds = [.. mainFeeds];
             topo.StreamFromMain = s.StreamSettings.Source == StreamSource.Main;
+
+            // Line everything up: each bus waits for the slowest path into it, and every faster path is delayed to match.
+            var arrive = new Dictionary<string, int>();
+            var into = new Dictionary<string, List<Feed>>();
+            foreach (var f in bySource.Values.SelectMany(l => l))
+            {
+                if (!into.TryGetValue(f.To.Id, out var l)) into[f.To.Id] = l = [];
+                l.Add(f);
+            }
+            int Out(Strip x) => arrive.GetValueOrDefault(x.Id) + RackLatency(x);
+            int Early(Strip x) => arrive.GetValueOrDefault(x.Id) + x.Rack.Where(r => r.Pre).Sum(LatencyOf);
+            int Leaves(Feed f, Strip from) => f.Tap is SendTap.Input or SendTap.PreEq or SendTap.PostEq ? Early(from) : Out(from);
+            var byId = s.AllStrips().ToDictionary(x => x.Id);
+            foreach (var x in order)
+            {
+                var at = 0;
+                if (x.Kind == StripKind.Mono || x.Kind == StripKind.Stream && topo.StreamFromMain) at = Out(s.Main);
+                if (into.TryGetValue(x.Id, out var feeds))
+                    foreach (var f in feeds) at = Math.Max(at, Leaves(f, byId[f.From.Id]));
+                arrive[x.Id] = at;
+            }
+            foreach (var f in bySource.Values.SelectMany(l => l))
+            {
+                var d = Math.Max(0, arrive[f.To.Id] - Leaves(f, byId[f.From.Id]));
+                if (d > 0 && (f.DL is null || f.DL.MaxDelay < d))
+                {
+                    f.DL = new DelayLine(Math.Max(d, 2048));
+                    f.DR = new DelayLine(Math.Max(d, 2048));
+                }
+                f.Delay = d;
+            }
+            MixLatency = Out(s.Main);
+            _latency = s.AllStrips().ToDictionary(x => x.Id, x => new PathLatency(x.Id, RackLatency(x), arrive.GetValueOrDefault(x.Id), Out(x)));
+            topo.ChannelFeeds = s.Channels.SelectMany(c => bySource.GetValueOrDefault(c.Id) ?? []).ToArray();
+            topo.StepFeeds = steps.Select(x => (bySource.GetValueOrDefault(x.Id) ?? []).ToArray()).ToArray();
+
             topo.StreamDelay = (int)(Math.Clamp(s.StreamSettings.DelayMs, 0, 1000) * 0.001 * _sr);
             if (_streamDelayL is null || _streamDelayL.MaxDelay < topo.StreamDelay)
             {
@@ -370,11 +378,31 @@ public sealed class MixEngine
             topo.SoloGain = Db.ToGain(s.Solo.Level);
             topo.Analyse = AnalyseId is { } a && _strips.TryGetValue(a, out var ar) ? ar : null;
 
-            // Outputs.
+            // Outputs (a channel's direct out comes from its own tap point).
+            _directTaps = s.Channels.ToDictionary(c => c.Id, c => c.DirectTap);
             for (var o = 0; o < _outputs; o++)
             {
                 var p = o < s.Outputs.Count ? s.Outputs[o] : new OutputPatch { Number = o + 1 };
                 ConfigureOutput(p, _outs[o]);
+            }
+
+            // The test signal.
+            var tone = s.Tone ?? new ToneSettings();
+            topo.ToneKind = tone.Kind;
+            topo.ToneFreq = Math.Clamp(tone.Freq, 20, 20000);
+            topo.ToneGain = Db.ToGain(Math.Min(tone.Level, ToneSettings.MaxLevel));
+            topo.ToneInto = tone.On && tone.Bus.Length > 0 && _strips.TryGetValue(tone.Bus, out var tb) && tb.Kind is not (StripKind.Channel or StripKind.Stream) ? tb : null;
+            topo.ToneUsed = topo.ToneInto is not null || _outs.Any(x => x.Kind == OutSource.Tone);
+
+            // Only strips with a send or direct out at an early tap point copy their sound there.
+            var live = bySource.Values.SelectMany(l => l).ToList();
+            bool Wants(StripRt rt, SendTap tap) =>
+                live.Any(f => f.From == rt && f.Tap == tap) || _outs.Any(x => x.Kind == OutSource.ChannelDirect && x.Strip == rt && x.Tap == tap);
+            foreach (var rt in _strips.Values)
+            {
+                rt.NeedTapIn = Wants(rt, SendTap.Input);
+                rt.NeedTapPreEq = Wants(rt, SendTap.PreEq);
+                rt.NeedTapPostEq = Wants(rt, SendTap.PostEq);
             }
 
             Volatile.Write(ref _topo, topo);
@@ -407,7 +435,15 @@ public sealed class MixEngine
     private void Configure(Strip s, StripRt rt)
     {
         rt.Trim = Db.ToGain(s.Trim) * (s.Invert ? -1 : 1);
-        rt.InDelay = (int)(Math.Clamp(s.DelayMs, 0, 100) * 0.001 * _sr);
+        var inDelay = (int)(Math.Clamp(s.DelayMs, 0, MixParams.MaxDelayMs) * 0.001 * _sr);
+        if (inDelay > rt.InDelayL.MaxDelay)
+        {
+            // Room for the longest delay, made here (never on the audio thread).
+            var room = (int)(MixParams.MaxDelayMs * 0.001 * _sr) + 8;
+            rt.InDelayL = new DelayLine(room);
+            rt.InDelayR = new DelayLine(room);
+        }
+        rt.InDelay = inDelay;
         var fader = s.Mute ? 0f : Db.ToGain(s.Fader);
         rt.Muted = s.Mute;
         rt.Fader = fader;
@@ -519,6 +555,7 @@ public sealed class MixEngine
         {
             kind = OutSource.ChannelDirect;
             strip = cs;
+            rt.Tap = _directTaps.GetValueOrDefault(cs.Id, SendTap.Post);
         }
         else if (src.Length > 0 && src != "off")
         {
@@ -539,7 +576,9 @@ public sealed class MixEngine
         rt.Input = input;
         rt.Strip = strip;
         rt.Gain = p.Mute ? 0 : Db.ToGain(p.Level) * (p.Invert ? -1 : 1);
-        rt.DelaySamples = (int)(Math.Clamp(p.DelayMs, 0, 500) * 0.001 * _sr);
+        var delay = (int)(Math.Clamp(p.DelayMs, 0, MixParams.MaxDelayMs) * 0.001 * _sr);
+        if (delay > rt.Delay.MaxDelay) rt.Delay = new DelayLine((int)(MixParams.MaxDelayMs * 0.001 * _sr) + 8);
+        rt.DelaySamples = delay;
         rt.Limit = p.Limit;
         var fs = FilterSettings.From(p);
         var key = System.Text.Json.JsonSerializer.Serialize(fs, MixState.Json);
@@ -558,6 +597,17 @@ public sealed class MixEngine
 
     // The solo / monitor bus (not part of the saved mix).
     private readonly StripRt _monitor;
+    private Dictionary<string, SendTap> _directTaps = [];
+    private Dictionary<string, PathLatency> _latency = [];
+    private readonly float[] _scrL, _scrR, _tone;
+    private uint _noise = 0x9E3779B9;
+    private float _p0, _p1, _p2, _p3, _p4, _p5, _p6;
+
+    /// <summary>For every strip: the delay its own effects and plugins add, and how late its sound is compared with the inputs (samples).</summary>
+    public IReadOnlyDictionary<string, PathLatency> Latencies
+    {
+        get { lock (_gate) return new Dictionary<string, PathLatency>(_latency); }
+    }
     private DelayLine? _streamDelayL, _streamDelayR;
 
     // ---- Audio thread ----------------------------------------------------------------------
@@ -591,52 +641,46 @@ public sealed class MixEngine
             RunStrip(ch, frames, isChannel: true);
         }
 
-        // 2. Clear every bus input.
-        foreach (var b in t.Fx) Clear(b, frames);
-        foreach (var b in t.Groups) Clear(b, frames);
-        foreach (var b in t.Mixes) Clear(b, frames);
-        foreach (var b in t.Matrices) Clear(b, frames);
-        Clear(t.Main, frames);
-        Clear(t.Stream, frames);
+        // 2. Clear every bus input (mono / sub is filled from the main mix when its turn comes).
+        foreach (var b in t.Steps) Clear(b, frames);
 
-        // 3. Channel feeds.
+        // 3. The test signal, once for every place that plays it.
+        if (t.ToneUsed) MakeTone(t, frames);
+
+        // 4. Channel feeds, then every other strip in the routing map's order: each one runs once everything feeding it has.
         Mix(t.ChannelFeeds, frames);
-
-        // 4. Effects, then groups.
-        foreach (var b in t.Fx) RunBus(b, frames);
-        Mix(t.FxFeeds, frames);
-        foreach (var b in t.Groups) RunBus(b, frames);
-        Mix(t.GroupFeeds, frames);
-
-        // 5. Mixes (wedges, in-ears, side fills).
-        foreach (var b in t.Mixes) RunBus(b, frames);
-        Mix(t.MixFeeds, frames);
-
-        // 6. Main, then mono / sub from the main mix.
-        RunBus(t.Main, frames);
-        var mono = t.Mono;
-        for (var n = 0; n < frames; n++) mono.InL[n] = (t.Main.PostL[n] + t.Main.PostR[n]) * 0.5f;
-        RunBus(mono, frames);
-
-        // 7. Matrices, from the main, mono, groups and mixes.
-        Mix(t.MainFeeds, frames);
-        foreach (var b in t.Matrices) RunBus(b, frames);
-
-        // 8. The stream mix.
-        var st = t.Stream;
-        if (t.StreamFromMain)
+        var steps = t.Steps;
+        var stepFeeds = t.StepFeeds;
+        for (var i = 0; i < steps.Length; i++)
         {
-            Array.Copy(t.Main.PreL, st.InL, frames);
-            Array.Copy(t.Main.PreR, st.InR, frames);
+            var b = steps[i];
+            if (b == t.Mono)
+                for (var n = 0; n < frames; n++) b.InL[n] = (t.Main.PostL[n] + t.Main.PostR[n]) * 0.5f;
+            else if (b == t.Stream && t.StreamFromMain)
+            {
+                Array.Copy(t.Main.PreL, b.InL, frames);
+                Array.Copy(t.Main.PreR, b.InR, frames);
+            }
+            if (b == t.ToneInto)
+            {
+                var tone = _tone;
+                for (var n = 0; n < frames; n++) b.InL[n] += tone[n];
+                if (b.Stereo)
+                    for (var n = 0; n < frames; n++) b.InR[n] += tone[n];
+            }
+            RunBus(b, frames);
+            if (b == t.Stream)
+            {
+                if (t.StreamDelay > 0 && _streamDelayL is not null && _streamDelayR is not null)
+                {
+                    _streamDelayL.Process(b.PostL, frames, t.StreamDelay);
+                    _streamDelayR.Process(b.PostR, frames, t.StreamDelay);
+                }
+                Loudness.Push(b.PostL, b.PostR, frames);
+                StreamTap.Write(b.PostL, b.PostR, frames);
+            }
+            if (i < stepFeeds.Length) Mix(stepFeeds[i], frames);
         }
-        RunBus(st, frames);
-        if (t.StreamDelay > 0 && _streamDelayL is not null && _streamDelayR is not null)
-        {
-            _streamDelayL.Process(st.PostL, frames, t.StreamDelay);
-            _streamDelayR.Process(st.PostR, frames, t.StreamDelay);
-        }
-        Loudness.Push(st.PostL, st.PostR, frames);
-        StreamTap.Write(st.PostL, st.PostR, frames);
 
         // 9. Solo / monitor bus: the soloed strips, or the main mix when nothing is soloed.
         var mon = _monitor;
@@ -669,8 +713,6 @@ public sealed class MixEngine
             }
 
         // 10. Outputs.
-        var phaseStep = 2 * Math.PI * 1000.0 / _sr;
-        var toneUsed = false;
         for (var o = 0; o < output.Length && o < _outs.Length; o++)
         {
             var rt = _outs[o];
@@ -678,14 +720,21 @@ public sealed class MixEngine
             switch (rt.Kind)
             {
                 case OutSource.Tone:
-                    for (var n = 0; n < frames; n++) dst[n] = ToneLevel * (float)Math.Sin(_tonePhase + n * phaseStep);
-                    toneUsed = true;
+                    Array.Copy(_tone, dst, frames);
                     break;
                 case OutSource.Input when rt.Input >= 0 && rt.Input < input.Length:
                     Array.Copy(input[rt.Input], dst, frames);
                     break;
                 case OutSource.ChannelDirect when rt.Strip is { } cs:
-                    Array.Copy(cs.PostL, dst, frames);
+                    if (cs.Muted) Array.Clear(dst, 0, frames);
+                    else Array.Copy(rt.Tap switch
+                    {
+                        SendTap.Input => cs.TapInL,
+                        SendTap.PreEq => cs.TapPreEqL,
+                        SendTap.PostEq => cs.TapPostEqL,
+                        SendTap.Pre => cs.PreL,
+                        _ => cs.PostL,
+                    }, dst, frames);
                     break;
                 case OutSource.StripMono when rt.Strip is { } m:
                     Array.Copy(m.PostL, dst, frames);
@@ -707,7 +756,6 @@ public sealed class MixEngine
             if (rt.Limit) rt.Limiter.Run(dst, null, frames);
         }
         for (var o = _outs.Length; o < output.Length; o++) Array.Clear(output[o], 0, frames);
-        if (toneUsed) _tonePhase = (_tonePhase + frames * phaseStep) % (2 * Math.PI);
 
         if (t.Analyse is { } an) Analyser.Push(an.PostL, an.Stereo ? an.PostR : null, frames);
     }
@@ -724,7 +772,55 @@ public sealed class MixEngine
         if (b.Stereo) Array.Clear(b.InR, 0, frames);
     }
 
-    private static void Mix(Feed[] feeds, int frames)
+    /// <summary>The test signal for this buffer: a sine, or white or pink noise, at the chosen level (never above -6 dBFS).</summary>
+    private void MakeTone(Topology t, int frames)
+    {
+        var dst = _tone;
+        var g = t.ToneGain;
+        switch (t.ToneKind)
+        {
+            case ToneKind.Sine:
+            {
+                var step = 2 * Math.PI * t.ToneFreq / _sr;
+                for (var n = 0; n < frames; n++) dst[n] = g * (float)Math.Sin(_tonePhase + n * step);
+                _tonePhase = (_tonePhase + frames * step) % (2 * Math.PI);
+                break;
+            }
+            case ToneKind.White:
+                // White noise at the same RMS as a sine of this level (a full-scale uniform noise has an RMS of 0.577).
+                for (var n = 0; n < frames; n++) dst[n] = g * 1.2247f * NextNoise();
+                break;
+            default:
+                // Pink noise from white through a set of gentle filters (a well-known recipe), scaled to about the same loudness.
+                for (var n = 0; n < frames; n++)
+                {
+                    var w = NextNoise();
+                    _p0 = 0.99886f * _p0 + w * 0.0555179f;
+                    _p1 = 0.99332f * _p1 + w * 0.0750759f;
+                    _p2 = 0.96900f * _p2 + w * 0.1538520f;
+                    _p3 = 0.86650f * _p3 + w * 0.3104856f;
+                    _p4 = 0.55000f * _p4 + w * 0.5329522f;
+                    _p5 = -0.7616f * _p5 - w * 0.0168980f;
+                    var pink = _p0 + _p1 + _p2 + _p3 + _p4 + _p5 + _p6 + w * 0.5362f;
+                    _p6 = w * 0.115926f;
+                    dst[n] = Math.Clamp(g * pink * 0.33f, -1f, 1f);
+                }
+                break;
+        }
+    }
+
+    /// <summary>A fast random number from -1 to 1 (xorshift; no allocation, fine for the audio thread).</summary>
+    private float NextNoise()
+    {
+        var x = _noise;
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        _noise = x;
+        return (x / (float)uint.MaxValue) * 2f - 1f;
+    }
+
+    private void Mix(Feed[] feeds, int frames)
     {
         foreach (var f in feeds)
         {
@@ -732,7 +828,6 @@ public sealed class MixEngine
             float[] l, r;
             if (f.Tap is SendTap.Input or SendTap.PreEq or SendTap.PostEq)
             {
-                // Early taps come straight from the strip (they do not wait for plugin delay compensation).
                 (l, r) = f.Tap switch
                 {
                     SendTap.Input => (s.TapInL, s.TapInR),
@@ -741,15 +836,25 @@ public sealed class MixEngine
                 };
                 if (!s.Stereo) r = l;
             }
-            else if (f.UseLate && s.LatePost is not null)
-            {
-                l = f.Pre ? s.LatePreL : s.LatePostL;
-                r = f.Pre ? s.LatePreL : s.Stereo ? s.LatePostR : s.LatePostL;
-            }
             else
             {
                 l = f.Pre ? s.PreL : s.PostL;
                 r = s.Stereo ? f.Pre ? s.PreR : s.PostR : l;
+            }
+            // A faster path waits for the slowest one into the same bus.
+            var delay = f.Delay;
+            if (delay > 0 && f.DL is { } dl && f.DR is { } dr)
+            {
+                Array.Copy(l, _scrL, frames);
+                dl.Process(_scrL, frames, delay);
+                if (r != l)
+                {
+                    Array.Copy(r, _scrR, frames);
+                    dr.Process(_scrR, frames, delay);
+                    r = _scrR;
+                }
+                else r = _scrL;
+                l = _scrL;
             }
             var d = f.To;
             // A muted strip feeds nothing, before or after its fader (after it, the fader is already at zero).
@@ -833,16 +938,6 @@ public sealed class MixEngine
             if (slot.Processor.Reduction > rackGr) rackGr = slot.Processor.Reduction;
         }
         if (s.DynEq.Reduction > s.MeterDynEq) s.MeterDynEq = s.DynEq.Reduction;
-        if (s.Pdc > 0)
-        {
-            s.PdcL ??= new DelayLine(16384);
-            s.PdcL.Process(s.L, frames, s.Pdc);
-            if (r is not null)
-            {
-                s.PdcR ??= new DelayLine(16384);
-                s.PdcR.Process(r, frames, s.Pdc);
-            }
-        }
         if (s.Gate.Reduction > s.MeterGate) s.MeterGate = s.Gate.Reduction;
         if (s.Comp.Reduction > s.MeterComp) s.MeterComp = s.Comp.Reduction;
         if (rackGr > s.MeterRack) s.MeterRack = rackGr;
@@ -868,22 +963,6 @@ public sealed class MixEngine
         var pr = r is not null ? Dsp.Dsp.Peak(s.PostR, frames) : pl;
         if (pl > s.MeterL) s.MeterL = pl;
         if (pr > s.MeterR) s.MeterR = pr;
-
-        // Channels that also feed later stages directly get a delayed copy, to stay in line with the groups and effects.
-        if (isChannel && s.Late > 0)
-        {
-            s.LatePre ??= new DelayLine(16384);
-            s.LatePost ??= new DelayLine(16384);
-            Array.Copy(s.PreL, s.LatePreL, frames);
-            s.LatePre.Process(s.LatePreL, frames, s.Late);
-            Array.Copy(s.PostL, s.LatePostL, frames);
-            s.LatePost.Process(s.LatePostL, frames, s.Late);
-        }
-        else if (isChannel && s.LatePost is not null)
-        {
-            Array.Copy(s.PreL, s.LatePreL, frames);
-            Array.Copy(s.PostL, s.LatePostL, frames);
-        }
     }
 
     // ---- For the recorder (audio thread, after Process) -------------------------------------
@@ -933,5 +1012,11 @@ public sealed class MixEngine
         lock (_gate) return _slots.TryGetValue(rackId, out var s) ? s.Processor : null;
     }
 }
+
+/// <summary>
+/// How late one strip's sound is (samples): <see cref="Own"/> its own effects and plugins add, <see cref="Arrives"/> when
+/// its input is lined up, <see cref="Leaves"/> when it leaves after its own effects. Faster paths into a bus are delayed to match.
+/// </summary>
+public readonly record struct PathLatency(string Id, int Own, int Arrives, int Leaves);
 
 public readonly record struct StripMeters(float In, float L, float R, float Gate, float Comp, float Rack, bool GateClosed, float DynEq = 0);

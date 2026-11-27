@@ -128,6 +128,7 @@ public sealed partial class NexAudioViewModel
         foreach (var r in OutputRows) r.Refresh(_mix);
         foreach (var p in StreamParams) p.Refresh(_mix);
         foreach (var p in StreamChannelParams) p.Refresh(_mix);
+        RefreshRouting();
         OnPropertyChanged(nameof(AnySolo));
         OnPropertyChanged(nameof(StreamOwnMix));
     }
@@ -161,6 +162,12 @@ public sealed partial class NexAudioViewModel
         if (id == "out")
         {
             if (int.TryParse(path.Split('.')[1], out var n) && n >= 1 && n <= OutputRows.Count) OutputRows[n - 1].Refresh(_mix);
+            if (path.EndsWith(".source", StringComparison.Ordinal) || path.EndsWith(".name", StringComparison.Ordinal)) RefreshRouting();
+            return;
+        }
+        if (id == "tone")
+        {
+            RefreshTone();
             return;
         }
         if (id is "streamset" or "solo")
@@ -175,11 +182,19 @@ public sealed partial class NexAudioViewModel
             if (BusTags.FirstOrDefault(t => t.Id == id) is { } tag) tag.Update(s, tag.IsCurrent, NameOf(s));
             if (path.Contains(".send.", StringComparison.Ordinal) || path.EndsWith(".solo", StringComparison.Ordinal)) foreach (var v in AllStripViews()) v.Update(_mix.Find(v.Id)!);
             if (SelectedId == id) RefreshChannel();
+            if (IsRoutingPath(path)) RefreshRouting();
             if (id == "stream" || path.EndsWith(".streamLevel", StringComparison.Ordinal) || path.EndsWith(".streamOn", StringComparison.Ordinal))
                 foreach (var p in StreamParams) p.Refresh(_mix);
         }
         OnPropertyChanged(nameof(AnySolo));
     }
+
+    private static bool IsRoutingPath(string path) =>
+        path.Contains(".send.", StringComparison.Ordinal) || path.Contains(".group.", StringComparison.Ordinal) ||
+        path.EndsWith(".toMain", StringComparison.Ordinal) || path.EndsWith(".input", StringComparison.Ordinal) ||
+        path.EndsWith(".altInput", StringComparison.Ordinal) || path.EndsWith(".useAlt", StringComparison.Ordinal) ||
+        path.EndsWith(".directTap", StringComparison.Ordinal) || path.EndsWith(".delayMs", StringComparison.Ordinal) ||
+        path.EndsWith(".name", StringComparison.Ordinal);
 
     private void RebuildAll()
     {
@@ -189,6 +204,7 @@ public sealed partial class NexAudioViewModel
         BuildChannel();
         BuildOutputs();
         BuildStream();
+        BuildRouting();
         OnPropertyChanged(nameof(AnySolo));
         OnPropertyChanged(nameof(LatencyMixText));
     }
@@ -553,7 +569,7 @@ public sealed partial class NexAudioViewModel
 
     private void BuildOutputs()
     {
-        var src = new List<Choice> { new("off", "Off (silent)"), new("tone", "Test tone, 1 kHz at -18 dB") };
+        var src = new List<Choice> { new("off", "Off (silent)"), new("tone", "Test signal (set it on the Routing tab)") };
         src.Add(new("main:l", "Main left"));
         src.Add(new("main:r", "Main right"));
         src.Add(new("mono", "Mono / sub"));
@@ -571,7 +587,7 @@ public sealed partial class NexAudioViewModel
         src.Add(new("stream:r", "Stream right"));
         src.Add(new("mon:l", "Solo / headphones left"));
         src.Add(new("mon:r", "Solo / headphones right"));
-        foreach (var c in _mix.Channels) src.Add(new($"ch:{c.Number}", $"Channel {c.Number} after its fader · {NameOf(c)}"));
+        foreach (var c in _mix.Channels) src.Add(new($"ch:{c.Number}", $"Channel {c.Number} direct out · {NameOf(c)}"));
         for (var i = 1; i <= Math.Max(32, Status.Inputs); i++) src.Add(new($"in:{i}", $"Input {i} straight through"));
         var changed = !src.Select(x => x.Value + x.Label).SequenceEqual(_sources.Select(x => x.Value + x.Label));
         _sources = src;
@@ -685,6 +701,7 @@ public sealed partial class NexAudioViewModel
         _applyingDesk = true;
         DeskStatus = d;
         ApplyTools(d);
+        ApplyRoutings(d);
         ApplyShow(d);
         ApplyTape(d.Tape);
         var key = string.Join("|", d.Scenes.Concat(d.Snapshots).Select(s => s.Id + s.Name + s.SavedUtc.Ticks)) + d.Settings.CurrentSceneId + _currentSnapshot;

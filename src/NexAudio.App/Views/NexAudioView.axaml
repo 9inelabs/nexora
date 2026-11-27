@@ -213,6 +213,12 @@
       <Button Classes="tab" Classes.selected="{Binding OnMixer}" Command="{Binding ShowTabCommand}" CommandParameter="Mixer" Content="Mixer" />
       <Button Classes="tab" Classes.selected="{Binding OnChannel}" Command="{Binding ShowTabCommand}" CommandParameter="Channel" Content="Channel" />
       <Button Classes="tab" Classes.selected="{Binding OnOutputs}" Command="{Binding ShowTabCommand}" CommandParameter="Outputs" Content="Outputs" />
+      <Button Classes="tab" Classes.selected="{Binding OnRouting}" Command="{Binding ShowTabCommand}" CommandParameter="Routing">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <Ellipse Width="7" Height="7" Fill="{StaticResource Live}" IsVisible="{Binding ToneOn}" VerticalAlignment="Center" />
+          <TextBlock Text="Routing" />
+        </StackPanel>
+      </Button>
       <Button Classes="tab" Classes.selected="{Binding OnStream}" Command="{Binding ShowTabCommand}" CommandParameter="Stream" Content="Stream" />
       <Button Classes="tab" Classes.selected="{Binding OnScenes}" Command="{Binding ShowTabCommand}" CommandParameter="Scenes" Content="Scenes" />
       <Button Classes="tab" Classes.selected="{Binding OnShow}" Command="{Binding ShowTabCommand}" CommandParameter="Show" Content="Show" />
@@ -274,6 +280,7 @@
       <na:MixerPage IsVisible="{Binding OnMixer}" />
       <na:ChannelPage IsVisible="{Binding OnChannel}" />
       <na:OutputsPage IsVisible="{Binding OnOutputs}" />
+      <na:RoutingPage IsVisible="{Binding OnRouting}" />
       <na:StreamPage IsVisible="{Binding OnStream}" />
       <na:ScenesPage IsVisible="{Binding OnScenes}" />
       <na:ShowPage IsVisible="{Binding OnShow}" />

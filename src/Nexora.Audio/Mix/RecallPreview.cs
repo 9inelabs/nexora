@@ -46,6 +46,17 @@ public static class RecallDiff
             if (n.Mute != a.Mute) Add(a, "Mute", n.Mute ? "muted" : "on", a.Mute ? "muted" : "on");
             if (Math.Abs(n.Pan - a.Pan) > 0.005) Add(a, "Pan", Pan(n.Pan), Pan(a.Pan));
             if (n.ToMain != a.ToMain) Add(a, "To main", n.ToMain ? "yes" : "no", a.ToMain ? "yes" : "no");
+            if (a.Kind == StripKind.Channel)
+            {
+                if (n.Input != a.Input) Add(a, "Input", In(n.Input), In(a.Input));
+                if (n.AltInput != a.AltInput) Add(a, "Alternate input", In(n.AltInput), In(a.AltInput));
+                if (n.UseAlt != a.UseAlt) Add(a, "Listening to", n.UseAlt ? "alternate" : "main input", a.UseAlt ? "alternate" : "main input");
+                if (n.DirectTap != a.DirectTap) Add(a, "Direct out from", MixState.TapShort(n.DirectTap), MixState.TapShort(a.DirectTap));
+            }
+            foreach (var g in a.Groups.Where(g => !n.Groups.Contains(g)))
+                Add(a, "Group " + (after.Find(g) is { } gb ? Label(gb) : g), "off", "on");
+            foreach (var g in n.Groups.Where(g => !a.Groups.Contains(g)))
+                Add(a, "Group " + (now.Find(g) is { } gb ? Label(gb) : g), "on", "off");
             if (Math.Abs(n.StreamLevel - a.StreamLevel) > 0.05 || n.StreamOn != a.StreamOn)
                 Add(a, "Stream", n.StreamOn ? Db(n.StreamLevel) : "off", a.StreamOn ? Db(a.StreamLevel) : "off");
 
@@ -90,6 +101,8 @@ public static class RecallDiff
     }
 
     private static string Label(Strip s) => s.Name.Length > 0 ? s.Name : s.Id;
+
+    private static string In(int n) => n <= 0 ? "none" : $"In {n}";
 
     private static string Db(double v) => v <= Dsp.Db.Floor + 0.5 ? "−∞" : v.ToString("+0.0;−0.0;0.0", CultureInfo.InvariantCulture) + " dB";
 
