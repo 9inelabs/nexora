@@ -169,6 +169,9 @@ public sealed partial class SettingsViewModel
     [ObservableProperty] private string? _broadcastMessage;
     private const string NoSound = "No sound (silent)";
 
+    /// <summary>Record and stream NEX-Audio's stream mix (sent over the network), with the sound device as the backup.</summary>
+    [ObservableProperty] private bool _nexAudioSound;
+
     public string EncoderText => Live.Engine.FfmpegAvailable
         ? "The recorder is ready. It uses the graphics card's encoder when it has one."
         : "The recorder (ffmpeg) was not found next to NEXORA. Reinstall NEXORA to record or stream.";
@@ -191,6 +194,7 @@ public sealed partial class SettingsViewModel
         HasStreamKey = !string.IsNullOrEmpty(b.StreamKey);
         SoundDelayMs = b.SoundDelayMs;
         CleanRecording = b.CleanRecording;
+        NexAudioSound = b.NexAudioSound;
         DefaultServiceName = b.ServiceName;
         BroadcastMessage = null;
         OnPropertyChanged(nameof(EncoderText));
@@ -220,7 +224,8 @@ public sealed partial class SettingsViewModel
             url.Length == 0 ? null : url,
             StreamKey.Trim().Length == 0 ? null : StreamKey.Trim(),
             Math.Clamp(SoundDelayMs, 0, 2000), CleanRecording, true,
-            DefaultServiceName.Trim().Length == 0 ? "Sunday Service" : DefaultServiceName.Trim());
+            DefaultServiceName.Trim().Length == 0 ? "Sunday Service" : DefaultServiceName.Trim(),
+            NexAudioSound);
         if (!await c.SendAsync(new SaveBroadcastSettings(b))) { BroadcastMessage = "Not connected to the Live Output PC."; return; }
         if (StreamKey.Trim().Length > 0) HasStreamKey = true;
         StreamKey = "";

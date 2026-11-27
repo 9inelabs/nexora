@@ -628,6 +628,10 @@
                 <ComboBox ItemsSource="{Binding SoundInputs}" SelectedItem="{Binding SoundInput}" HorizontalAlignment="Stretch" />
                 <TextBlock Classes="faint small" TextWrapping="Wrap" Margin="0,4,0,0" Text="Pick the input the sound desk feeds (a USB audio interface or the capture card's audio)." />
               </StackPanel>
+              <StackPanel Spacing="4">
+                <CheckBox Content="Use NEX-Audio's stream mix (over the network)" IsChecked="{Binding NexAudioSound}" />
+                <TextBlock Classes="faint small" TextWrapping="Wrap" Text="The stream and recording take NEX-Audio's own stream mix. If NEX-Audio stops, they switch to the sound device above within half a second, so keep the X32's stream feed plugged in as the backup." />
+              </StackPanel>
               <StackPanel>
                 <TextBlock Classes="label" Text="Delay the sound by (ms)" />
                 <NumericUpDown Value="{Binding SoundDelayMs}" Minimum="0" Maximum="2000" Increment="20" FormatString="0" Width="160" HorizontalAlignment="Left" />

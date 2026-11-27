@@ -274,6 +274,15 @@ public sealed partial class LiveOutputViewModel
     public bool StreamOk => Streaming ? Engine.StreamProblem is null && Engine.StreamState == "Live" : Engine.StreamProblem is null && Live.Library?.StreamingConfigured == true;
     public bool RecordOk => Engine.RecordProblem is null && Engine.FfmpegAvailable;
 
+    // ---------- NEX-Audio (the sound desk's link to this PC) ----------
+
+    public bool NexAudioSeen => Engine.NexAudioFailsafe is not null || Engine.NexAudioSound is not null;
+    public string NexAudioFailsafeText => Engine.NexAudioFailsafe ?? "NEX-Audio has not been heard on the network.";
+    public string NexAudioSoundText => Engine.NexAudioSound ?? "The stream takes its sound from the sound device in Settings.";
+    public bool NexAudioArmed => Engine.NexAudioArmed && !Engine.NexAudioHandedOver;
+    public bool NexAudioHandedOver => Engine.NexAudioHandedOver;
+    public bool NexAudioIdle => !NexAudioArmed && !NexAudioHandedOver;
+
     [RelayCommand]
     private Task ToggleRecord() => Live.Client is { } c
         ? c.SendAsync(new EngineCommand(Recording ? EngineAction.StopRecording : EngineAction.StartRecording, ServiceName))
@@ -333,7 +342,8 @@ public sealed partial class LiveOutputViewModel
         {
             nameof(MediaOn), nameof(MediaPlaying), nameof(MediaTitle), nameof(MediaState), nameof(TimeLeft), nameof(TimeLow), nameof(MediaProgress),
             nameof(CameraNow), nameof(CameraHint), nameof(CameraHelp),
-            nameof(Engine), nameof(Recording), nameof(Streaming), nameof(RecordLabel), nameof(StreamLabel), nameof(RecordText), nameof(StreamText),
+            nameof(Engine), nameof(Recording), nameof(Streaming), nameof(NexAudioSeen), nameof(NexAudioFailsafeText), nameof(NexAudioSoundText),
+            nameof(NexAudioArmed), nameof(NexAudioHandedOver), nameof(NexAudioIdle), nameof(RecordLabel), nameof(StreamLabel), nameof(RecordText), nameof(StreamText),
             nameof(FpsText), nameof(CpuText), nameof(DiskText), nameof(FpsOk), nameof(CpuOk), nameof(DiskOk), nameof(StreamOk), nameof(RecordOk),
             nameof(ServiceMode), nameof(Rehearsal), nameof(ServiceModeText), nameof(RehearsalText),
         }) OnPropertyChanged(n);

@@ -254,7 +254,11 @@ public sealed record EngineStatus(
     bool NdiAvailable = false,
     bool VideoAvailable = false,
     bool FfmpegAvailable = false,
-    string? CameraProblem = null);
+    string? CameraProblem = null,
+    string? NexAudioSound = null,
+    string? NexAudioFailsafe = null,
+    bool NexAudioArmed = false,
+    bool NexAudioHandedOver = false);
 
 public sealed record SourceInfo(
     string Key,

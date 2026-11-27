@@ -366,7 +366,9 @@ public sealed record BroadcastSettings(
     int SoundDelayMs = 0,
     bool CleanRecording = false,
     bool StreamingEnabled = true,
-    string ServiceName = "Sunday Service");
+    string ServiceName = "Sunday Service",
+    /// <summary>Take the sound from NEX-Audio's stream mix over the network; the sound device becomes the backup.</summary>
+    bool NexAudioSound = false);
 
 /// <summary>The built-in looks for Lyrics and Announcements (the same controls as Scripture themes).</summary>
 public static class SectionThemes

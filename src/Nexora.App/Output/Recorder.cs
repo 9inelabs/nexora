@@ -181,6 +181,11 @@ public sealed class Recorder : IDisposable
     private string? _recordName;
 
     public BroadcastSettings Settings { get; set; } = new();
+
+    /// <summary>NEX-Audio's stream mix, when the settings say to use it.</summary>
+    public Nexora.Audio.StreamRelay? Relay { get; set; }
+
+    private bool UseNexAudio => Settings.NexAudioSound && Relay is not null;
     public string? RecordingFile { get; private set; }
     public string? RecordProblem { get; private set; }
     public string? StreamProblem { get; private set; }
@@ -275,7 +280,7 @@ public sealed class Recorder : IDisposable
             _clean = new FfmpegPipe("clean recording", ff, Args(ff, Path.Combine(RecordFolder, _recordName + " (camera only).mp4"), stream: false, withAudio: !_recordSilent));
     }
 
-    private bool HasSoundDevice => !string.IsNullOrWhiteSpace(Settings.AudioDevice) && OperatingSystem.IsWindows();
+    private bool HasSoundDevice => !UseNexAudio && !string.IsNullOrWhiteSpace(Settings.AudioDevice) && OperatingSystem.IsWindows();
 
     private bool SoundDevicePresent()
     {
@@ -468,7 +473,15 @@ public sealed class Recorder : IDisposable
         var a = new List<string> { "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", "-stats_period", "1", "-y" };
         a.AddRange(["-f", "rawvideo", "-pix_fmt", "bgra", "-s", $"{Width}x{Height}", "-r", Fps.ToString(), "-i", "pipe:0"]);
         var audio = withAudio && !string.IsNullOrWhiteSpace(Settings.AudioDevice) && OperatingSystem.IsWindows();
-        if (audio)
+        if (withAudio && UseNexAudio)
+        {
+            // NEX-Audio's stream mix, steady 48 kHz from the relay (which falls back to the sound device by itself).
+            audio = true;
+            if (Settings.SoundDelayMs != 0)
+                a.AddRange(["-itsoffset", (Settings.SoundDelayMs / 1000.0).ToString("0.000", CultureInfo.InvariantCulture)]);
+            a.AddRange(["-f", "s16le", "-ar", "48000", "-ac", "2", "-i", Nexora.Audio.StreamRelay.FfmpegInput(Relay!.TcpPort)]);
+        }
+        else if (audio)
         {
             if (Settings.SoundDelayMs != 0)
                 a.AddRange(["-itsoffset", (Settings.SoundDelayMs / 1000.0).ToString("0.000", CultureInfo.InvariantCulture)]);
