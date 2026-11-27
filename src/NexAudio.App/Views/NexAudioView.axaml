@@ -157,7 +157,14 @@
             </StackPanel>
           </Border>
         </StackPanel>
-        <StackPanel Grid.Column="8" VerticalAlignment="Center" IsEnabled="{Binding CanControl}">
+        <StackPanel Grid.Column="8" VerticalAlignment="Center" IsEnabled="{Binding CanControl}" Orientation="Horizontal" Spacing="6">
+          <Button Classes="ghost small" Command="{Binding UpdateCommand}" IsVisible="{Binding HasUpdate}" BorderBrush="{StaticResource PreviewBrush}" BorderThickness="1"
+                  ToolTip.Tip="A new NEX-Audio is ready. Stop the sound first; it never updates during a service.">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <c:Icon Kind="download" Width="12" Height="12" Foreground="{StaticResource PreviewBrush}" />
+              <TextBlock Text="{Binding UpdateButtonText}" Foreground="{StaticResource PreviewBrush}" />
+            </StackPanel>
+          </Button>
           <Button Classes="primary small" Command="{Binding StartSoundCommand}" IsVisible="{Binding !SoundOn}">
             <StackPanel Orientation="Horizontal" Spacing="6">
               <c:Icon Kind="play" Width="11" Height="11" />

@@ -67,6 +67,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
         _x32.Changed += () => Dispatcher.UIThread.Post(ApplyConsole);
         HookDesk();
         HookShow();
+        WatchForUpdates();
         Live.PropertyChanged += OnAccountChanged;
         _clock = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Tick());
         _clock.Start();
