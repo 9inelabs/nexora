@@ -172,6 +172,11 @@ public sealed partial class NexAudioViewModel
             RefreshTone();
             return;
         }
+        if (id == "cue")
+        {
+            foreach (var p in CueParams) p.Refresh(_mix);
+            return;
+        }
         if (id == "solo")
         {
             foreach (var p in SoloParams) p.Refresh(_mix);
@@ -457,6 +462,7 @@ public sealed partial class NexAudioViewModel
         foreach (var v in AllStripViews()) v.IsSelected = v.Id == id;
         BuildChannel();
         _ = _engine.SendAsync(new DeskCommandMsg("analyse", new() { ["strip"] = id }));
+        TellSurfaces(id);
         AutoSolo(id);
         if (open) Tab = NexAudioTab.Channel;
     }
@@ -674,8 +680,10 @@ public sealed partial class NexAudioViewModel
             }
         src.Add(new("stream:l", "Stream left"));
         src.Add(new("stream:r", "Stream right"));
-        src.Add(new("mon:l", "Solo bus 1 / headphones left"));
-        src.Add(new("mon:r", "Solo bus 1 / headphones right"));
+        src.Add(new("cue:l", "Headphones left"));
+        src.Add(new("cue:r", "Headphones right"));
+        src.Add(new("mon:l", "Solo bus 1 left"));
+        src.Add(new("mon:r", "Solo bus 1 right"));
         src.Add(new("mon2:l", "Solo bus 2 left"));
         src.Add(new("mon2:r", "Solo bus 2 right"));
         foreach (var c in _mix.Channels) src.Add(new($"ch:{c.Number}", $"Channel {c.Number} direct out · {NameOf(c)}"));
@@ -795,6 +803,7 @@ public sealed partial class NexAudioViewModel
         ApplyWorkflowStatus();
         ApplyRoutings(d);
         ApplyShow(d);
+        ApplySurfaces(d);
         ApplyTape(d.Tape);
         var key = string.Join("|", d.Scenes.Concat(d.Snapshots).Select(s => s.Id + s.Name + s.SavedUtc.Ticks)) + d.Settings.CurrentSceneId + _currentSnapshot;
         if (key != _scenesKey)

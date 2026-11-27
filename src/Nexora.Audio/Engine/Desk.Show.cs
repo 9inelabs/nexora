@@ -104,6 +104,82 @@ public sealed partial class Desk
         _log($"Cue \"{cue.Name}\".");
     }
 
+    // ---- Triggers from NEXORA ----------------------------------------------------------------------
+
+    public void SaveTrigger(ShowTrigger t) => ChangeShow(s =>
+    {
+        var i = s.Triggers.FindIndex(x => x.Id == t.Id);
+        if (i >= 0) s.Triggers[i] = t;
+        else s.Triggers.Add(t);
+    });
+
+    public void DeleteTrigger(string id) => ChangeShow(s => s.Triggers.RemoveAll(t => t.Id == id));
+
+    public void FollowNexora(bool on) => ChangeShow(s => s.FollowNexora = on);
+
+    private readonly Dictionary<string, DateTime> _triggerFired = [];
+
+    /// <summary>
+    /// Something went live on the church's screens. Fires the triggers that match, each at most once every
+    /// 3 seconds (a song going up twice in a row, or a reconnect, does not fire it again). Returns what was done.
+    /// </summary>
+    public IReadOnlyList<string> OnLive(LiveEvent e, DateTime? now = null)
+    {
+        if (Settings.Offline) return [];
+        var t = now ?? DateTime.UtcNow;
+        IReadOnlyList<ShowTrigger> hits;
+        ShowState show;
+        lock (_showGate)
+        {
+            hits = ShowTriggers.Match(_show, e);
+            show = _show;
+        }
+        var done = new List<string>();
+        foreach (var h in hits)
+        {
+            lock (_triggerFired)
+            {
+                if (_triggerFired.TryGetValue(h.Id, out var last) && t - last < TimeSpan.FromSeconds(3)) continue;
+                _triggerFired[h.Id] = t;
+            }
+            var ok = h.Action switch
+            {
+                TriggerAction.Snapshot => Recall(h.Target!, true),
+                TriggerAction.Cue => GoCue(h.Target),
+                TriggerAction.NextCue => GoCue(),
+                TriggerAction.Macro => RunMacro(h.Target!),
+                _ => false,
+            };
+            var what = h.Action switch
+            {
+                TriggerAction.Snapshot => $"recalled the snapshot {SnapshotName(h.Target)}",
+                TriggerAction.Cue => $"went to the cue {show.Cues.FirstOrDefault(c => c.Id == h.Target)?.Name ?? "?"}",
+                TriggerAction.NextCue => "went to the next cue",
+                _ => $"ran the macro {show.Macros.FirstOrDefault(m => m.Id == h.Target)?.Name ?? "?"}",
+            };
+            var line = (e.When switch
+            {
+                TriggerWhen.SongStarts => $"\"{e.Name}\" went up on the screen",
+                TriggerWhen.SectionLive => $"{e.Name} went up on the screen",
+                _ => "The screen was cleared",
+            }) + (ok ? $": NEX-Audio {what}." : $", but NEX-Audio could not do it (the {h.Action.ToString().ToLowerInvariant()} it points to is gone).");
+            _log(line);
+            Notice?.Invoke(line, !ok);
+            done.Add(line);
+        }
+        return done;
+    }
+
+    private string SnapshotName(string? id) => _store.Snapshots.FirstOrDefault(x => x.Id == id)?.Name ?? "?";
+
+    private bool RunMacro(string id)
+    {
+        bool known;
+        lock (_showGate) known = _show.Macros.Any(m => m.Id == id);
+        if (known) _ = RunMacroAsync(id, "NEXORA");
+        return known;
+    }
+
     // ---- Macros ------------------------------------------------------------------------------------
 
     public void SaveMacro(Macro m) => ChangeShow(s =>

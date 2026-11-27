@@ -64,6 +64,59 @@ public sealed class Macro
     public List<MacroStep> Steps { get; set; } = [];
 }
 
+/// <summary>What happened on the church's screens (from NEXORA's Live Output PC).</summary>
+public enum TriggerWhen
+{
+    /// <summary>A song's lyrics went up on the main screen. <see cref="ShowTrigger.Match"/> picks the song (empty: any song).</summary>
+    SongStarts,
+    /// <summary>A section went up on the main screen: Scripture, Announcements, Countdown, Media, MinisterTimer, Camera or LowerThirds.</summary>
+    SectionLive,
+    /// <summary>The main screen went to black or the logo, or everything was taken down.</summary>
+    ScreenClear,
+}
+
+/// <summary>What a trigger does.</summary>
+public enum TriggerAction
+{
+    Snapshot,
+    Cue,
+    NextCue,
+    Macro,
+}
+
+/// <summary>When something goes live on the screens, NEX-Audio does something: "when Amazing Grace goes up, recall the Choir snapshot".</summary>
+public sealed class ShowTrigger
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("n")[..8];
+    public bool On { get; set; } = true;
+    public TriggerWhen When { get; set; }
+    /// <summary>Part of the song title, or the section's name. Empty: any.</summary>
+    public string Match { get; set; } = "";
+    public TriggerAction Action { get; set; }
+    /// <summary>The snapshot, cue or macro.</summary>
+    public string? Target { get; set; }
+}
+
+/// <summary>One thing that happened on the screens, as NEX-Audio hears about it.</summary>
+public sealed record LiveEvent(TriggerWhen When, string Name);
+
+public static class ShowTriggers
+{
+    /// <summary>The triggers that this event sets off, in order.</summary>
+    public static IReadOnlyList<ShowTrigger> Match(ShowState show, LiveEvent e)
+    {
+        if (!show.FollowNexora) return [];
+        var name = Norm(e.Name);
+        return show.Triggers.Where(t => t.On && t.When == e.When && (t.Action == TriggerAction.NextCue || !string.IsNullOrEmpty(t.Target)))
+            .Where(t => Norm(t.Match) is var m && (m.Length == 0 || name.Contains(m, StringComparison.Ordinal)))
+            .ToList();
+    }
+
+    private static string Norm(string? s) =>
+        string.Join(' ', new string((s ?? "").ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : ' ').ToArray())
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+}
+
 /// <summary>The cue list and macros for the show. Saved to audio/show.json.</summary>
 public sealed class ShowState
 {
@@ -71,6 +124,10 @@ public sealed class ShowState
     public List<Cue> Cues { get; set; } = [];
     public List<Macro> Macros { get; set; } = [];
     public string? CurrentCueId { get; set; }
+    /// <summary>What NEX-Audio does when things go live on the screens.</summary>
+    public List<ShowTrigger> Triggers { get; set; } = [];
+    /// <summary>The triggers are switched on (off: they are kept but do nothing).</summary>
+    public bool FollowNexora { get; set; }
 
     public static readonly JsonSerializerOptions Json = new(MixState.Json) { WriteIndented = true };
 
@@ -81,6 +138,13 @@ public sealed class ShowState
     {
         Cues ??= [];
         Macros ??= [];
+        Triggers ??= [];
+        if (Triggers.Count > 64) Triggers = Triggers[..64];
+        foreach (var t in Triggers)
+        {
+            if (string.IsNullOrWhiteSpace(t.Id)) t.Id = Guid.NewGuid().ToString("n")[..8];
+            t.Match = (t.Match ?? "").Trim() is var m && m.Length > 60 ? m[..60] : m;
+        }
         if (Cues.Count > 200) Cues = Cues[..200];
         if (Macros.Count > 48) Macros = Macros[..48];
         var ids = new HashSet<string>();

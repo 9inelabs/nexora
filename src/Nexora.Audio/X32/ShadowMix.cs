@@ -54,20 +54,30 @@ public sealed class ShadowMix
     }
 
     /// <summary>Sends whatever differs from what the desk last showed. Returns how many values were sent.</summary>
-    public static async Task<int> SyncAsync(X32Client x32, MixState s, int max = 400)
+    /// <param name="held">Controls the engineer has a hand on (left alone, so a motor fader does not fight them).</param>
+    public static async Task<int> SyncAsync(X32Client x32, MixState s, int max = 400, Func<string, bool>? held = null)
     {
         if (!x32.Connected) return 0;
         var sent = 0;
         foreach (var (addr, v) in Desired(s))
         {
+            if (held?.Invoke(addr) == true) continue;
             var now = x32.Value(addr);
-            if (now is { } cur && Math.Abs(cur - v) < 0.001f) continue;
+            if (now is { } cur && Same(addr, cur, v)) continue;
             if (addr.EndsWith("/on") || addr.EndsWith("/hpon") || addr.EndsWith("/phantom")) await x32.SetAsync(addr, (int)v);
             else await x32.SetAsync(addr, v);
             if (++sent >= max) break;
         }
         return sent;
     }
+
+    /// <summary>
+    /// The X32 and NEX-Audio already agree. A fader counts as the same within one step of the X32's fader
+    /// (1024 steps), as NEX-Audio keeps levels to 0.1 dB: otherwise every move on the X32 would be sent back
+    /// slightly different, and the motor fader would twitch.
+    /// </summary>
+    public static bool Same(string address, float desk, float wanted) =>
+        Math.Abs(desk - wanted) < (address.EndsWith("/fader") || address.EndsWith("/level") ? 0.0015f : 0.001f);
 
     /// <summary>
     /// Turns a change made on the X32 into the NEX-Audio setting it matches (a path for <see cref="MixParams"/>

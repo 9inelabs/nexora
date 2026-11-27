@@ -461,7 +461,7 @@ public sealed class OutputPatch
     public int Number { get; set; }
     /// <summary>
     /// "off", "tone", "in:5" (input 5 as it arrives), "ch:5" (channel 5's direct out, from its direct-out tap point), "mix1", "mix1:L",
-    /// "main:L", "main:R", "mono", "mtx2", "stream:L", "stream:R", "mon:L", "mon:R" (solo bus 1), "mon2:L", "mon2:R" (solo bus 2).
+    /// "main:L", "main:R", "mono", "mtx2", "stream:L", "stream:R", "mon:L", "mon:R" (solo bus 1), "mon2:L", "mon2:R" (solo bus 2), "cue:L", "cue:R" (the headphones).
     /// </summary>
     public string Source { get; set; } = "off";
     public string Name { get; set; } = "";
@@ -535,6 +535,20 @@ public enum SoloRoute
     Bus2,
     /// <summary>Both solo buses.</summary>
     Both,
+}
+
+/// <summary>
+/// The engineer's headphones: their own source and level, separate from the solo buses' levels.
+/// Patch "cue:L" and "cue:R" to the headphone output.
+/// </summary>
+public sealed class CueSettings
+{
+    /// <summary>"solo" (solo bus 1), "solo2", "main", "stream", or a mix, matrix, group or effect id ("mix3").</summary>
+    public string Source { get; set; } = "solo";
+    public double Level { get; set; }
+    public bool Mute { get; set; }
+    /// <summary>While anything is soloed, the headphones play the solo instead of their source.</summary>
+    public bool SoloFirst { get; set; } = true;
 }
 
 public sealed class SoloSettings
@@ -668,6 +682,7 @@ public sealed class MixState
     public bool IsLcr => MainSettings.Layout == MainLayout.Lcr;
     public StreamSettings StreamSettings { get; set; } = new();
     public SoloSettings Solo { get; set; } = new();
+    public CueSettings Cue { get; set; } = new();
     public ToneSettings Tone { get; set; } = new();
     /// <summary>Control groups: VCA masters, linked faders and mute groups ("cg1" to "cg24").</summary>
     public List<ControlGroup> Controls { get; set; } = [];
@@ -868,6 +883,9 @@ public sealed class MixState
         MainSettings ??= new MainSettings();
         StreamSettings ??= new StreamSettings();
         Solo ??= new SoloSettings();
+        Cue ??= new CueSettings();
+        Cue.Source = string.IsNullOrWhiteSpace(Cue.Source) ? "solo" : Cue.Source.Trim().ToLowerInvariant();
+        Cue.Level = Math.Clamp(Cue.Level, -40, 10);
         Controls ??= [];
         Buses.RemoveAll(b => b is null || b.Kind is StripKind.Channel or StripKind.Main or StripKind.Mono or StripKind.Stream or StripKind.Centre);
         var seen = new HashSet<string>();

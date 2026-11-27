@@ -35,6 +35,13 @@ public sealed record DeskSettings
     /// all pause, so nothing being tried reaches the room. The X32's address is kept for when it goes back online.
     /// </summary>
     public bool Offline { get; init; }
+    /// <summary>The X32 as a control surface: its SELECT and SOLO buttons work NEX-Audio too (its faders follow with <see cref="FollowDesk"/>).</summary>
+    public bool X32Surface { get; init; }
+    /// <summary>The MIDI fader box (Mackie Control): the port it sends on, and the one it listens on. Null: none.</summary>
+    public string? MidiIn { get; init; }
+    public string? MidiOut { get; init; }
+    /// <summary>The tablet and phone remote.</summary>
+    public Remote.RemoteSettings Remote { get; init; } = new();
 }
 
 public sealed record X32SceneName(int Number, string Name);
@@ -76,6 +83,21 @@ public sealed record DeskStatus(
     public IReadOnlyList<RoutingInfo> Routings { get; init; } = [];
     /// <summary>Strips whose sound is late (plugins, look-ahead) or waits to line up with a slower path.</summary>
     public IReadOnlyList<StripLatency> Latency { get; init; } = [];
+    /// <summary>The strip a control surface selected, and a number that goes up each time (the screen follows it).</summary>
+    public string? SurfaceSelected { get; init; }
+    public long SurfaceSelectSeq { get; init; }
+    public IReadOnlyList<string> MidiInputs { get; init; } = [];
+    public IReadOnlyList<string> MidiOutputs { get; init; } = [];
+    /// <summary>The fader box, in words ("X-Touch: faders 1–8 are Ch 1–8").</summary>
+    public string? MidiText { get; init; }
+    public bool MidiConnected { get; init; }
+    public bool RemoteRunning { get; init; }
+    public string? RemoteError { get; init; }
+    public IReadOnlyList<Remote.RemoteClient> RemoteClients { get; init; } = [];
+    /// <summary>This PC's addresses on the church network, for typing into a phone.</summary>
+    public IReadOnlyList<string> Addresses { get; init; } = [];
+    /// <summary>The last thing a NEXORA trigger did.</summary>
+    public string? TriggerNote { get; init; }
 
     public static DeskStatus Empty { get; } = new(0, new DeskSettings(), false, null, [], null, 0, 0, null, [], [], [], 0, false, null, [], 0, 0);
 }
@@ -88,7 +110,7 @@ public sealed record LoudnessReading(double Momentary, double ShortTerm, double 
 /// failsafe scenes), the stream to the Live Output PC, the heartbeat and the plugins.
 /// It lives in the engine process, so it keeps going if every screen closes.
 /// </summary>
-public sealed partial class Desk : IDisposable
+public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
 {
     private readonly string _dir;
     private readonly string _mixFile, _settingsFile, _pluginsFile;
@@ -170,6 +192,8 @@ public sealed partial class Desk : IDisposable
         _timer = new Timer(_ => Tick(), null, 100, 100);
         if (_settings.X32Host is { Length: > 0 } h && !_settings.Offline) _ = ConnectX32Async(h);
         if (_settings.Offline && _heartbeat != null) _heartbeat.Host = null;
+        _network = network;
+        StartSurfaces();
     }
 
     /// <summary>Something on the desk status changed (scenes, plugins, X32 link, failsafe).</summary>
@@ -575,7 +599,19 @@ public sealed partial class Desk : IDisposable
 
     private void OnDeskValue(string address, float value)
     {
-        if (!Settings.FollowDesk) return;
+        var settings = Settings;
+        // The engineer's hand is on this control: do not send it back for a moment.
+        _x32Touch.Moved(address);
+        if (settings.X32Surface && address.StartsWith("/-stat/", StringComparison.Ordinal))
+        {
+            SurfacePress? press;
+            lock (_gate) press = X32Surface.FromDesk(_mix, address, value);
+            if (press is not { } p) return;
+            if (p.Solo is { } solo) Set($"{p.StripId}.solo", JsonSerializer.SerializeToElement(solo));
+            else Select(p.StripId, fromSurface: true);
+            return;
+        }
+        if (!settings.FollowDesk && !settings.X32Surface) return;
         (string Path, object Value)? change;
         lock (_gate) change = ShadowMix.FromDesk(_mix, address, value);
         if (change is not { } c) return;
@@ -606,6 +642,7 @@ public sealed partial class Desk : IDisposable
         }
         if (_heartbeat != null) _heartbeat.Host = offline ? null : s.LiveOutputHost;
         if (_stream != null) _stream.Host = StreamHost();
+        ApplySurfaces();
         Changed?.Invoke();
     }
 
@@ -709,19 +746,27 @@ public sealed partial class Desk : IDisposable
             }
 
             // Keep the X32's own mix in step, a few times a second.
-            if (s.ShadowMix && !s.Offline && _x32.Connected && !_syncBusy && _tick % 2 == 0)
+            if ((s.ShadowMix || s.X32Surface) && !s.Offline && _x32.Connected && !_syncBusy && _tick % 2 == 0)
             {
                 _syncBusy = true;
                 var m = Mix;
                 _ = Task.Run(async () =>
                 {
-                    try { _shadowPending = await ShadowMix.SyncAsync(_x32, m, 200); }
+                    try
+                    {
+                        _shadowPending = await ShadowMix.SyncAsync(_x32, m, 200, a => _x32Touch.Held(a));
+                        if (s.X32Surface) await X32Surface.SyncAsync(_x32, m, a => _x32Touch.Held(a));
+                    }
                     catch { }
                     finally { _syncBusy = false; }
                 });
             }
 
             if (_stream != null) _stream.Host = StreamHost();
+
+            // Levels for the remote and the fader box.
+            if (_engine is { } live) _peaks = live.TakeRemotePeaks();
+            SurfaceTick();
 
             // The recorder's clock, twice a second.
             if ((_tape.Recording || _tape.Rolling) && _tick % 5 == 0) Changed?.Invoke();
@@ -766,6 +811,10 @@ public sealed partial class Desk : IDisposable
                 UndoText = _history.UndoLabel, RedoText = _history.RedoLabel, Presets = _presets.List(),
                 Show = ShowCopy, Tape = _tape.Status, Backups = ShowFiles.Backups(_dir), LastBackupUtc = _lastBackup, RunningMacro = _runningMacro,
                 Routings = Routings.List(), Latency = LatencyList(),
+                SurfaceSelected = _selected, SurfaceSelectSeq = Interlocked.Read(ref _selectSeq),
+                MidiInputs = _midiInputs, MidiOutputs = _midiOutputs, MidiText = MidiText(), MidiConnected = _midiInPort is not null,
+                RemoteRunning = _remote?.Running ?? false, RemoteError = _remoteError, RemoteClients = _remote?.Clients ?? [],
+                Addresses = LanAddresses(), TriggerNote = _triggerNote,
             };
         }
     }
@@ -842,6 +891,7 @@ public sealed partial class Desk : IDisposable
         _heartbeat?.Dispose();
         _stream?.Dispose();
         _x32.Dispose();
+        DisposeSurfaces();
         DisposePlugins();
     }
 }

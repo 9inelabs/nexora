@@ -279,7 +279,7 @@ public sealed class X32Client : IDisposable
             Changed?.Invoke();
             return;
         }
-        if (msg.Address.StartsWith("/ch/") || msg.Address.StartsWith("/bus/") || msg.Address.StartsWith("/main/") || msg.Address.StartsWith("/headamp/"))
+        if (msg.Address.StartsWith("/ch/") || msg.Address.StartsWith("/bus/") || msg.Address.StartsWith("/main/") || msg.Address.StartsWith("/headamp/") || msg.Address.StartsWith("/-stat/"))
         {
             float? v = msg.Float(0) ?? (msg.Int(0) is { } iv ? iv : null);
             if (v is { } value && !msg.Address.EndsWith("/name") && !msg.Address.EndsWith("/color"))
