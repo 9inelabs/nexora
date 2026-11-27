@@ -229,6 +229,24 @@ public sealed class EngineServer : IDisposable
             case "preset.delete":
                 desk.DeletePreset(m.Arg("id") ?? "");
                 break;
+            case "routing.save":
+                desk.SaveRouting(m.Arg("id"), m.Arg("name") ?? "", m.Arg("notes") ?? "", m.Arg("by") ?? "");
+                break;
+            case "routing.preview":
+            {
+                var p = desk.PreviewRouting(m.Arg("id") ?? "");
+                await reply(new PreviewMsg(p, p is null ? "That routing layout could not be found." : null));
+                break;
+            }
+            case "routing.recall":
+                if (!desk.RecallRouting(m.Arg("id") ?? "")) throw new InvalidOperationException("That routing layout could not be found.");
+                break;
+            case "routing.delete":
+                desk.DeleteRouting(m.Arg("id") ?? "");
+                break;
+            case "inputs.alt":
+                desk.UseAlternateInputs(Bool(m.Arg("on")));
+                break;
             case "mix.replace":
             {
                 var mix = m.Data is { } d ? MixState.FromJson(d.GetRawText()) : null;

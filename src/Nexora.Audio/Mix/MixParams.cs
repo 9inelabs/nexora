@@ -14,6 +14,9 @@ public static class MixParams
 {
     private static JsonSerializerOptions J => MixState.Json;
 
+    /// <summary>The longest delay on a strip or output: 1.3 seconds (about 450 m of sound travel).</summary>
+    public const double MaxDelayMs = 1300;
+
     public static JsonNode? Node(object? v) => v switch
     {
         null => null,
@@ -62,6 +65,18 @@ public static class MixParams
                 s.StreamSettings = u;
                 return true;
             }
+            case "tone":
+            {
+                var u = SetIn(s.Tone, seg[1..], value);
+                if (u is null) return false;
+                u.Freq = Math.Clamp(u.Freq, 20, 20000);
+                u.Level = Math.Clamp(u.Level, -60, ToneSettings.MaxLevel);
+                u.Bus ??= "";
+                if (u.Bus.Length > 0 && s.Find(u.Bus) is not { Kind: not (StripKind.Channel or StripKind.Stream) }) return false;
+                if (u.Bus.Length == 0) u.On = false;
+                s.Tone = u;
+                return true;
+            }
             case "solo":
             {
                 var u = SetIn(s.Solo, seg[1..], value);
@@ -82,6 +97,8 @@ public static class MixParams
             if (bus is null || !Routing.CanSend(strip, bus)) return false;
             var send = strip.SendTo(bus.Id);
             var created = send is null;
+            // A new send must not let the sound come back round (feedback).
+            if (created && Routing.WouldLoop(s, strip.Id, bus.Id)) return false;
             send ??= new Send { Bus = bus.Id, Level = Db.Floor, On = true, Tap = MixState.DefaultTap(bus) };
             var u = SetIn(send, seg[3..], value);
             if (u is null) return false;
@@ -94,10 +111,16 @@ public static class MixParams
         }
         if (field == "group" && seg.Length == 3)
         {
-            if (s.Find(seg[2]) is not { Kind: StripKind.Group } g || strip.Kind is not (StripKind.Channel or StripKind.Fx)) return false;
+            if (s.Find(seg[2]) is not { } g || !Routing.CanGroup(strip, g)) return false;
             var on = value?.GetValue<bool>() ?? false;
+            if (on && !strip.Groups.Contains(g.Id) && Routing.WouldLoop(s, strip.Id, g.Id)) return false;
             strip.Groups.Remove(g.Id);
-            if (on) strip.Groups.Add(g.Id);
+            if (on)
+            {
+                strip.Groups.Add(g.Id);
+                // A group going into another group becomes its sub-group: it stops going to the main mix by itself, so it is not heard twice.
+                if (strip.Kind == StripKind.Group) strip.ToMain = false;
+            }
             return true;
         }
         if (field == "sendsFrom" && seg.Length == 2)
@@ -214,7 +237,18 @@ public static class MixParams
     public static void Clamp(Strip s)
     {
         s.Trim = Math.Clamp(s.Trim, -24, 24);
-        s.DelayMs = Math.Clamp(s.DelayMs, 0, 100);
+        s.DelayMs = Math.Clamp(s.DelayMs, 0, MaxDelayMs);
+        if (s.Kind == StripKind.Channel)
+        {
+            s.Input = Math.Clamp(s.Input, 0, MixState.ChannelCount);
+            s.AltInput = Math.Clamp(s.AltInput, 0, MixState.ChannelCount);
+            if (s.AltInput == 0) s.UseAlt = false;
+        }
+        else
+        {
+            s.Input = s.AltInput = 0;
+            s.UseAlt = false;
+        }
         s.Pan = Math.Clamp(s.Pan, -1, 1);
         s.Fader = Math.Clamp(s.Fader, Db.Floor, 10);
         s.StreamLevel = Math.Clamp(s.StreamLevel, Db.Floor, 10);
@@ -262,7 +296,7 @@ public static class MixParams
     public static void Clamp(OutputPatch o)
     {
         o.Level = Math.Clamp(o.Level, Db.Floor, 10);
-        o.DelayMs = Math.Clamp(o.DelayMs, 0, 500);
+        o.DelayMs = Math.Clamp(o.DelayMs, 0, MaxDelayMs);
         o.Ceiling = Math.Clamp(o.Ceiling, -24, 0);
         o.Hpf.Freq = Math.Clamp(o.Hpf.Freq, 20, 1000);
         o.Lpf.Freq = Math.Clamp(o.Lpf.Freq, 1000, 20000);
@@ -333,6 +367,11 @@ public static class MixParams
         foreach (var o in s.Outputs)
             if (o.Source == id || o.Source.StartsWith(id + ":"))
                 o.Source = "off";
+        if (s.Tone.Bus == id)
+        {
+            s.Tone.Bus = "";
+            s.Tone.On = false;
+        }
         return true;
     }
 

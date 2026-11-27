@@ -281,8 +281,17 @@ public sealed class Strip
 
     public double Trim { get; set; }
     public bool Invert { get; set; }
-    /// <summary>A delay on this strip's input, in milliseconds (to line up a mic with a direct box).</summary>
+    /// <summary>A delay on this strip's input, in milliseconds (to line up a mic with a direct box, or a delay speaker), up to 1.3 seconds.</summary>
     public double DelayMs { get; set; }
+
+    /// <summary>Channels: the X32 card input that feeds this channel (1 to 32, 0 for nothing).</summary>
+    public int Input { get; set; }
+    /// <summary>Channels: a second source to switch to (for example a soundcheck track or a spare mic), 0 for none.</summary>
+    public int AltInput { get; set; }
+    /// <summary>Channels: listening to the alternate input. The channel's processing stays as it is.</summary>
+    public bool UseAlt { get; set; }
+    /// <summary>Channels: where the direct out ("ch:5" on an output) is taken from.</summary>
+    public SendTap DirectTap { get; set; } = SendTap.Post;
 
     public PassFilter Hpf { get; set; } = new();
     public PassFilter Lpf { get; set; } = new() { Freq = 18000 };
@@ -355,6 +364,7 @@ public sealed class Strip
     public Strip Clone() => new()
     {
         Id = Id, Kind = Kind, Name = Name, Colour = Colour, Stereo = Stereo, Trim = Trim, Invert = Invert, DelayMs = DelayMs,
+        Input = Input, AltInput = AltInput, UseAlt = UseAlt, DirectTap = DirectTap,
         Hpf = Hpf.Clone(), Lpf = Lpf.Clone(), Drive = Drive.Clone(), Eq = Eq.Clone(), DynEq = DynEq.Clone(), Gate = Gate.Clone(), Comp = Comp.Clone(),
         Order = Order, Rack = Rack.Select(r => r.Clone()).ToList(), Pan = Pan, Fader = Fader, Mute = Mute, Solo = Solo, ToMain = ToMain, SendsFrom = SendsFrom,
         Groups = [.. Groups], Sends = Sends.Select(s => s.Clone()).ToList(), StreamLevel = StreamLevel, StreamOn = StreamOn,
@@ -367,7 +377,7 @@ public sealed class OutputPatch
 {
     public int Number { get; set; }
     /// <summary>
-    /// "off", "tone", "in:5" (input 5 as it arrives), "ch:5" (channel 5 after its fader), "mix1", "mix1:L",
+    /// "off", "tone", "in:5" (input 5 as it arrives), "ch:5" (channel 5's direct out, from its direct-out tap point), "mix1", "mix1:L",
     /// "main:L", "main:R", "mono", "mtx2", "stream:L", "stream:R", "mon:L", "mon:R" (the solo / monitor bus).
     /// </summary>
     public string Source { get; set; } = "off";
@@ -375,7 +385,7 @@ public sealed class OutputPatch
     public double Level { get; set; }
     public bool Mute { get; set; }
     public bool Invert { get; set; }
-    /// <summary>Delay for lining up speakers, in milliseconds.</summary>
+    /// <summary>Delay for lining up speakers, in milliseconds (up to 1.3 seconds).</summary>
     public double DelayMs { get; set; }
     public EqSettings Eq { get; set; } = new() { On = false, Bands = [new() { Shape = FilterShape.Peak, Freq = 125 }, new() { Shape = FilterShape.Peak, Freq = 500 }, new() { Shape = FilterShape.Peak, Freq = 2000 }, new() { Shape = FilterShape.Peak, Freq = 8000 }] };
     public PassFilter Hpf { get; set; } = new() { Freq = 40 };
@@ -405,6 +415,34 @@ public sealed class StreamSettings
     public double DelayMs { get; set; }
 }
 
+/// <summary>What the test signal plays.</summary>
+public enum ToneKind
+{
+    /// <summary>A steady sine tone at one frequency.</summary>
+    Sine,
+    /// <summary>Pink noise: equal energy in every octave, for tuning speakers by ear and with a meter.</summary>
+    Pink,
+    /// <summary>White noise: equal energy at every frequency (sounds bright).</summary>
+    White,
+}
+
+/// <summary>The test signal: played on any output set to "tone", and into one bus while <see cref="On"/>.</summary>
+public sealed class ToneSettings
+{
+    public const double MaxLevel = -6;
+
+    public ToneKind Kind { get; set; } = ToneKind.Sine;
+    public double Freq { get; set; } = 1000;
+    /// <summary>In dBFS, never above <see cref="MaxLevel"/>.</summary>
+    public double Level { get; set; } = -18;
+    /// <summary>A bus to play the test signal into ("" for none), so it goes through that bus's processing and routing.</summary>
+    public string Bus { get; set; } = "";
+    /// <summary>Playing into the bus. Always off when the desk starts and never recalled from a scene.</summary>
+    public bool On { get; set; }
+
+    public ToneSettings Clone() => (ToneSettings)MemberwiseClone();
+}
+
 public sealed class SoloSettings
 {
     public SoloMode Mode { get; set; } = SoloMode.Pfl;
@@ -418,7 +456,8 @@ public sealed class MixState
     public const int OutputCount = 32;
     public const int MaxMix = 16, MaxGroups = 8, MaxMatrix = 6, MaxFx = 8;
 
-    public int Version { get; set; } = 2;
+    /// <summary>3: channels choose their input (older files fed channel N from input N).</summary>
+    public int Version { get; set; } = 3;
     public List<Strip> Channels { get; set; } = [];
     /// <summary>Effects, groups, mixes and matrices, in any order (each kind is processed in its own stage).</summary>
     public List<Strip> Buses { get; set; } = [];
@@ -427,6 +466,7 @@ public sealed class MixState
     public Strip Stream { get; set; } = new();
     public StreamSettings StreamSettings { get; set; } = new();
     public SoloSettings Solo { get; set; } = new();
+    public ToneSettings Tone { get; set; } = new();
     public List<OutputPatch> Outputs { get; set; } = [];
 
     public IEnumerable<Strip> AllStrips()
@@ -447,7 +487,7 @@ public sealed class MixState
     {
         var s = new MixState();
         for (var i = 1; i <= ChannelCount; i++)
-            s.Channels.Add(new Strip { Id = $"ch{i}", Kind = StripKind.Channel, Name = "", Fader = 0, ToMain = true });
+            s.Channels.Add(new Strip { Id = $"ch{i}", Kind = StripKind.Channel, Name = "", Fader = 0, ToMain = true, Input = i });
         for (var i = 1; i <= 6; i++) s.Buses.Add(NewBus(StripKind.Mix, i));
         s.Buses.Add(NewBus(StripKind.Fx, 1, "Vocal reverb", Effects.Default("reverb", "hall")));
         s.Buses.Add(NewBus(StripKind.Fx, 2, "Drum room", Effects.Default("reverb", "room")));
@@ -565,14 +605,25 @@ public sealed class MixState
         Buses ??= [];
         Outputs ??= [];
         for (var i = Channels.Count + 1; i <= ChannelCount; i++)
-            Channels.Add(new Strip { Id = $"ch{i}", Kind = StripKind.Channel, Fader = 0 });
+            Channels.Add(new Strip { Id = $"ch{i}", Kind = StripKind.Channel, Fader = 0, Input = i });
         if (Channels.Count > ChannelCount) Channels.RemoveRange(ChannelCount, Channels.Count - ChannelCount);
         for (var i = 0; i < Channels.Count; i++)
         {
-            Channels[i].Id = $"ch{i + 1}";
-            Channels[i].Kind = StripKind.Channel;
-            Channels[i].Stereo = false;
+            var c = Channels[i];
+            c.Id = $"ch{i + 1}";
+            c.Kind = StripKind.Channel;
+            c.Stereo = false;
+            // Before version 3 channel N always heard input N.
+            if (Version < 3) c.Input = i + 1;
+            c.Input = Math.Clamp(c.Input, 0, ChannelCount);
+            c.AltInput = Math.Clamp(c.AltInput, 0, ChannelCount);
+            if (c.AltInput == 0) c.UseAlt = false;
         }
+        Version = 3;
+        Tone ??= new ToneSettings();
+        Tone.Bus ??= "";
+        if (Tone.Bus.Length > 0 && Buses.All(b => b.Id != Tone.Bus) && Tone.Bus is not ("main" or "mono" or "stream")) Tone.Bus = "";
+        if (Tone.Bus.Length == 0) Tone.On = false;
         Main ??= new Strip();
         Main.Id = "main"; Main.Kind = StripKind.Main; Main.Stereo = true; Main.ToMain = false;
         Mono ??= new Strip();
@@ -614,10 +665,19 @@ public sealed class MixState
             }
             // Sends only to buses that exist and that this strip is allowed to feed.
             s.Sends.RemoveAll(x => Find(x.Bus) is not { } b || !Routing.CanSend(s, b));
-            s.Groups.RemoveAll(g => Find(g) is not { Kind: StripKind.Group } || s.Kind is not (StripKind.Channel or StripKind.Fx));
+            s.Groups.RemoveAll(g => Find(g) is not { } gb || !Routing.CanGroup(s, gb));
             var dup = new HashSet<string>();
             s.Sends.RemoveAll(x => !dup.Add(x.Bus));
+            s.Groups = s.Groups.Distinct().ToList();
+            if (s.Kind != StripKind.Channel)
+            {
+                s.Input = s.AltInput = 0;
+                s.UseAlt = false;
+                s.DirectTap = SendTap.Post;
+            }
         }
+        // Nothing may feed back into itself (a file from elsewhere, or a hand edit).
+        Routing.RemoveLoops(this);
         for (var o = Outputs.Count + 1; o <= OutputCount; o++) Outputs.Add(new OutputPatch { Number = o, Source = "off" });
         if (Outputs.Count > OutputCount) Outputs.RemoveRange(OutputCount, Outputs.Count - OutputCount);
         for (var o = 0; o < Outputs.Count; o++)
@@ -633,10 +693,15 @@ public sealed class MixState
     }
 }
 
-/// <summary>Which strips may feed which buses, so the mix always flows one way (no loops).</summary>
+/// <summary>
+/// Which strips may feed which, as one map (a directed graph): channels, effects, groups, mixes, the main mix,
+/// mono, matrices and the stream are the points, and every route to the main mix, group assignment and send is a line.
+/// The engine runs the strips in the map's order, so a strip always runs after everything that feeds it.
+/// A route that would make a loop (feedback) is never allowed.
+/// </summary>
 public static class Routing
 {
-    /// <summary>The order the stages run in. A strip can only send to a later stage.</summary>
+    /// <summary>The usual order of kinds, used to keep the running order and the screens tidy.</summary>
     public static int Stage(StripKind k) => k switch
     {
         StripKind.Channel => 0,
@@ -650,13 +715,148 @@ public static class Routing
         _ => 9,
     };
 
-    public static bool CanSend(Strip from, Strip to) => (from.Kind, to.Kind) switch
+    /// <summary>Which kinds a send may go between (loops are checked separately, see <see cref="WouldLoop"/>).</summary>
+    public static bool KindsCanSend(StripKind from, StripKind to) => (from, to) switch
     {
-        (StripKind.Channel, StripKind.Fx or StripKind.Mix) => true,
-        (StripKind.Fx, StripKind.Mix) => true,
-        (StripKind.Group, StripKind.Mix or StripKind.Matrix) => true,
-        (StripKind.Mix, StripKind.Matrix) => true,
+        (StripKind.Channel, StripKind.Fx or StripKind.Mix or StripKind.Matrix) => true,
+        (StripKind.Fx, StripKind.Fx or StripKind.Mix or StripKind.Matrix) => true,
+        (StripKind.Group, StripKind.Fx or StripKind.Mix or StripKind.Matrix) => true,
+        (StripKind.Mix, StripKind.Mix or StripKind.Matrix) => true,
         (StripKind.Main or StripKind.Mono, StripKind.Matrix) => true,
+        (StripKind.Matrix, StripKind.Matrix) => true,
         _ => false,
     };
+
+    public static bool CanSend(Strip from, Strip to) => from.Id != to.Id && KindsCanSend(from.Kind, to.Kind);
+
+    /// <summary>Channels, effect returns and groups can go through a group (a group into a group makes a sub-group).</summary>
+    public static bool CanGroup(Strip from, Strip to) =>
+        from.Id != to.Id && to.Kind == StripKind.Group && from.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group;
+
+    /// <summary>Every line in the map, including the fixed ones (the main mix feeds mono / sub and the stream).</summary>
+    public static IEnumerable<(string From, string To, string Why)> Edges(MixState s)
+    {
+        foreach (var x in s.AllStrips())
+        {
+            if (x.ToMain && x.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group) yield return (x.Id, s.Main.Id, "main");
+            foreach (var g in x.Groups) yield return (x.Id, g, "group");
+            foreach (var send in x.Sends) yield return (x.Id, send.Bus, "send");
+        }
+        yield return (s.Main.Id, s.Mono.Id, "fixed");
+        yield return (s.Main.Id, s.Stream.Id, "fixed");
+    }
+
+    private static Dictionary<string, List<string>> Map(MixState s, (string From, string To)? extra = null)
+    {
+        var map = new Dictionary<string, List<string>>();
+        void Add(string a, string b)
+        {
+            if (!map.TryGetValue(a, out var l)) map[a] = l = [];
+            if (!l.Contains(b)) l.Add(b);
+        }
+        foreach (var (a, b, _) in Edges(s)) Add(a, b);
+        if (extra is { } e) Add(e.From, e.To);
+        return map;
+    }
+
+    private static HashSet<string> Walk(Dictionary<string, List<string>> map, string start)
+    {
+        var seen = new HashSet<string>();
+        var todo = new Stack<string>();
+        todo.Push(start);
+        while (todo.Count > 0)
+        {
+            var at = todo.Pop();
+            if (!map.TryGetValue(at, out var next)) continue;
+            foreach (var n in next)
+                if (seen.Add(n)) todo.Push(n);
+        }
+        return seen;
+    }
+
+    /// <summary>A new line from one strip to another would let sound come back round to where it started.</summary>
+    public static bool WouldLoop(MixState s, string from, string to) => from == to || Walk(Map(s), to).Contains(from);
+
+    /// <summary>Everything this strip's sound reaches (buses, main, matrices, stream).</summary>
+    public static HashSet<string> Downstream(MixState s, string id) => Walk(Map(s), id);
+
+    /// <summary>Everything that feeds this strip, however far back.</summary>
+    public static HashSet<string> Upstream(MixState s, string id)
+    {
+        var back = new Dictionary<string, List<string>>();
+        foreach (var (a, b, _) in Edges(s))
+        {
+            if (!back.TryGetValue(b, out var l)) back[b] = l = [];
+            if (!l.Contains(a)) l.Add(a);
+        }
+        return Walk(back, id);
+    }
+
+    /// <summary>
+    /// The order to run every strip in: each one after everything that feeds it, and otherwise in the usual order
+    /// (channels, effects, groups, mixes, main, mono, matrices, stream). Null if the map has a loop.
+    /// </summary>
+    public static List<Strip>? Order(MixState s)
+    {
+        var all = s.AllStrips().ToList();
+        var rank = all.Select((x, i) => (x.Id, Key: Stage(x.Kind) * 1000 + i)).ToDictionary(p => p.Id, p => p.Key);
+        var byId = all.ToDictionary(x => x.Id);
+        var into = all.ToDictionary(x => x.Id, _ => 0);
+        var map = Map(s);
+        foreach (var (a, list) in map)
+            foreach (var b in list)
+                if (into.ContainsKey(b) && byId.ContainsKey(a)) into[b]++;
+        var ready = new SortedSet<(int Rank, string Id)>(all.Where(x => into[x.Id] == 0).Select(x => (rank[x.Id], x.Id)));
+        var order = new List<Strip>();
+        while (ready.Count > 0)
+        {
+            var first = ready.Min;
+            ready.Remove(first);
+            order.Add(byId[first.Id]);
+            if (!map.TryGetValue(first.Id, out var next)) continue;
+            foreach (var n in next)
+                if (into.ContainsKey(n) && --into[n] == 0) ready.Add((rank[n], n));
+        }
+        return order.Count == all.Count ? order : null;
+    }
+
+    /// <summary>Takes out any group assignment or send that closes a loop, keeping the earlier ones. Returns how many went.</summary>
+    public static int RemoveLoops(MixState s)
+    {
+        // Start from the lines that can never loop (to the main mix, and from it to mono and the stream), then add the rest one by one.
+        var map = new Dictionary<string, List<string>>();
+        void Add(string a, string b)
+        {
+            if (!map.TryGetValue(a, out var l)) map[a] = l = [];
+            if (!l.Contains(b)) l.Add(b);
+        }
+        foreach (var (a, b, why) in Edges(s))
+            if (why is "main" or "fixed") Add(a, b);
+        var removed = 0;
+        foreach (var x in s.AllStrips().OrderBy(x => Stage(x.Kind)))
+        {
+            foreach (var g in x.Groups.ToList())
+            {
+                if (g == x.Id || Walk(map, g).Contains(x.Id)) { x.Groups.Remove(g); removed++; }
+                else Add(x.Id, g);
+            }
+            foreach (var send in x.Sends.ToList())
+            {
+                if (send.Bus == x.Id || Walk(map, send.Bus).Contains(x.Id)) { x.Sends.Remove(send); removed++; }
+                else Add(x.Id, send.Bus);
+            }
+        }
+        return removed;
+    }
+
+    /// <summary>A short reason a route cannot be made, or null when it can.</summary>
+    public static string? WhyNot(MixState s, Strip from, Strip to, bool group)
+    {
+        if (from.Id == to.Id) return "A bus cannot feed itself.";
+        if (group ? !CanGroup(from, to) : !CanSend(from, to))
+            return $"{MixState.KindLabel(from.Kind)} strips cannot feed a {MixState.KindLabel(to.Kind).ToLowerInvariant()} here.";
+        if (WouldLoop(s, from.Id, to.Id))
+            return $"{MixState.Label(to)} already feeds {MixState.Label(from)}, so this would make a feedback loop.";
+        return null;
+    }
 }

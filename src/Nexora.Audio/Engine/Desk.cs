@@ -67,6 +67,10 @@ public sealed record DeskStatus(
     public DateTime LastBackupUtc { get; init; }
     /// <summary>A macro is running now.</summary>
     public string? RunningMacro { get; init; }
+    /// <summary>Saved routing layouts (the factory layout last).</summary>
+    public IReadOnlyList<RoutingInfo> Routings { get; init; } = [];
+    /// <summary>Strips whose sound is late (plugins, look-ahead) or waits to line up with a slower path.</summary>
+    public IReadOnlyList<StripLatency> Latency { get; init; } = [];
 
     public static DeskStatus Empty { get; } = new(0, new DeskSettings(), false, null, [], null, 0, 0, null, [], [], [], 0, false, null, [], 0, 0);
 }
@@ -141,6 +145,8 @@ public sealed partial class Desk : IDisposable
         _launcher = launcher ?? new ProcessHostLauncher(Environment.ProcessPath ?? "NexAudio.exe");
         _settings = LoadJson<DeskSettings>(_settingsFile) ?? new DeskSettings();
         _mix = (File.Exists(_mixFile) ? MixState.FromJson(File.ReadAllText(_mixFile)) : null) ?? MixState.CreateDefault();
+        // Never start with the test signal playing into a bus.
+        _mix.Tone.On = false;
         _pluginList = PluginScanner.Load(_pluginsFile);
         _showFile = Path.Combine(dataDir, "show.json");
         _show = LoadShow();
@@ -714,6 +720,7 @@ public sealed partial class Desk : IDisposable
             {
                 UndoText = _history.UndoLabel, RedoText = _history.RedoLabel, Presets = _presets.List(),
                 Show = ShowCopy, Tape = _tape.Status, Backups = ShowFiles.Backups(_dir), LastBackupUtc = _lastBackup, RunningMacro = _runningMacro,
+                Routings = Routings.List(), Latency = LatencyList(),
             };
         }
     }
