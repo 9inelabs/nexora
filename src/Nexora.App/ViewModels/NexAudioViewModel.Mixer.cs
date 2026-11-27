@@ -273,6 +273,12 @@ public sealed partial class NexAudioViewModel
         Array.Copy(m.L, levels, n);
         Array.Copy(m.R, 0, levels, n, n);
         StripMeters.Push(levels, new bool[n * 2]);
+        foreach (var v in VisibleStrips.Append(MainStrip))
+        {
+            if (v is null || v.MeterIndex < 0 || v.MeterIndex >= n) continue;
+            v.GateGr = m.Gate[v.MeterIndex];
+            v.CompGr = m.Comp[v.MeterIndex];
+        }
         if (SelectedId is { } id)
         {
             var i = _mix.AllStrips().Select(s => s.Id).ToList().IndexOf(id);
@@ -282,6 +288,7 @@ public sealed partial class NexAudioViewModel
                 SelectedComp = m.Comp[i];
                 SelectedRack = m.Rack[i];
                 SelectedIn = m.In[i] <= 0 ? -60 : Math.Max(-60, 20 * Math.Log10(m.In[i]));
+                PushHistory(m.In[i] <= 0 ? -90 : 20 * Math.Log10(m.In[i]), m.Gate[i], m.Comp[i]);
             }
         }
         MonitorLevel = Math.Max(m.MonitorL, m.MonitorR);
@@ -388,83 +395,6 @@ public sealed partial class NexAudioViewModel
         Strip? S(MixState m) => m.Find(id);
         Action<string, object> q = Queue;
 
-        if (s.Kind == StripKind.Channel)
-        {
-            var input = new ParamSection("Input", "Gain and phantom power are on the X32's preamp and change on the desk over the network.");
-            input.Items.Add(new SliderParam($"{id}.preamp", "X32 preamp gain", -12, 60, "dB", m => S(m)?.Preamp ?? 0, q, step: 0.5));
-            input.Items.Add(new ToggleParam($"{id}.phantom", "Phantom power (+48 V)", m => S(m)?.Phantom ?? false, q));
-            input.Items.Add(new SliderParam($"{id}.trim", "Trim", -24, 24, "dB", m => S(m)?.Trim, q, step: 0.5));
-            input.Items.Add(new ToggleParam($"{id}.invert", "Flip polarity", m => S(m)?.Invert ?? false, q));
-            input.Items.Add(new SliderParam($"{id}.delayMs", "Delay (line up mics)", 0, 100, "ms", m => S(m)?.DelayMs, q, step: 0.1));
-            ChannelSections.Add(input);
-        }
-        else
-        {
-            var input = new ParamSection("Input");
-            input.Items.Add(new SliderParam($"{id}.trim", "Trim", -24, 24, "dB", m => S(m)?.Trim, q, step: 0.5));
-            input.Items.Add(new SliderParam($"{id}.delayMs", "Delay", 0, 100, "ms", m => S(m)?.DelayMs, q, step: 0.1));
-            ChannelSections.Add(input);
-        }
-
-        var filters = new ParamSection("Low and high cut");
-        filters.Items.Add(new ToggleParam($"{id}.hpf.on", "Low cut on", m => S(m)?.Hpf.On ?? false, q));
-        filters.Items.Add(new SliderParam($"{id}.hpf.freq", "Low cut", 20, 600, "Hz", m => S(m)?.Hpf.Freq, q, log: true));
-        filters.Items.Add(new ChoiceParam($"{id}.hpf.slope", "Low cut slope", [new("12", "Gentle (12 dB)"), new("24", "Steep (24 dB)")], m => S(m)?.Hpf.Slope.ToString(CultureInfo.InvariantCulture), q, asNumber: true));
-        filters.Items.Add(new ToggleParam($"{id}.lpf.on", "High cut on", m => S(m)?.Lpf.On ?? false, q));
-        filters.Items.Add(new SliderParam($"{id}.lpf.freq", "High cut", 2000, 20000, "Hz", m => S(m)?.Lpf.Freq, q, log: true));
-        ChannelSections.Add(filters);
-
-        var shapes = new List<Choice>
-        {
-            new("Peak", "Bell"), new("LowShelf", "Low shelf"), new("HighShelf", "High shelf"), new("Notch", "Notch"),
-            new("HighPass", "Low cut"), new("LowPass", "High cut"),
-        };
-        for (var b = 0; b < s.Eq.Bands.Count; b++)
-        {
-            var bi = b;
-            EqBand? B(MixState m) => S(m) is { } st && bi < st.Eq.Bands.Count ? st.Eq.Bands[bi] : null;
-            var sec = new ParamSection($"EQ band {b + 1}")
-            {
-                Switch = new ToggleParam($"{id}.eq.{b}.on", "On", m => B(m)?.On ?? false, q),
-            };
-            sec.Items.Add(new ChoiceParam($"{id}.eq.{b}.shape", "Shape", shapes, m => B(m)?.Shape.ToString(), q));
-            sec.Items.Add(new SliderParam($"{id}.eq.{b}.freq", "Frequency", 20, 20000, "Hz", m => B(m)?.Freq, q, log: true));
-            sec.Items.Add(new SliderParam($"{id}.eq.{b}.gain", "Gain", -18, 18, "dB", m => B(m)?.Gain, q, step: 0.5));
-            sec.Items.Add(new SliderParam($"{id}.eq.{b}.q", "Width (Q)", 0.3, 10, "", m => B(m)?.Q, q, log: true));
-            ChannelSections.Add(sec);
-        }
-
-        if (s.Kind == StripKind.Channel)
-        {
-            var gate = new ParamSection("Gate", "Turns the channel down when nobody is using the mic.")
-            {
-                Switch = new ToggleParam($"{id}.gate.on", "On", m => S(m)?.Gate.On ?? false, q),
-            };
-            gate.Items.Add(new SliderParam($"{id}.gate.threshold", "Opens above", -80, 0, "dB", m => S(m)?.Gate.Threshold, q, step: 0.5));
-            gate.Items.Add(new SliderParam($"{id}.gate.range", "Turns down by", 0, 80, "dB", m => S(m)?.Gate.Range, q, step: 1));
-            gate.Items.Add(new SliderParam($"{id}.gate.attack", "Attack", 0.05, 50, "ms", m => S(m)?.Gate.Attack, q, log: true));
-            gate.Items.Add(new SliderParam($"{id}.gate.hold", "Hold", 0, 500, "ms", m => S(m)?.Gate.Hold, q, step: 1));
-            gate.Items.Add(new SliderParam($"{id}.gate.release", "Release", 5, 2000, "ms", m => S(m)?.Gate.Release, q, log: true));
-            gate.Items.Add(new SliderParam($"{id}.gate.keyFilter", "Listen above", 0, 400, "Hz", m => S(m)?.Gate.KeyFilter, q, step: 5));
-            ChannelSections.Add(gate);
-        }
-
-        var comp = new ParamSection("Compressor", "Evens out the level. Clean is transparent, Opto is smooth, FET is punchy, Glue holds groups together.")
-        {
-            Switch = new ToggleParam($"{id}.comp.on", "On", m => S(m)?.Comp.On ?? false, q),
-        };
-        comp.Items.Add(new ChoiceParam($"{id}.comp.style", "Style", [new("Clean", "Clean"), new("Opto", "Opto (smooth)"), new("Fet", "FET (punchy)"), new("Glue", "Glue")], m => S(m)?.Comp.Style.ToString(), q));
-        comp.Items.Add(new SliderParam($"{id}.comp.threshold", "Threshold", -60, 0, "dB", m => S(m)?.Comp.Threshold, q, step: 0.5));
-        comp.Items.Add(new SliderParam($"{id}.comp.ratio", "Ratio", 1, 20, ":1", m => S(m)?.Comp.Ratio, q, log: true));
-        comp.Items.Add(new SliderParam($"{id}.comp.attack", "Attack", 0.05, 200, "ms", m => S(m)?.Comp.Attack, q, log: true));
-        comp.Items.Add(new SliderParam($"{id}.comp.release", "Release", 10, 2000, "ms", m => S(m)?.Comp.Release, q, log: true));
-        comp.Items.Add(new SliderParam($"{id}.comp.knee", "Knee", 0, 24, "dB", m => S(m)?.Comp.Knee, q, step: 0.5));
-        comp.Items.Add(new SliderParam($"{id}.comp.makeup", "Make-up gain", -12, 24, "dB", m => S(m)?.Comp.Makeup, q, step: 0.5));
-        comp.Items.Add(new ToggleParam($"{id}.comp.autoMakeup", "Automatic make-up", m => S(m)?.Comp.AutoMakeup ?? false, q));
-        comp.Items.Add(new SliderParam($"{id}.comp.mix", "Mix (parallel)", 0, 100, "%", m => S(m)?.Comp.Mix, q, step: 1));
-        comp.Items.Add(new SliderParam($"{id}.comp.keyFilter", "Listen above", 0, 400, "Hz", m => S(m)?.Comp.KeyFilter, q, step: 5));
-        ChannelSections.Add(comp);
-
         // Where it goes.
         var route = new ParamSection("Routing");
         if (s.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group)
@@ -477,22 +407,6 @@ public sealed partial class NexAudioViewModel
             }
         route.Items.Add(new ToggleParam($"{id}.recallSafe", "Scenes leave this strip alone", m => S(m)?.RecallSafe ?? false, q));
         ChannelSections.Add(route);
-
-        var buses = _mix.Buses.Where(b => Routing.CanSend(s, b)).OrderBy(b => Routing.Stage(b.Kind)).ThenBy(b => b.Number).ToList();
-        if (_mix.Main.Kind == StripKind.Main && Routing.CanSend(s, _mix.Main)) buses.Add(_mix.Main);
-        if (buses.Count > 0)
-        {
-            var sends = new ParamSection("Sends", "Monitor mixes take the sound before the fader, so moving the main fader does not change the wedges.");
-            foreach (var b in buses)
-            {
-                var bid = b.Id;
-                Send? Sd(MixState m) => S(m)?.SendTo(bid);
-                sends.Items.Add(new SliderParam($"{id}.send.{bid}.level", NameOf(b), Db.Floor, 10, "dB", m => Sd(m) is { } x ? x.Level : Db.Floor, q, step: 0.5));
-                sends.Items.Add(new ChoiceParam($"{id}.send.{bid}.tap", $"{NameOf(b)} taken", [new("Pre", "Before the fader"), new("Post", "After the fader")],
-                    m => (Sd(m)?.Tap ?? (b.Kind == StripKind.Mix ? SendTap.Pre : SendTap.Post)).ToString(), q));
-            }
-            ChannelSections.Add(sends);
-        }
 
         if (s.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group)
         {
@@ -522,6 +436,7 @@ public sealed partial class NexAudioViewModel
 
         SelectBar.Clear();
         foreach (var v in ChannelStrips.Concat(BusStrips).Append(MainStrip!)) if (v is not null) SelectBar.Add(v);
+        BuildWorkspace(s);
     }
 
     [ObservableProperty] private string _selectedName = "";
@@ -542,6 +457,7 @@ public sealed partial class NexAudioViewModel
         }
         foreach (var r in Rack) r.Refresh(_mix);
         OnPropertyChanged(nameof(SelectedFilters));
+        UpdateWorkspace();
     }
 
     [RelayCommand]

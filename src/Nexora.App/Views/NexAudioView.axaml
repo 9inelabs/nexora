@@ -64,8 +64,8 @@
     <Style Selector="Border.stripcard">
       <Setter Property="Background" Value="{StaticResource Surface2}" />
       <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Padding" Value="5,6" />
-      <Setter Property="Width" Value="76" />
+      <Setter Property="Padding" Value="6,6" />
+      <Setter Property="Width" Value="80" />
       <Setter Property="Margin" Value="0,0,6,0" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="BorderBrush" Value="Transparent" />

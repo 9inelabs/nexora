@@ -35,10 +35,11 @@ public sealed partial class SliderParam : MixParam
 {
     private readonly Func<MixState, double?> _get;
 
-    public SliderParam(string path, string label, double min, double max, string unit, Func<MixState, double?> get, Action<string, object> send, bool log = false, double step = 0)
+    public SliderParam(string path, string label, double min, double max, string unit, Func<MixState, double?> get, Action<string, object> send, bool log = false, double step = 0, double? def = null)
         : base(path, label, send)
     {
         _get = get;
+        _default = def;
         Min = min;
         Max = max;
         Unit = unit;
@@ -53,6 +54,7 @@ public sealed partial class SliderParam : MixParam
     }
 
     private readonly ParamInfo? _info;
+    private readonly double? _default;
     public double Min { get; }
     public double Max { get; }
     public string Unit { get; }
@@ -103,6 +105,7 @@ public sealed partial class SliderParam : MixParam
     private void Reset()
     {
         if (_info is not null) Value = _info.Default;
+        else if (_default is { } d) Value = d;
         else if (Unit == "dB" && Min < 0 && Max > 0) Value = 0;
     }
 }
@@ -213,10 +216,21 @@ public sealed partial class StripView : ObservableObject
     [ObservableProperty] private bool _rackOn;
     [ObservableProperty] private bool _faderEnabled = true;
     [ObservableProperty] private string _layerNote = "";
+    /// <summary>The strip's filters and EQ, for the small curve at the top of the strip.</summary>
+    [ObservableProperty] private FilterSettings? _filters;
+    [ObservableProperty] private double _gateGr;
+    [ObservableProperty] private double _compGr;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(FaderText))] private double _fader;
     private bool _refreshing;
 
     public string FaderText => Fader <= Db.Floor ? "-∞" : $"{Fader:+0.0;-0.0;0.0}";
+    /// <summary>The pan as a knob position, 0 (left) to 1000 (right).</summary>
+    public double PanPosition
+    {
+        get => (Pan + 1) * 500;
+        set => Pan = Math.Round(Math.Clamp(value / 500 - 1, -1, 1), 2);
+    }
+
     public string PanText => Math.Abs(Pan) < 0.01 ? "C" : Pan < 0 ? $"L{-Pan * 100:0}" : $"R{Pan * 100:0}";
 
     public void Update(Strip s)
@@ -239,6 +253,8 @@ public sealed partial class StripView : ObservableObject
         EqOn = !s.Eq.IsFlat || s.Hpf.On;
         DynOn = s.Gate.On || s.Comp.On;
         RackOn = s.Rack.Any(r => !r.Bypass);
+        var f = FilterSettings.From(s);
+        if (Filters is null || !SameFilters(Filters, f)) Filters = f;
         var layer = _owner.LayerBus;
         if (layer is null || s.Id == layer.Id)
         {
@@ -255,6 +271,7 @@ public sealed partial class StripView : ObservableObject
             LayerNote = can ? send?.Tap == SendTap.Pre ? "send · pre" : "send · post" : "";
         }
         OnPropertyChanged(nameof(PanText));
+        OnPropertyChanged(nameof(PanPosition));
         _refreshing = false;
     }
 
@@ -273,6 +290,7 @@ public sealed partial class StripView : ObservableObject
     partial void OnPanChanged(double value)
     {
         OnPropertyChanged(nameof(PanText));
+        OnPropertyChanged(nameof(PanPosition));
         if (!_refreshing) _owner.Queue($"{Id}.pan", Math.Round(value, 2));
     }
 
@@ -280,6 +298,10 @@ public sealed partial class StripView : ObservableObject
     [RelayCommand] private void ToggleSolo() => _owner.Queue($"{Id}.solo", !Solo);
     [RelayCommand] private void Select() => _owner.SelectStrip(Id, true);
     [RelayCommand] private void CentrePan() => Pan = 0;
+    [RelayCommand] private void OpenSection(string section) => _owner.OpenStripSection(Id, section);
+
+    private static bool SameFilters(FilterSettings a, FilterSettings b) =>
+        System.Text.Json.JsonSerializer.Serialize(a, MixState.Json) == System.Text.Json.JsonSerializer.Serialize(b, MixState.Json);
 }
 
 public sealed record LayerChoice(string? BusId, string Label)
@@ -331,6 +353,9 @@ public sealed partial class RackItemView : ObservableObject
     public bool CanMoveDown { get; }
     public ToggleParam Bypass { get; }
     public ObservableCollection<MixParam> Params { get; } = [];
+    public IEnumerable<SliderParam> Knobs => Type == "eq31" ? [] : Params.OfType<SliderParam>();
+    public IEnumerable<ChoiceParam> Choices => Params.OfType<ChoiceParam>();
+    public bool IsGraphicEq => Type == "eq31";
     [ObservableProperty] private string _status = "";
     [ObservableProperty] private bool _expanded = true;
 

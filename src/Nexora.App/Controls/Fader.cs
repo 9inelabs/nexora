@@ -21,9 +21,15 @@ public sealed class Fader : Control
     public static readonly StyledProperty<int> MeterIndexProperty = AvaloniaProperty.Register<Fader, int>(nameof(MeterIndex), -1);
     public static readonly StyledProperty<int> MeterIndexRProperty = AvaloniaProperty.Register<Fader, int>(nameof(MeterIndexR), -1);
     public static readonly StyledProperty<IBrush?> CapBrushProperty = AvaloniaProperty.Register<Fader, IBrush?>(nameof(CapBrush));
+    /// <summary>A bigger cap and meter, for the channel workspace.</summary>
+    public static readonly StyledProperty<bool> WideProperty = AvaloniaProperty.Register<Fader, bool>(nameof(Wide));
 
     private static readonly IBrush Groove = new SolidColorBrush(Color.Parse("#0E0F12"));
-    private static readonly IBrush CapBody = new SolidColorBrush(Color.Parse("#3A3D44"));
+    private static readonly IBrush CapBody = new SolidColorBrush(Color.Parse("#383B42"));
+    private static readonly IBrush CapEdge = new SolidColorBrush(Color.Parse("#4A4E56"));
+    private static readonly IPen Grip = new Pen(new SolidColorBrush(Color.Parse("#1E2024")), 1.2);
+    private static readonly IBrush Bubble = new SolidColorBrush(Color.Parse("#F2F2F0"));
+    private static readonly IBrush BubbleText = new SolidColorBrush(Color.Parse("#121316"));
     private static readonly IBrush CapLine = new SolidColorBrush(Color.Parse("#F2F2F0"));
     private static readonly IBrush Scale = new SolidColorBrush(Color.Parse("#6C6F77"));
     private static readonly IBrush Low = new SolidColorBrush(Color.Parse("#3DD68C"));
@@ -33,13 +39,13 @@ public sealed class Fader : Control
     private static readonly Typeface Mono = new(new FontFamily("avares://Nexora/Assets/Fonts#JetBrains Mono"));
     private static readonly (double Db, string Text)[] Marks = [(10, "10"), (5, "5"), (0, "0"), (-5, "5"), (-10, "10"), (-20, "20"), (-30, "30"), (-50, "50"), (-90, "∞")];
 
-    private const double Pad = 12;
+    private double Pad => CapH / 2 + 2;
     private bool _dragging;
     private double _startY, _startPos;
 
     static Fader()
     {
-        AffectsRender<Fader>(ValueProperty, CapBrushProperty, MeterIndexProperty, MeterIndexRProperty);
+        AffectsRender<Fader>(ValueProperty, CapBrushProperty, MeterIndexProperty, MeterIndexRProperty, WideProperty);
         FocusableProperty.OverrideDefaultValue<Fader>(true);
         CursorProperty.OverrideDefaultValue<Fader>(new Cursor(StandardCursorType.SizeNorthSouth));
     }
@@ -49,6 +55,10 @@ public sealed class Fader : Control
     public int MeterIndex { get => GetValue(MeterIndexProperty); set => SetValue(MeterIndexProperty, value); }
     public int MeterIndexR { get => GetValue(MeterIndexRProperty); set => SetValue(MeterIndexRProperty, value); }
     public IBrush? CapBrush { get => GetValue(CapBrushProperty); set => SetValue(CapBrushProperty, value); }
+    public bool Wide { get => GetValue(WideProperty); set => SetValue(WideProperty, value); }
+
+    private double CapW => Wide ? 44 : 30;
+    private double CapH => Wide ? 58 : 44;
 
     /// <summary>Raised when the person lets go of the fader.</summary>
     public event EventHandler? Released;
@@ -91,32 +101,53 @@ public sealed class Fader : Control
     public override void Render(DrawingContext ctx)
     {
         var b = Bounds;
-        var grooveX = Math.Round(b.Width * 0.42);
-        // Scale.
+        var grooveX = Math.Round(b.Width * (Wide ? 0.46 : 0.44));
+        var labelX = grooveX - CapW / 2 - 3;
+        // Scale: a tick on each side of the groove, numbers to the left of the cap.
         foreach (var (db, text) in Marks)
         {
             var y = YOf(Pos(db));
-            ctx.DrawLine(TickPen, new Point(grooveX - 9, y), new Point(grooveX - 4, y));
-            var ft = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Mono, 9, db == 0 ? CapLine : Scale);
-            ctx.DrawText(ft, new Point(grooveX - 11 - ft.Width, y - ft.Height / 2));
+            ctx.DrawLine(db == 0 ? new Pen(CapLine, 1) : TickPen, new Point(labelX + 1, y), new Point(grooveX - 4, y));
+            var ft = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Mono, Wide ? 10 : 9, db == 0 ? CapLine : Scale);
+            ctx.DrawText(ft, new Point(labelX - 1 - ft.Width, y - ft.Height / 2));
         }
-        ctx.FillRectangle(Groove, new Rect(grooveX - 2, TrackTop, 4, TrackHeight), 2);
+        var gw = Wide ? 6 : 4;
+        ctx.FillRectangle(Groove, new Rect(grooveX - gw / 2.0, TrackTop, gw, TrackHeight), 3);
 
-        // Meter, to the right of the groove.
+        // Meter, to the right of the cap.
         if (Meters is { } m && MeterIndex >= 0 && MeterIndex < m.Count)
         {
-            var mx = grooveX + 12;
+            var mx = grooveX + CapW / 2 + 4;
             var right = MeterIndexR >= 0 && MeterIndexR < m.Count;
-            var w = right ? 4 : 6;
+            var w = Wide ? (right ? 6 : 10) : (right ? 4 : 6);
             DrawMeter(ctx, new Rect(mx, TrackTop, w, TrackHeight), m.Levels[MeterIndex], m.Peaks[MeterIndex]);
             if (right) DrawMeter(ctx, new Rect(mx + w + 2, TrackTop, w, TrackHeight), m.Levels[MeterIndexR], m.Peaks[MeterIndexR]);
         }
 
-        // Cap.
+        // Cap: a solid body with grip lines, and a bright line across its middle at the level.
         var cy = YOf(Pos(Value));
-        var cap = new Rect(grooveX - 11, cy - 13, 22, 26);
-        ctx.FillRectangle(CapBrush ?? CapBody, cap, 4);
-        ctx.FillRectangle(CapLine, new Rect(cap.X + 3, cy - 0.75, cap.Width - 6, 1.5));
+        var cap = new Rect(grooveX - CapW / 2, cy - CapH / 2, CapW, CapH);
+        ctx.FillRectangle(CapEdge, cap, 6);
+        ctx.FillRectangle(CapBrush ?? CapBody, cap.Deflate(1.5), 5);
+        for (var i = 1; i <= 3; i++)
+        {
+            var dy = i * CapH / 9;
+            ctx.DrawLine(Grip, new Point(cap.X + 5, cy - dy), new Point(cap.Right - 5, cy - dy));
+            ctx.DrawLine(Grip, new Point(cap.X + 5, cy + dy), new Point(cap.Right - 5, cy + dy));
+        }
+        var accent = this.TryFindResource("Accent", ActualThemeVariant, out var a) && a is IBrush ab ? ab : CapLine;
+        ctx.FillRectangle(_dragging || IsFocused ? accent : CapLine, new Rect(cap.X + 3, cy - 1, cap.Width - 6, 2));
+
+        // While it moves, the level shows beside the cap.
+        if (_dragging)
+        {
+            var txt = new FormattedText(Value <= -90 ? "-∞" : $"{Value:+0.0;-0.0;0.0}", CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Mono, 11, BubbleText);
+            var bw = txt.Width + 12;
+            var bx = cap.Right + 4 + bw > b.Width ? cap.X - bw - 4 : cap.Right + 4;
+            var bubble = new Rect(bx, cy - 10, bw, 20);
+            ctx.FillRectangle(Bubble, bubble, 5);
+            ctx.DrawText(txt, new Point(bubble.X + 6, cy - txt.Height / 2));
+        }
     }
 
     private static void DrawMeter(DrawingContext ctx, Rect r, float level, float peak)
@@ -151,11 +182,13 @@ public sealed class Fader : Control
         var y = e.GetPosition(this).Y;
         var capY = YOf(Pos(Value));
         // Clicking away from the cap jumps it there; grabbing the cap keeps it where it is.
-        if (Math.Abs(y - capY) > 14) Value = DbAt(Math.Clamp(1 - (y - TrackTop) / TrackHeight, 0, 1));
+        if (Math.Abs(y - capY) > CapH / 2) Value = DbAt(Math.Clamp(1 - (y - TrackTop) / TrackHeight, 0, 1));
         _dragging = true;
         _startY = y;
         _startPos = Pos(Value);
+        Focus();
         e.Pointer.Capture(this);
+        InvalidateVisual();
         e.Handled = true;
     }
 
@@ -180,6 +213,7 @@ public sealed class Fader : Control
         if (!_dragging) return;
         _dragging = false;
         e.Pointer.Capture(null);
+        InvalidateVisual();
         Released?.Invoke(this, EventArgs.Empty);
     }
 

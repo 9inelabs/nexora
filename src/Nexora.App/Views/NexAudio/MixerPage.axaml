@@ -42,31 +42,47 @@
   <UserControl.DataTemplates>
     <DataTemplate DataType="vm:StripView">
       <Border Classes="stripcard" Classes.selected="{Binding IsSelected}">
-        <Grid RowDefinitions="Auto,Auto,4,Auto,6,Auto,Auto,*,Auto,6,Auto,4,Auto">
-          <TextBlock Classes="eyebrow" Text="{Binding Number}" HorizontalAlignment="Center" FontSize="9.5" TextTrimming="CharacterEllipsis" />
-          <Button Grid.Row="1" Classes="ghost small" Command="{Binding SelectCommand}" Padding="2,3" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                  ToolTip.Tip="Open this strip's EQ, dynamics, effects and sends">
-            <StackPanel Spacing="3">
-              <TextBlock Text="{Binding Name}" FontSize="11.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
-              <Border Height="2" CornerRadius="1" Background="{Binding Colour}" Width="40" />
+        <Grid RowDefinitions="Auto,4,Auto,6,Auto,4,Auto,4,Auto,*,Auto,6,Auto,4,Auto">
+          <Border Height="4" CornerRadius="2" Background="{Binding Colour, FallbackValue={StaticResource Surface3}}" />
+          <Button Grid.Row="2" Classes="ghost small" Command="{Binding SelectCommand}" Padding="2,2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  ToolTip.Tip="Open this strip: input, gate, EQ, compressor, effects and sends">
+            <StackPanel Spacing="0">
+              <TextBlock Classes="eyebrow" Text="{Binding Number}" HorizontalAlignment="Center" FontSize="9.5" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
             </StackPanel>
           </Button>
-          <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center">
-            <Border Classes="ind" Classes.on="{Binding EqOn}"><TextBlock Text="EQ" /></Border>
-            <Border Classes="ind" Classes.on="{Binding DynOn}"><TextBlock Text="DYN" /></Border>
-            <Border Classes="ind" Classes.on="{Binding RackOn}"><TextBlock Text="FX" /></Border>
+          <Button Grid.Row="4" Classes="ghost" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                  Command="{Binding OpenSectionCommand}" CommandParameter="Eq" ToolTip.Tip="Open the EQ">
+            <c:EqCurve Height="30" Compact="True" Settings="{Binding Filters}" IsHitTestVisible="False" />
+          </Button>
+          <Grid Grid.Row="6" ColumnDefinitions="*,3,*,3,*">
+            <Button Classes="ghost" Padding="0" HorizontalAlignment="Stretch" Command="{Binding OpenSectionCommand}" CommandParameter="Eq">
+              <Border Classes="ind" Padding="0" Classes.on="{Binding EqOn}" HorizontalAlignment="Stretch"><TextBlock Text="EQ" HorizontalAlignment="Center" /></Border>
+            </Button>
+            <Button Grid.Column="2" Classes="ghost" Padding="0" HorizontalAlignment="Stretch" Command="{Binding OpenSectionCommand}" CommandParameter="Dynamics">
+              <Border Classes="ind" Padding="0" Classes.on="{Binding DynOn}" HorizontalAlignment="Stretch"><TextBlock Text="DYN" HorizontalAlignment="Center" /></Border>
+            </Button>
+            <Button Grid.Column="4" Classes="ghost" Padding="0" HorizontalAlignment="Stretch" Command="{Binding OpenSectionCommand}" CommandParameter="Effects">
+              <Border Classes="ind" Padding="0" Classes.on="{Binding RackOn}" HorizontalAlignment="Stretch"><TextBlock Text="FX" HorizontalAlignment="Center" /></Border>
+            </Button>
+          </Grid>
+          <StackPanel Grid.Row="8" Spacing="2" ToolTip.Tip="How far the gate (G) and compressor (C) are turning this strip down">
+            <Grid ColumnDefinitions="10,*"><TextBlock Classes="faint mono" FontSize="8.5" Text="G" /><c:BarMeter Grid.Column="1" Height="4" Minimum="0" Maximum="30" Value="{Binding GateGr}" VerticalAlignment="Center" /></Grid>
+            <Grid ColumnDefinitions="10,*"><TextBlock Classes="faint mono" FontSize="8.5" Text="C" /><c:BarMeter Grid.Column="1" Height="4" Minimum="0" Maximum="20" Value="{Binding CompGr}" VerticalAlignment="Center" /></Grid>
           </StackPanel>
-          <Slider Grid.Row="5" Minimum="-1" Maximum="1" Value="{Binding Pan}" Margin="2,-8" ToolTip.Tip="Pan (balance on stereo strips)" />
-          <TextBlock Grid.Row="6" Classes="faint mono" FontSize="9.5" Text="{Binding PanText}" HorizontalAlignment="Center" />
-          <c:Fader Grid.Row="7" Value="{Binding Fader}" MinHeight="180" IsEnabled="{Binding FaderEnabled}"
+          <c:Fader Grid.Row="9" Value="{Binding Fader}" MinHeight="200" IsEnabled="{Binding FaderEnabled}" Margin="0,4,0,0"
                    Meters="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).StripMeters}"
                    MeterIndex="{Binding MeterIndex}" MeterIndexR="{Binding MeterIndexR}" />
-          <StackPanel Grid.Row="8" Spacing="0">
-            <TextBlock Classes="mono small" Text="{Binding FaderText}" HorizontalAlignment="Center" />
-            <TextBlock Classes="faint" FontSize="9" Text="{Binding LayerNote}" HorizontalAlignment="Center" />
-          </StackPanel>
-          <Button Grid.Row="10" Classes="strip mute" Classes.active="{Binding Mute}" Command="{Binding ToggleMuteCommand}" Content="MUTE" />
-          <Button Grid.Row="12" Classes="strip solo" Classes.active="{Binding Solo}" Command="{Binding ToggleSoloCommand}" Content="SOLO" IsVisible="{Binding CanSolo}" />
+          <Grid Grid.Row="10" ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="0" VerticalAlignment="Center">
+              <TextBlock Classes="mono" FontSize="12.5" Text="{Binding FaderText}" />
+              <TextBlock Classes="faint" FontSize="8.5" Text="{Binding LayerNote}" />
+            </StackPanel>
+            <c:Knob Grid.Column="1" Width="34" Height="44" Bipolar="True" Label="" Text="{Binding PanText}"
+                    Position="{Binding PanPosition}" ResetCommand="{Binding CentrePanCommand}" ToolTip.Tip="Pan (balance on stereo strips). Double-click to centre." />
+          </Grid>
+          <Button Grid.Row="12" Classes="strip mute" Classes.active="{Binding Mute}" Command="{Binding ToggleMuteCommand}" Content="MUTE" Padding="0,6" />
+          <Button Grid.Row="14" Classes="strip solo" Classes.active="{Binding Solo}" Command="{Binding ToggleSoloCommand}" Content="SOLO" Padding="0,6" IsVisible="{Binding CanSolo}" />
         </Grid>
       </Border>
     </DataTemplate>
