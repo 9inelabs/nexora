@@ -69,6 +69,24 @@ public sealed class X32Client : IDisposable
         lock (_gate) return _values.TryGetValue(address, out var v) ? v : null;
     }
     public bool Connected => Info is not null && DateTime.UtcNow - _lastHeard < TimeSpan.FromSeconds(10);
+
+    /// <summary>When the X32 last answered (MinValue before it ever has).</summary>
+    public DateTime LastHeard => _lastHeard;
+
+    /// <summary>How many times the link was lost since the desk started.</summary>
+    public int Drops { get; private set; }
+
+    /// <summary>The link was lost (false) or came back (true) while connected.</summary>
+    public event Action<bool>? LinkChanged;
+
+    /// <summary>
+    /// Forgets what the X32 last showed, so the next sync sends the whole mix again
+    /// (after the X32 was off or its cable out, its own values may no longer be NEX-Audio's).
+    /// </summary>
+    public void ForgetValues()
+    {
+        lock (_gate) _values.Clear();
+    }
     public string? Address => _target?.Address.ToString();
 
     public IReadOnlyList<X32Channel> Channels
@@ -158,6 +176,9 @@ public sealed class X32Client : IDisposable
             if (now != wasConnected)
             {
                 wasConnected = now;
+                if (now) ForgetValues();
+                else Drops++;
+                try { LinkChanged?.Invoke(now); } catch { }
                 Changed?.Invoke();
                 if (now) await RequestChannelsAsync();
             }

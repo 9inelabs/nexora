@@ -26,6 +26,14 @@ public sealed class EngineCore
     private readonly int[] _inClip, _outClip;
     private double _tonePhase;
     private long _clock;
+    private long _mixFaults, _badSamples;
+
+    /// <summary>Buffers where the mix failed and the plain patch played instead.</summary>
+    public long MixFaults => Interlocked.Read(ref _mixFaults);
+    /// <summary>Samples that were not a number and were silenced before reaching an output.</summary>
+    public long BadSamples => Interlocked.Read(ref _badSamples);
+    /// <summary>What went wrong in the mix last time.</summary>
+    public string? LastFault { get; private set; }
 
     // Latency test, run on the audio thread, read by the control thread.
     private volatile int _ltState; // 0 idle, 1 measuring noise, 2 waiting to fire, 3 listening
@@ -116,14 +124,25 @@ public sealed class EngineCore
         var toneUsed = false;
         var phaseStep = 2 * Math.PI * 1000.0 / SampleRate;
         var mix = Volatile.Read(ref _mix);
+        var mixed = false;
         if (mix is not null)
         {
-            var tape = Volatile.Read(ref _tape);
-            tape?.PreMix(In, frames);
-            mix.Process(In, Out, frames);
-            tape?.PostMix(mix, frames);
+            // Whatever goes wrong inside the mix, the audio thread must not die: this buffer plays the plain patch instead.
+            try
+            {
+                var tape = Volatile.Read(ref _tape);
+                tape?.PreMix(In, frames);
+                mix.Process(In, Out, frames);
+                tape?.PostMix(mix, frames);
+                mixed = true;
+            }
+            catch (Exception ex)
+            {
+                Interlocked.Increment(ref _mixFaults);
+                LastFault = ex.GetType().Name + ": " + ex.Message;
+            }
         }
-        else for (var o = 0; o < Outputs; o++)
+        if (!mixed) for (var o = 0; o < Outputs; o++)
         {
             var dst = Out[o];
             var src = patch[o];
@@ -144,6 +163,14 @@ public sealed class EngineCore
 
         for (var o = 0; o < Outputs; o++)
         {
+            // A sample that is not a number (a filter that blew up) would be a full-scale crack in the speakers: silence it.
+            var buf = Out[o];
+            for (var n = 0; n < frames; n++)
+                if (!float.IsFinite(buf[n]))
+                {
+                    buf[n] = 0;
+                    _badSamples++;
+                }
             var peak = Peak(Out[o], frames);
             if (peak > _outPeak[o]) _outPeak[o] = peak;
             if (peak >= ClipLevel) _outClip[o] = 1;

@@ -8,15 +8,83 @@ namespace Nexora.Audio.Mix;
 public enum RecallScope
 {
     None = 0,
-    /// <summary>Faders, mutes, pans, send levels and the stream balance.</summary>
-    Levels = 1,
-    /// <summary>Filters, EQ, gate, compressor and every effect's settings on the strips.</summary>
-    Processing = 2,
+    /// <summary>Trim, polarity, delay, preamp gain and phantom power.</summary>
+    Input = 1 << 0,
+    /// <summary>Low and high cut, drive and EQ.</summary>
+    Eq = 1 << 1,
+    /// <summary>Gate, compressor, dynamic EQ and their order.</summary>
+    Dynamics = 1 << 2,
+    /// <summary>The strip's own rack: colour strips, nodes, effects and plugins.</summary>
+    Inserts = 1 << 3,
+    /// <summary>Faders, pans and stream levels, and the control groups' masters.</summary>
+    Fader = 1 << 4,
+    /// <summary>Mutes (and the stream on/off), and the mute groups.</summary>
+    Mute = 1 << 5,
+    /// <summary>Send levels to mixes, effects and matrices.</summary>
+    Sends = 1 << 6,
     /// <summary>The shared effects (reverbs, delays) and their returns.</summary>
-    Effects = 4,
-    /// <summary>Which buses exist, groups, routing and the output patch.</summary>
-    Routing = 8,
+    Effects = 1 << 7,
+    /// <summary>Which buses exist, what goes to the main and the groups, names and colours, solo and main settings.</summary>
+    Patch = 1 << 8,
+    /// <summary>The output patch and the speaker processing on the outputs.</summary>
+    Outputs = 1 << 9,
+    /// <summary>Who is in each control group (VCA, linked and mute groups).</summary>
+    Groups = 1 << 10,
+
+    /// <summary>Faders, mutes, pans and send levels.</summary>
+    Levels = Fader | Mute | Sends,
+    /// <summary>Everything on the strips that shapes the sound.</summary>
+    Processing = Input | Eq | Dynamics | Inserts,
+    /// <summary>The shape of the desk: buses, assignments, the output patch and control groups.</summary>
+    Routing = Patch | Outputs | Groups,
     All = Levels | Processing | Effects | Routing,
+}
+
+public static class RecallScopes
+{
+    /// <summary>Each section on its own, in the order the screen lists them.</summary>
+    public static readonly RecallScope[] Sections =
+    [
+        RecallScope.Input, RecallScope.Eq, RecallScope.Dynamics, RecallScope.Inserts, RecallScope.Fader, RecallScope.Mute,
+        RecallScope.Sends, RecallScope.Effects, RecallScope.Patch, RecallScope.Outputs, RecallScope.Groups,
+    ];
+
+    public static string Name(RecallScope s) => s switch
+    {
+        RecallScope.Input => "input",
+        RecallScope.Eq => "EQ",
+        RecallScope.Dynamics => "dynamics",
+        RecallScope.Inserts => "inserts",
+        RecallScope.Fader => "faders",
+        RecallScope.Mute => "mutes",
+        RecallScope.Sends => "sends",
+        RecallScope.Effects => "effects",
+        RecallScope.Patch => "routing",
+        RecallScope.Outputs => "outputs",
+        RecallScope.Groups => "groups",
+        _ => s.ToString().ToLowerInvariant(),
+    };
+
+    /// <summary>"everything", "levels only", or the sections in words.</summary>
+    public static string Text(RecallScope s)
+    {
+        if (s == RecallScope.All) return "everything";
+        if (s == RecallScope.None) return "nothing";
+        if (s == RecallScope.Levels) return "levels only";
+        var parts = new List<string>();
+        var left = s;
+        foreach (var (whole, word) in new[] { (RecallScope.Levels, "levels"), (RecallScope.Processing, "processing"), (RecallScope.Routing, "routing and outputs") })
+            if ((left & whole) == whole)
+            {
+                parts.Add(word);
+                left &= ~whole;
+            }
+        parts.AddRange(Sections.Where(x => (left & x) != 0).Select(Name));
+        return string.Join(", ", parts);
+    }
+
+    /// <summary>What a recall may change on this strip: the scope, less what the strip keeps safe.</summary>
+    public static RecallScope For(Strip s, RecallScope scope) => s.RecallSafe ? RecallScope.None : scope & ~s.Safe;
 }
 
 /// <summary>A saved mix: a whole service's desk (a scene) or a moment within it (a snapshot).</summary>
@@ -179,30 +247,20 @@ public static class SceneRecall
         var result = current.Clone();
         var from = saved.Clone();
         from.Repair();
+        bool Has(RecallScope f) => (scope & f) != 0;
 
-        if (scope.HasFlag(RecallScope.Routing))
+        if (Has(RecallScope.Patch))
         {
-            // The shape of the desk: which buses exist and where everything goes.
-            var keepSafe = result.AllStrips().Where(s => s.RecallSafe).ToDictionary(s => s.Id, s => s.Clone());
+            // The shape of the desk: which buses exist and where everything goes. A bus kept safe for routing stays as it is.
+            var keepSafe = result.Buses.Where(b => (RecallScopes.For(b, scope) & RecallScope.Patch) == 0).ToDictionary(b => b.Id, b => b.Clone());
             result.Buses = from.Buses.Select(b => b.Clone()).ToList();
-            result.Outputs = from.Outputs.Select(o => o.Clone()).ToList();
             result.StreamSettings = from.StreamSettings;
             result.Solo = from.Solo;
             result.MainSettings = from.MainSettings.Clone();
-            // Control groups: who is in them comes with the routing; their masters and mutes with the levels.
-            var live = result.Controls.ToDictionary(g => g.Id);
-            result.Controls = from.Controls.Select(g => g.Clone()).ToList();
-            if (!scope.HasFlag(RecallScope.Levels))
-                foreach (var g in result.Controls)
-                    if (live.TryGetValue(g.Id, out var was) && was.Mode == g.Mode)
-                    {
-                        g.Fader = was.Fader;
-                        g.Mute = was.Mute;
-                    }
             foreach (var ch in result.Channels)
             {
                 var src = from.Channels.FirstOrDefault(c => c.Id == ch.Id);
-                if (src is null || ch.RecallSafe) continue;
+                if (src is null || (RecallScopes.For(ch, scope) & RecallScope.Patch) == 0) continue;
                 ch.ToMain = src.ToMain;
                 ch.ToCentre = src.ToCentre;
                 ch.Groups = [.. src.Groups];
@@ -210,32 +268,51 @@ public static class SceneRecall
                 ch.Name = src.Name;
                 ch.Colour = src.Colour;
             }
-            // A recall-safe bus that still exists in the new layout keeps its own settings.
             for (var i = 0; i < result.Buses.Count; i++)
                 if (keepSafe.TryGetValue(result.Buses[i].Id, out var safe)) result.Buses[i] = safe;
         }
 
-        if (scope.HasFlag(RecallScope.Levels))
+        if (Has(RecallScope.Outputs)) result.Outputs = from.Outputs.Select(o => o.Clone()).ToList();
+
+        // Control groups: who is in them comes with "groups"; their masters with the faders and their mutes with the mutes.
+        if (Has(RecallScope.Groups))
+        {
+            var live = result.Controls.ToDictionary(g => g.Id);
+            result.Controls = from.Controls.Select(g => g.Clone()).ToList();
             foreach (var g in result.Controls)
-                if (from.Control(g.Id) is { } sg && sg.Mode == g.Mode)
+                if (live.TryGetValue(g.Id, out var was) && was.Mode == g.Mode)
                 {
-                    g.Fader = sg.Fader;
-                    g.Mute = sg.Mute;
+                    g.Fader = was.Fader;
+                    g.Mute = was.Mute;
                 }
+        }
+        foreach (var g in result.Controls)
+            if (from.Control(g.Id) is { } sg && sg.Mode == g.Mode)
+            {
+                if (Has(RecallScope.Fader)) g.Fader = sg.Fader;
+                if (Has(RecallScope.Mute)) g.Mute = sg.Mute;
+            }
 
         foreach (var dst in result.AllStrips())
         {
-            if (dst.RecallSafe) continue;
+            var my = RecallScopes.For(dst, scope);
+            if (my == RecallScope.None) continue;
             var src = from.Find(dst.Id);
             if (src is null) continue;
-            var isFx = dst.Kind == StripKind.Fx;
-            if (scope.HasFlag(RecallScope.Levels))
+            bool On(RecallScope f) => (my & f) != 0;
+            if (On(RecallScope.Fader))
             {
                 dst.Fader = src.Fader;
-                dst.Mute = src.Mute;
                 dst.Pan = src.Pan;
                 dst.StreamLevel = src.StreamLevel;
+            }
+            if (On(RecallScope.Mute))
+            {
+                dst.Mute = src.Mute;
                 dst.StreamOn = src.StreamOn;
+            }
+            if (On(RecallScope.Sends))
+            {
                 foreach (var s in src.Sends)
                 {
                     var d = dst.SendTo(s.Bus);
@@ -252,12 +329,34 @@ public static class SceneRecall
                 // Sends the saved mix did not have go quiet.
                 foreach (var d in dst.Sends.Where(d => src.SendTo(d.Bus) is null)) d.On = false;
             }
-            if (isFx ? scope.HasFlag(RecallScope.Effects) : scope.HasFlag(RecallScope.Processing))
+            // An effect return's processing is "effects"; everyone else's is in sections.
+            var input = dst.Kind == StripKind.Fx ? On(RecallScope.Effects) : On(RecallScope.Input);
+            var eq = dst.Kind == StripKind.Fx ? On(RecallScope.Effects) : On(RecallScope.Eq);
+            var dyn = dst.Kind == StripKind.Fx ? On(RecallScope.Effects) : On(RecallScope.Dynamics);
+            var ins = dst.Kind == StripKind.Fx ? On(RecallScope.Effects) : On(RecallScope.Inserts);
+            if (input)
             {
-                dst.TakeProcessing(src, newIds: false);
+                dst.Trim = src.Trim;
+                dst.Invert = src.Invert;
+                dst.DelayMs = src.DelayMs;
                 dst.Preamp = src.Preamp;
                 dst.Phantom = src.Phantom;
             }
+            if (eq)
+            {
+                dst.Hpf = src.Hpf.Clone();
+                dst.Lpf = src.Lpf.Clone();
+                dst.Drive = src.Drive.Clone();
+                dst.Eq = src.Eq.Clone();
+            }
+            if (dyn)
+            {
+                dst.Gate = src.Gate.Clone();
+                dst.Comp = src.Comp.Clone();
+                dst.DynEq = src.DynEq.Clone();
+                dst.Order = src.Order;
+            }
+            if (ins) dst.Rack = src.Rack.Select(r => r.Clone()).ToList();
         }
         result.Repair();
         return result;

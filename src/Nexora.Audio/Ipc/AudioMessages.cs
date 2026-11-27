@@ -59,6 +59,19 @@ public sealed record EngineStatus(
     /// <summary>The rates the driver can run at, and the one asked for (0: the driver's own setting).</summary>
     public IReadOnlyList<double> SampleRates { get; init; } = [];
     public double WantedRate { get; init; }
+    /// <summary>Dropouts (late buffers and driver problems) in the last 10 minutes.</summary>
+    public long RecentDropouts { get; init; }
+    /// <summary>The sample rate the driver really runs at, measured (0 while measuring).</summary>
+    public double MeasuredRate { get; init; }
+    /// <summary>Buffers where the mix failed and the plain patch played, and samples silenced for not being numbers.</summary>
+    public long MixFaults { get; init; }
+    public long BadSamples { get; init; }
+    public string? LastFault { get; init; }
+    /// <summary>Times the driver was lost (stopped sending, or asked to be opened again) since the engine started.</summary>
+    public int DeviceLosses { get; init; }
+    public DateTime? LastLossUtc { get; init; }
+    /// <summary>The test device's pretend cable is pulled (Diagnostics page).</summary>
+    public bool PretendUnplugged { get; init; }
 
     public static EngineStatus Empty { get; } = new(EngineState.Stopped, "", null, [], 0, 0, [], 0, 0, [], [], 0, 0, "", 0, 0, 0, 0, 0, false, [], false, null, "", DateTime.MinValue);
 

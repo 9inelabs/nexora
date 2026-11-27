@@ -34,7 +34,7 @@
           <Button Grid.Column="2" Classes="big primary" Command="{Binding NextSnapshotCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Next snapshot" />
         </Grid>
         <Border Grid.Row="4" Classes="well" Padding="10">
-          <Grid ColumnDefinitions="*,8,170,8,Auto" RowDefinitions="Auto,8,Auto">
+          <Grid ColumnDefinitions="*,8,170,8,Auto" RowDefinitions="Auto,8,Auto,Auto">
             <TextBox Text="{Binding NewSnapshotName}" Watermark="Name, for example Sermon" />
             <ComboBox Grid.Column="2" ItemsSource="{Binding ScopeChoices}" SelectedItem="{Binding SceneScope}" PlaceholderText="Levels only" HorizontalAlignment="Stretch" />
             <Button Grid.Column="4" Classes="primary" Command="{Binding SaveSnapshotCommand}" Content="Save snapshot" />
@@ -43,6 +43,17 @@
               <Slider Grid.Column="2" Minimum="0" Maximum="10" TickFrequency="0.5" IsSnapToTickEnabled="True" Value="{Binding SnapshotFade}" Margin="0,-6" />
               <TextBlock Grid.Column="4" Classes="mono small" Text="{Binding SnapshotFade, StringFormat={}{0:0.#} s}" VerticalAlignment="Center" />
             </Grid>
+            <StackPanel Grid.Row="3" Grid.ColumnSpan="5" Spacing="6" Margin="0,8,0,0" IsVisible="{Binding IsCustomScope}">
+              <TextBlock Classes="faint small" Text="This snapshot changes only what is ticked:" />
+              <ItemsControl ItemsSource="{Binding ScopeSections}">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ScopeToggle">
+                    <ToggleButton Classes="small" IsChecked="{Binding IsOn}" Content="{Binding Label}" Margin="0,0,6,6" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
           </Grid>
         </Border>
         <ScrollViewer Grid.Row="6" VerticalScrollBarVisibility="Auto">
