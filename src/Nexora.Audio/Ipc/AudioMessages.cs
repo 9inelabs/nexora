@@ -56,6 +56,10 @@ public sealed record EngineStatus(
     string EngineVersion,
     DateTime RunningSinceUtc)
 {
+    /// <summary>The rates the driver can run at, and the one asked for (0: the driver's own setting).</summary>
+    public IReadOnlyList<double> SampleRates { get; init; } = [];
+    public double WantedRate { get; init; }
+
     public static EngineStatus Empty { get; } = new(EngineState.Stopped, "", null, [], 0, 0, [], 0, 0, [], [], 0, 0, "", 0, 0, 0, 0, 0, false, [], false, null, "", DateTime.MinValue);
 
     /// <summary>The driver's own figure for the round trip (in plus out), in milliseconds.</summary>
@@ -110,7 +114,7 @@ public sealed record MetersMsg(float[] In, float[] Out, bool[] InClip, bool[] Ou
 public sealed record NoticeMsg(string Text, bool IsError) : AudioMessage;
 
 // Screen to engine
-public sealed record OpenDriverMsg(string Driver, int BufferSize) : AudioMessage;
+public sealed record OpenDriverMsg(string Driver, int BufferSize, double SampleRate = 0) : AudioMessage;
 public sealed record CloseDriverMsg : AudioMessage;
 public sealed record SetPatchMsg(int[] Patch) : AudioMessage;
 public sealed record LatencyTestMsg(int Output, int Input) : AudioMessage;
@@ -132,11 +136,13 @@ public sealed record DeskStatusMsg(DeskStatus Desk) : AudioMessage;
 
 /// <summary>
 /// Strip levels since the last message, for every strip in mix order (channels, buses, main, mono, stream),
-/// with the solo bus, the stream's loudness and the analyser.
+/// with the solo bus, the stream's loudness and the analyser. Phase is the stereo correlation of the main and the stream
+/// (+1 to -1, NaN when too quiet).
 /// </summary>
 public sealed record MixMetersMsg(
     float[] In, float[] L, float[] R, float[] Gate, float[] Comp, float[] Rack, bool[] GateClosed,
-    float MonitorL, float MonitorR, LoudnessReading? Loudness, float[]? Spectrum, float[]? DynEq = null, float[]? Cost = null) : AudioMessage;
+    float MonitorL, float MonitorR, LoudnessReading? Loudness, float[]? Spectrum, float[]? DynEq = null, float[]? Cost = null,
+    float[]? Phase = null) : AudioMessage;
 
 /// <summary>Change one mix setting by its path, for example "ch3.fader" or "ch3.send.mix1.level".</summary>
 public sealed record SetMixMsg(string Path, JsonElement Value) : AudioMessage;

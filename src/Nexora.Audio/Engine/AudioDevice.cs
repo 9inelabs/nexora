@@ -13,7 +13,11 @@ public sealed record DeviceFormat(
     string SampleType,
     IReadOnlyList<int> BufferSizes,
     IReadOnlyList<string> InputNames,
-    IReadOnlyList<string> OutputNames);
+    IReadOnlyList<string> OutputNames)
+{
+    /// <summary>The sample rates the driver says it can run at (of 44.1, 48, 88.2 and 96 kHz).</summary>
+    public IReadOnlyList<double> SampleRates { get; init; } = [];
+}
 
 /// <summary>A sound driver NEX-Audio can run on: the X32's ASIO driver, or the test device.</summary>
 public interface IAudioDevice : IDisposable
@@ -21,8 +25,11 @@ public interface IAudioDevice : IDisposable
     string Name { get; }
     DeviceFormat? Format { get; }
 
-    /// <summary>Opens the driver. <paramref name="bufferSize"/> 0 means the size set in the driver's own settings.</summary>
-    void Open(int bufferSize);
+    /// <summary>
+    /// Opens the driver. <paramref name="bufferSize"/> 0 means the size set in the driver's own settings, and
+    /// <paramref name="sampleRate"/> 0 the rate it is already running at. A rate the driver cannot do is ignored.
+    /// </summary>
+    void Open(int bufferSize, double sampleRate = 0);
 
     void Start(EngineCore core, AudioStats stats);
     void Stop();

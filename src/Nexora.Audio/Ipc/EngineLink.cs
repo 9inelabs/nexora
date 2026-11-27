@@ -123,7 +123,7 @@ public sealed class EngineServer : IDisposable
         switch (msg)
         {
             case OpenDriverMsg o:
-                await _engine.OpenAsync(o.Driver, o.BufferSize);
+                await _engine.OpenAsync(o.Driver, o.BufferSize, o.SampleRate);
                 break;
             case CloseDriverMsg:
                 await _engine.CloseAsync();
@@ -229,7 +229,11 @@ public sealed class EngineServer : IDisposable
                 if (!desk.Redo()) throw new InvalidOperationException("There is nothing to redo.");
                 break;
             case "preset.save":
-                desk.SavePreset(m.Arg("strip") ?? "", m.Arg("name") ?? "");
+                desk.SavePreset(m.Arg("strip") ?? "", m.Arg("name") ?? "", m.Arg("folder"));
+                break;
+            case "preset.move":
+                if (!desk.MovePreset(m.Arg("id") ?? "", m.Arg("folder"), m.Arg("name")))
+                    throw new InvalidOperationException("Only your own presets can be moved or renamed.");
                 break;
             case "preset.load":
                 if (!desk.LoadPreset(m.Arg("strip") ?? "", m.Arg("id") ?? "", m.Arg("parts") ?? "all"))
@@ -318,6 +322,9 @@ public sealed class EngineServer : IDisposable
                 break;
             case "x32.connect":
                 await desk.ConnectX32Async(m.Arg("host") ?? "");
+                break;
+            case "desk.offline":
+                await desk.SetOfflineAsync(m.Arg("on") == "true");
                 break;
             case "x32.disconnect":
                 desk.DisconnectX32();
@@ -512,7 +519,8 @@ public sealed class EngineServer : IDisposable
             m.Select(x => x.In).ToArray(), m.Select(x => x.L).ToArray(), m.Select(x => x.R).ToArray(),
             m.Select(x => x.Gate).ToArray(), m.Select(x => x.Comp).ToArray(), m.Select(x => x.Rack).ToArray(), m.Select(x => x.GateClosed).ToArray(),
             ml, mr, tick % 3 == 0 ? _engine.Desk.Loudness() : null, tick % 2 == 0 ? mix.Analyser.Bands() : null, m.Select(x => x.DynEq).ToArray(),
-            tick % 10 == 0 ? mix.TakeCosts() : null);
+            tick % 10 == 0 ? mix.TakeCosts() : null,
+            [mix.MainPhase.Value, mix.StreamPhase.Value]);
         foreach (var c in conns) _ = c.SendAsync(mm);
     }
 

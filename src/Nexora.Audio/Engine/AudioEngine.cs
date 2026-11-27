@@ -10,6 +10,8 @@ public sealed record EngineSettings
 {
     public string? Driver { get; init; }
     public int BufferSize { get; init; }
+    /// <summary>The sample rate asked for (0: whatever the driver is set to).</summary>
+    public double SampleRate { get; init; }
     public int[]? Patch { get; init; }
     /// <summary>True while someone wants the sound running. The engine starts it again after a restart.</summary>
     public bool Running { get; init; }
@@ -65,7 +67,7 @@ public sealed class AudioEngine : IDisposable
         if (_settings.Running && _settings.Driver is { } d)
         {
             _message = $"Starting {d} again…";
-            _ = _thread.Run(() => OpenOnThread(d, _settings.BufferSize, quiet: true));
+            _ = _thread.Run(() => OpenOnThread(d, _settings.BufferSize, _settings.SampleRate, quiet: true));
         }
     }
 
@@ -90,10 +92,10 @@ public sealed class AudioEngine : IDisposable
 
     // ---- Commands (from the screen) ------------------------------------------------------
 
-    public Task OpenAsync(string driver, int bufferSize)
+    public Task OpenAsync(string driver, int bufferSize, double sampleRate = 0)
     {
-        Save(_settings with { Driver = driver, BufferSize = bufferSize, Running = true });
-        return _thread.Run(() => OpenOnThread(driver, bufferSize, quiet: false));
+        Save(_settings with { Driver = driver, BufferSize = bufferSize, SampleRate = sampleRate, Running = true });
+        return _thread.Run(() => OpenOnThread(driver, bufferSize, sampleRate, quiet: false));
     }
 
     public Task CloseAsync()
@@ -174,13 +176,17 @@ public sealed class AudioEngine : IDisposable
                 _loadAvg, _loadPeak, _stats.LateBuffers, _stats.DriverProblems, _restarts,
                 _device?.HasSettingsPanel == true,
                 core?.Patch ?? _settings.Patch ?? [],
-                _latencyRunning, _latency, Version, _runningSince);
+                _latencyRunning, _latency, Version, _runningSince)
+            {
+                SampleRates = f?.SampleRates ?? [],
+                WantedRate = _settings.SampleRate,
+            };
         }
     }
 
     // ---- On the driver thread -------------------------------------------------------------
 
-    private void OpenOnThread(string driver, int bufferSize, bool quiet)
+    private void OpenOnThread(string driver, int bufferSize, double sampleRate, bool quiet)
     {
         CloseOnThread();
         _lastAttempt = DateTime.UtcNow;
@@ -189,7 +195,7 @@ public sealed class AudioEngine : IDisposable
         {
             var device = _makeDevice(driver) ?? throw new AudioDeviceException(
                 $"The driver \"{driver}\" is not on this PC. Install the X32 USB driver (X-USB ASIO) and plug in the X32.");
-            device.Open(bufferSize);
+            device.Open(bufferSize, sampleRate);
             var f = device.Format!;
             var core = new EngineCore(f.Inputs, f.Outputs, f.BufferSize, f.SampleRate);
             if (_settings.Patch is { Length: > 0 } p) core.SetPatch(p);
@@ -204,7 +210,9 @@ public sealed class AudioEngine : IDisposable
             _core = core;
             _runningSince = DateTime.UtcNow;
             _silentSince = DateTime.MinValue;
-            var rateNote = Math.Abs(f.SampleRate - 48000) < 1 ? "" : $" The X32 is set to {f.SampleRate / 1000:0.#} kHz; NEX-Audio works best at 48 kHz.";
+            var rateNote = sampleRate > 0 && Math.Abs(f.SampleRate - sampleRate) >= 1
+                ? $" The driver could not run at {sampleRate / 1000:0.#} kHz, so it stays at {f.SampleRate / 1000:0.#} kHz."
+                : Math.Abs(f.SampleRate - 48000) < 1 || Math.Abs(f.SampleRate - 96000) < 1 ? "" : $" The driver is set to {f.SampleRate / 1000:0.#} kHz; NEX-Audio works best at 48 or 96 kHz.";
             SetState(EngineState.Running, $"Running on {driver}: {f.Inputs} in, {f.Outputs} out, {f.BufferSize} samples.{rateNote}");
             _log($"Audio engine running on {driver}: {f.Inputs}x{f.Outputs}, {f.SampleRate} Hz, buffer {f.BufferSize}, latency in {f.InputLatency} out {f.OutputLatency}");
         }
@@ -254,7 +262,7 @@ public sealed class AudioEngine : IDisposable
             {
                 _restarts++;
                 _log("Audio driver asked to be opened again (settings changed in the driver).");
-                OpenOnThread(s.Driver!, s.BufferSize, quiet: false);
+                OpenOnThread(s.Driver!, s.BufferSize, s.SampleRate, quiet: false);
                 Changed?.Invoke();
                 return;
             }
@@ -268,7 +276,7 @@ public sealed class AudioEngine : IDisposable
                 {
                     _restarts++;
                     _log("Audio driver stopped sending audio; opening it again.");
-                    OpenOnThread(s.Driver!, s.BufferSize, quiet: true);
+                    OpenOnThread(s.Driver!, s.BufferSize, s.SampleRate, quiet: true);
                 }
             }
             else if (_state == EngineState.Problem && _stats.Flowing(0.5))
@@ -287,7 +295,7 @@ public sealed class AudioEngine : IDisposable
         else if (s.Running && s.Driver is { } d && DateTime.UtcNow - _lastAttempt > TimeSpan.FromSeconds(4))
         {
             _restarts++;
-            OpenOnThread(d, s.BufferSize, quiet: true);
+            OpenOnThread(d, s.BufferSize, s.SampleRate, quiet: true);
             changed = true;
         }
         if (changed) Changed?.Invoke();

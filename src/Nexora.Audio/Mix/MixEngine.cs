@@ -238,8 +238,16 @@ public sealed class MixEngine
         _monitor2 = new StripRt("mon2", StripKind.Mix, true, maxFrames, sampleRate);
         Loudness = new LoudnessMeter(sampleRate);
         Analyser = new Analyser(sampleRate);
-        StreamTap = new StreamTap(sampleRate);
+        StreamTap = new StreamTap(StreamResampler.Target);
+        _toStream = new StreamResampler(sampleRate, maxFrames);
+        MainPhase = new CorrelationMeter(sampleRate);
+        StreamPhase = new CorrelationMeter(sampleRate);
     }
+
+    /// <summary>How alike the main's left and right are (+1 mono-safe, -1 cancels in mono).</summary>
+    public CorrelationMeter MainPhase { get; }
+    /// <summary>The same for the stream mix.</summary>
+    public CorrelationMeter StreamPhase { get; }
 
     public double SampleRate => _sr;
     public int MaxFrames => _maxFrames;
@@ -247,6 +255,7 @@ public sealed class MixEngine
     public Analyser Analyser { get; }
     /// <summary>The stream mix for sending to the Live Output PC.</summary>
     public StreamTap StreamTap { get; }
+    private readonly StreamResampler _toStream;
 
     /// <summary>How late the main mix is compared with the inputs, from plugins and look-ahead (samples).</summary>
     public int MixLatency { get; private set; }
@@ -735,6 +744,7 @@ public sealed class MixEngine
                     for (var n = 0; n < frames; n++) b.InR[n] += tone[n];
             }
             RunBus(b, frames);
+            if (b == t.Main) MainPhase.Push(b.PostL, b.PostR, frames);
             if (b == t.Stream)
             {
                 if (t.StreamDelay > 0 && _streamDelayL is not null && _streamDelayR is not null)
@@ -743,7 +753,8 @@ public sealed class MixEngine
                     _streamDelayR.Process(b.PostR, frames, t.StreamDelay);
                 }
                 Loudness.Push(b.PostL, b.PostR, frames);
-                StreamTap.Write(b.PostL, b.PostR, frames);
+                StreamPhase.Push(b.PostL, b.PostR, frames);
+                _toStream.Write(StreamTap, b.PostL, b.PostR, frames);
             }
             if (i < stepFeeds.Length) Mix(stepFeeds[i], frames);
         }

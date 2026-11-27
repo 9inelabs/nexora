@@ -30,6 +30,11 @@ public sealed record DeskSettings
     public string? CurrentSceneId { get; init; }
     /// <summary>The show file last saved or opened.</summary>
     public string? ShowFile { get; init; }
+    /// <summary>
+    /// Preparing a show with no X32: the link to the X32, the failsafe, the heartbeat and the stream to the Live Output PC
+    /// all pause, so nothing being tried reaches the room. The X32's address is kept for when it goes back online.
+    /// </summary>
+    public bool Offline { get; init; }
 }
 
 public sealed record X32SceneName(int Number, string Name);
@@ -163,7 +168,8 @@ public sealed partial class Desk : IDisposable
             _stream = new StreamSender(() => _engine?.StreamTap) { Host = StreamHost() };
         }
         _timer = new Timer(_ => Tick(), null, 100, 100);
-        if (_settings.X32Host is { Length: > 0 } h) _ = ConnectX32Async(h);
+        if (_settings.X32Host is { Length: > 0 } h && !_settings.Offline) _ = ConnectX32Async(h);
+        if (_settings.Offline && _heartbeat != null) _heartbeat.Host = null;
     }
 
     /// <summary>Something on the desk status changed (scenes, plugins, X32 link, failsafe).</summary>
@@ -313,11 +319,11 @@ public sealed partial class Desk : IDisposable
         return true;
     }
 
-    public ChannelPreset SavePreset(string stripId, string name)
+    public ChannelPreset SavePreset(string stripId, string name, string? folder = null)
     {
         Strip s;
         lock (_gate) s = (_mix.Find(stripId) ?? throw new InvalidOperationException("That strip could not be found.")).Clone();
-        var p = _presets.Save(name, s);
+        var p = _presets.Save(name, s, folder);
         Changed?.Invoke();
         return p;
     }
@@ -327,6 +333,14 @@ public sealed partial class Desk : IDisposable
         var p = _presets.Load(presetId);
         if (p is null) return false;
         return Change(m => MixParams.Paste(m, stripId, p.Sound, parts), $"preset \"{p.Name}\" on {stripId}");
+    }
+
+    /// <summary>Moves one of your presets to another folder, or renames it.</summary>
+    public bool MovePreset(string id, string? folder, string? name = null)
+    {
+        var ok = _presets.Move(id, folder, name);
+        if (ok) Changed?.Invoke();
+        return ok;
     }
 
     public bool DeletePreset(string id)
@@ -535,6 +549,11 @@ public sealed partial class Desk : IDisposable
     public async Task<bool> ConnectX32Async(string host)
     {
         SaveSettings(Settings with { X32Host = host });
+        if (Settings.Offline)
+        {
+            Notice?.Invoke("NEX-Audio is offline (preparing a show). Go back online to link to the X32.", true);
+            return false;
+        }
         var info = await _x32.ConnectAsync(host);
         if (info is null)
         {
@@ -564,6 +583,32 @@ public sealed partial class Desk : IDisposable
         Set(c.Path, el);
     }
 
+    /// <summary>
+    /// Goes offline to prepare a show with no X32 (the link, failsafe, heartbeat and stream pause), or back online
+    /// (the X32 links again and its mix is brought into step with NEX-Audio).
+    /// </summary>
+    public async Task SetOfflineAsync(bool offline)
+    {
+        var s = Settings;
+        if (s.Offline == offline) return;
+        SaveSettings(s with { Offline = offline });
+        if (offline)
+        {
+            _x32.Disconnect();
+            _failsafeNote = null;
+            _notFlowingSince = DateTime.MinValue;
+            _log("Desk offline: preparing a show without the X32.");
+        }
+        else
+        {
+            _log("Desk back online.");
+            if (s.X32Host is { Length: > 0 } h) await ConnectX32Async(h);
+        }
+        if (_heartbeat != null) _heartbeat.Host = offline ? null : s.LiveOutputHost;
+        if (_stream != null) _stream.Host = StreamHost();
+        Changed?.Invoke();
+    }
+
     // ---- Failsafe ---------------------------------------------------------------------------------
 
     public void Configure(Func<DeskSettings, DeskSettings> change)
@@ -575,7 +620,7 @@ public sealed partial class Desk : IDisposable
             TimeoutMs = Math.Clamp(s.TimeoutMs, 200, 5000),
         };
         SaveSettings(s);
-        if (_heartbeat != null) _heartbeat.Host = s.LiveOutputHost;
+        if (_heartbeat != null) _heartbeat.Host = s.Offline ? null : s.LiveOutputHost;
         if (_stream != null) _stream.Host = StreamHost();
         Changed?.Invoke();
     }
@@ -585,7 +630,7 @@ public sealed partial class Desk : IDisposable
         var s = Settings;
         bool send;
         lock (_gate) send = _mix.StreamSettings.SendToLiveOutput;
-        return send ? s.LiveOutputHost : null;
+        return send && !s.Offline ? s.LiveOutputHost : null;
     }
 
     /// <summary>Hands the room to the X32 now (the "Console only" scene).</summary>
@@ -655,7 +700,7 @@ public sealed partial class Desk : IDisposable
             // The engine itself also hands over if its own sound stops while armed (the Live Output PC may be off).
             var s = Settings;
             var (state, flowing) = _health();
-            if (s.Armed && !s.HandedOver && _engine != null)
+            if (s.Armed && !s.HandedOver && !s.Offline && _engine != null)
             {
                 if (flowing) _notFlowingSince = DateTime.MinValue;
                 else if (_notFlowingSince == DateTime.MinValue) _notFlowingSince = DateTime.UtcNow;
@@ -664,7 +709,7 @@ public sealed partial class Desk : IDisposable
             }
 
             // Keep the X32's own mix in step, a few times a second.
-            if (s.ShadowMix && _x32.Connected && !_syncBusy && _tick % 2 == 0)
+            if (s.ShadowMix && !s.Offline && _x32.Connected && !_syncBusy && _tick % 2 == 0)
             {
                 _syncBusy = true;
                 var m = Mix;

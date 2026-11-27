@@ -80,7 +80,10 @@ public sealed unsafe class AsioDevice : IAudioDevice
     public bool HasSettingsPanel => _drv != IntPtr.Zero;
     public bool ResetRequested => _reset;
 
-    public void Open(int bufferSize)
+    /// <summary>The rates NEX-Audio offers, when the driver can do them.</summary>
+    private static readonly double[] Candidates = [44100, 48000, 88200, 96000];
+
+    public void Open(int bufferSize, double sampleRate = 0)
     {
         if (_drv != IntPtr.Zero) Close();
         var clsid = _info.Clsid;
@@ -100,8 +103,15 @@ public sealed unsafe class AsioDevice : IAudioDevice
         Check(((delegate* unmanaged[Thiscall]<IntPtr, int*, int*, int>)_vt[9])(_drv, &nIn, &nOut), "read the channel count");
         int min, max, pref, gran;
         Check(((delegate* unmanaged[Thiscall]<IntPtr, int*, int*, int*, int*, int>)_vt[11])(_drv, &min, &max, &pref, &gran), "read the buffer sizes");
+        // Which rates the driver can run at (canSampleRate), and switch when another one is asked for (setSampleRate).
+        var rates = new List<double>();
+        foreach (var c in Candidates)
+            if (((delegate* unmanaged[Thiscall]<IntPtr, double, int>)_vt[12])(_drv, c) == AseOk) rates.Add(c);
         double rate;
         Check(((delegate* unmanaged[Thiscall]<IntPtr, double*, int>)_vt[13])(_drv, &rate), "read the sample rate");
+        if (sampleRate > 0 && Math.Abs(rate - sampleRate) >= 1 && rates.Any(r => Math.Abs(r - sampleRate) < 1)
+            && ((delegate* unmanaged[Thiscall]<IntPtr, double, int>)_vt[14])(_drv, sampleRate) == AseOk)
+            Check(((delegate* unmanaged[Thiscall]<IntPtr, double*, int>)_vt[13])(_drv, &rate), "read the sample rate");
 
         var sizes = AllowedSizes(min, max, pref, gran);
         var frames = bufferSize > 0 && sizes.Contains(bufferSize) ? bufferSize : pref;
@@ -166,7 +176,7 @@ public sealed unsafe class AsioDevice : IAudioDevice
         _frames = frames;
         _bufferSeconds = frames / rate;
         _reset = false;
-        Format = new DeviceFormat(_nIn, _nOut, rate, frames, inLat, outLat, typeName ?? "", sizes, inNames, outNames);
+        Format = new DeviceFormat(_nIn, _nOut, rate, frames, inLat, outLat, typeName ?? "", sizes, inNames, outNames) { SampleRates = rates };
     }
 
     public void Start(EngineCore core, AudioStats stats)

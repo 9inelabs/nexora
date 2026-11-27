@@ -235,3 +235,46 @@ public static class Fft
         }
     }
 }
+
+/// <summary>
+/// How alike left and right are, from +1 (the same: safe in mono) through 0 (unrelated: wide) to -1
+/// (opposite: the sound cancels in mono, on a phone or a mono sub). It follows the music over about a third of a second.
+/// Written on the audio thread, read on the control thread.
+/// </summary>
+public sealed class CorrelationMeter
+{
+    private readonly double _keep;
+    private double _lr, _ll, _rr;
+
+    public CorrelationMeter(double sampleRate, double seconds = 0.3) => _keep = Math.Exp(-1.0 / (Math.Max(0.01, seconds) * sampleRate));
+
+    public void Push(float[] l, float[] r, int frames)
+    {
+        double lr = _lr, ll = _ll, rr = _rr, k = _keep, g = 1 - _keep;
+        for (var n = 0; n < frames; n++)
+        {
+            double a = l[n], b = r[n];
+            lr = lr * k + a * b * g;
+            ll = ll * k + a * a * g;
+            rr = rr * k + b * b * g;
+        }
+        // Denormals would slow the audio thread down in long silences.
+        if (ll < 1e-20) ll = 0;
+        if (rr < 1e-20) rr = 0;
+        if (Math.Abs(lr) < 1e-20) lr = 0;
+        _lr = lr;
+        _ll = ll;
+        _rr = rr;
+    }
+
+    /// <summary>The correlation now (-1 to +1), or NaN when it is too quiet to tell (below about -70 dB).</summary>
+    public float Value
+    {
+        get
+        {
+            double ll = _ll, rr = _rr, lr = _lr;
+            if (ll < 1e-7 || rr < 1e-7) return float.NaN;
+            return (float)Math.Clamp(lr / Math.Sqrt(ll * rr), -1, 1);
+        }
+    }
+}
