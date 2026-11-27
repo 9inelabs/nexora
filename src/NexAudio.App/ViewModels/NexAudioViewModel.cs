@@ -33,6 +33,7 @@ public enum NexAudioTab
     Driver,
     Console,
     PcCheck,
+    Resources,
 }
 
 /// <summary>
@@ -82,7 +83,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
     // ---- Tabs ------------------------------------------------------------------------------
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(OnMeters), nameof(OnPatch), nameof(OnLatency), nameof(OnDriver), nameof(OnConsole), nameof(OnPcCheck),
+    [NotifyPropertyChangedFor(nameof(OnMeters), nameof(OnPatch), nameof(OnLatency), nameof(OnDriver), nameof(OnConsole), nameof(OnPcCheck), nameof(OnResources),
         nameof(OnMixer), nameof(OnChannel), nameof(OnOutputs), nameof(OnRouting), nameof(OnGroups), nameof(OnStream), nameof(OnScenes), nameof(OnShow), nameof(OnSoundcheck), nameof(OnPlugins), nameof(OnFailsafe), nameof(OnSetup))]
     private NexAudioTab _tab = NexAudioTab.Mixer;
 
@@ -97,7 +98,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
     public bool OnPlugins => Tab == NexAudioTab.Plugins;
     public bool OnFailsafe => Tab == NexAudioTab.Failsafe;
     /// <summary>The Phase 1 pages (meters, latency, driver, X32 link, PC check) sit together under Setup.</summary>
-    public bool OnSetup => Tab is NexAudioTab.Meters or NexAudioTab.Patch or NexAudioTab.Latency or NexAudioTab.Driver or NexAudioTab.Console or NexAudioTab.PcCheck;
+    public bool OnSetup => Tab is NexAudioTab.Meters or NexAudioTab.Patch or NexAudioTab.Latency or NexAudioTab.Driver or NexAudioTab.Console or NexAudioTab.PcCheck or NexAudioTab.Resources;
 
     public bool OnMeters => Tab == NexAudioTab.Meters;
     public bool OnPatch => Tab == NexAudioTab.Patch;
@@ -105,6 +106,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
     public bool OnDriver => Tab == NexAudioTab.Driver;
     public bool OnConsole => Tab == NexAudioTab.Console;
     public bool OnPcCheck => Tab == NexAudioTab.PcCheck;
+    public bool OnResources => Tab == NexAudioTab.Resources;
 
     [RelayCommand]
     private void ShowTab(string tab) => Tab = Enum.Parse<NexAudioTab>(tab);
@@ -206,6 +208,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
                      nameof(DriverLatencyText), nameof(HasDriverPanel),
                  })
             OnPropertyChanged(p);
+        if (OnResources) RefreshHeadroom();
     }
 
     private void Tick() => OnPropertyChanged(nameof(UptimeText));

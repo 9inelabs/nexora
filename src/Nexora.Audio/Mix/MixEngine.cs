@@ -19,6 +19,8 @@ internal sealed class RackSlot
     /// <summary>Runs before the EQ and dynamics instead of after them.</summary>
     public volatile bool Pre;
     public volatile int Latency;
+    /// <summary>The channel a gate, ducker or colour strip in this slot listens to (null: itself).</summary>
+    public volatile StripRt? Key;
     public string? LastConfig;
     private DelayLine? _bl, _br;
 
@@ -106,6 +108,8 @@ internal sealed class StripRt
     public volatile bool HardMuted;
 
     public SmoothGain GTrim, GFaderL, GFaderR;
+    /// <summary>Time spent processing this strip since the meters were last taken (Stopwatch ticks, audio thread).</summary>
+    public long CostTicks;
 
     // Meters (written by the audio thread, taken by the control thread).
     public float MeterIn, MeterL, MeterR, MeterGate, MeterComp, MeterRack, MeterDynEq;
@@ -558,6 +562,7 @@ public sealed class MixEngine
             }
             slot.Bypass = item.Bypass;
             slot.Pre = item.Pre;
+            slot.Key = item.Text.TryGetValue("key", out var rk) && rk is { Length: > 0 } && rk != s.Id && _strips.TryGetValue(rk, out var rks) && rks.Kind == StripKind.Channel ? rks : null;
             slot.Latency = LatencyOf(item);
             var cfg = System.Text.Json.JsonSerializer.Serialize(item, MixState.Json);
             if (cfg != slot.LastConfig)
@@ -962,6 +967,13 @@ public sealed class MixEngine
     /// <summary>One strip from its input to its fader: trim, delay, filters and EQ, gate, compressor, rack, line-up, fader.</summary>
     private void RunStrip(StripRt s, int frames, bool isChannel)
     {
+        var t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+        RunStripCore(s, frames, isChannel);
+        s.CostTicks += System.Diagnostics.Stopwatch.GetTimestamp() - t0;
+    }
+
+    private void RunStripCore(StripRt s, int frames, bool isChannel)
+    {
         var r = s.Stereo ? s.R : null;
         s.GTrim.Apply(s.L, frames, s.Trim);
         if (r is not null)
@@ -984,6 +996,7 @@ public sealed class MixEngine
         foreach (var slot in rack)
         {
             if (!slot.Pre) continue;
+            if (slot.Processor is IKeyed kp) kp.KeyInput = slot.Key?.Raw;
             slot.Run(s.L, r, frames);
             if (slot.Processor.Reduction > rackGr) rackGr = slot.Processor.Reduction;
         }
@@ -1010,6 +1023,7 @@ public sealed class MixEngine
         foreach (var slot in rack)
         {
             if (slot.Pre) continue;
+            if (slot.Processor is IKeyed kp) kp.KeyInput = slot.Key?.Raw;
             slot.Run(s.L, r, frames);
             if (slot.Processor.Reduction > rackGr) rackGr = slot.Processor.Reduction;
         }
@@ -1072,6 +1086,27 @@ public sealed class MixEngine
             var s = t.All[i];
             result[i] = new StripMeters(s.MeterIn, s.MeterL, s.MeterR, s.MeterGate, s.MeterComp, s.MeterRack, s.Gate.On && !s.Gate.IsOpen, s.MeterDynEq);
             s.MeterIn = s.MeterL = s.MeterR = s.MeterGate = s.MeterComp = s.MeterRack = s.MeterDynEq = 0;
+        }
+        return result;
+    }
+
+    private long _costSince = System.Diagnostics.Stopwatch.GetTimestamp();
+
+    /// <summary>
+    /// How much of one processor core each strip has used since the last call (0.02 is 2%), for every strip in mix order,
+    /// with the share of each strip's rack. Read on the control thread; the audio thread only adds.
+    /// </summary>
+    public float[] TakeCosts()
+    {
+        var t = Volatile.Read(ref _topo);
+        var now = System.Diagnostics.Stopwatch.GetTimestamp();
+        var span = Math.Max(1, now - _costSince);
+        _costSince = now;
+        var result = new float[t.All.Length];
+        for (var i = 0; i < t.All.Length; i++)
+        {
+            var ticks = Interlocked.Exchange(ref t.All[i].CostTicks, 0);
+            result[i] = (float)((double)ticks / span);
         }
         return result;
     }

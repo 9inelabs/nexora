@@ -193,8 +193,17 @@ public sealed class EngineServer : IDisposable
                 }
                 else if (Effects.Get(type) is null) throw new InvalidOperationException("That effect is not known.");
                 else item = Effects.Default(type, m.Arg("style"));
-                if (!desk.Change(s => MixParams.AddRackItem(s, m.Arg("strip") ?? "", item, Int(m.Arg("index"), -1)), "add an effect"))
-                    throw new InvalidOperationException("That rack is full (8 effects at most).");
+                string? why = null;
+                if (!desk.Change(s =>
+                    {
+                        if (s.Find(m.Arg("strip") ?? "") is { } st && Effects.WhyNot(s, st, item.Type) is { } w)
+                        {
+                            why = w;
+                            return false;
+                        }
+                        return MixParams.AddRackItem(s, m.Arg("strip") ?? "", item, Int(m.Arg("index"), -1));
+                    }, "add an effect"))
+                    throw new InvalidOperationException(why ?? "That rack is full (8 effects at most).");
                 break;
             }
             case "rack.remove":
@@ -502,7 +511,8 @@ public sealed class EngineServer : IDisposable
         var mm = new MixMetersMsg(
             m.Select(x => x.In).ToArray(), m.Select(x => x.L).ToArray(), m.Select(x => x.R).ToArray(),
             m.Select(x => x.Gate).ToArray(), m.Select(x => x.Comp).ToArray(), m.Select(x => x.Rack).ToArray(), m.Select(x => x.GateClosed).ToArray(),
-            ml, mr, tick % 3 == 0 ? _engine.Desk.Loudness() : null, tick % 2 == 0 ? mix.Analyser.Bands() : null, m.Select(x => x.DynEq).ToArray());
+            ml, mr, tick % 3 == 0 ? _engine.Desk.Loudness() : null, tick % 2 == 0 ? mix.Analyser.Bands() : null, m.Select(x => x.DynEq).ToArray(),
+            tick % 10 == 0 ? mix.TakeCosts() : null);
         foreach (var c in conns) _ = c.SendAsync(mm);
     }
 

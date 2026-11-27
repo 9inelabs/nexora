@@ -729,16 +729,21 @@
               </StackPanel>
             </Border>
             <Border Classes="card" Padding="18,14">
-              <Grid ColumnDefinitions="Auto,24,Auto,24,*">
+              <Grid ColumnDefinitions="Auto,24,Auto,24,Auto,24,*">
                 <StackPanel Spacing="8">
                   <TextBlock Classes="eyebrow" Text="LISTENS TO (SIDECHAIN)" />
                   <ComboBox ItemsSource="{Binding Ch.CompKeySource.Options}" SelectedItem="{Binding Ch.CompKeySource.Selected}" MinWidth="220" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Spacing="8">
+                  <TextBlock Classes="eyebrow" Text="HEARS" />
+                  <ListBox Classes="seg" ItemsSource="{Binding Ch.CompDetect.Options}" SelectedItem="{Binding Ch.CompDetect.Selected}"
+                           ToolTip.Tip="Peaks catch every hit quickly. Average (RMS) follows how loud it sounds, smoother on voices and mixes. Auto lets the style choose." />
+                </StackPanel>
+                <StackPanel Grid.Column="4" Spacing="8">
                   <TextBlock Classes="eyebrow" Text="ORDER" />
                   <ListBox Classes="seg" ItemsSource="{Binding Ch.Order.Options}" SelectedItem="{Binding Ch.Order.Selected}" />
                 </StackPanel>
-                <TextBlock Grid.Column="4" Classes="faint small" TextWrapping="Wrap" VerticalAlignment="Center"
+                <TextBlock Grid.Column="6" Classes="faint small" TextWrapping="Wrap" VerticalAlignment="Center"
                            Text="Listening to another channel turns this one down when that channel is loud, for example the band group under the worship leader's mic." />
               </Grid>
             </Border>
@@ -805,7 +810,7 @@
             <Border Classes="card" Padding="28" IsVisible="{Binding SelectedSlotEmpty}" VerticalAlignment="Top">
               <StackPanel Spacing="10" MaxWidth="520" HorizontalAlignment="Left">
                 <TextBlock Classes="sectitle" Text="This place in the rack is empty" />
-                <TextBlock Classes="muted" TextWrapping="Wrap" Text="Pick an effect at the bottom of the rack and press Add. NEX-Audio's own reverbs, delay, chorus, de-esser, pitch correction and dynamics are there, and any VST3 plugins found on the Plugins tab." />
+                <TextBlock Classes="muted" TextWrapping="Wrap" Text="Pick an effect at the bottom of the rack and press Add. NEX-Audio's own colour strip, effects-rack dynamic EQ and multiband, EQ and gate nodes, reverbs, delay, chorus, de-esser, pitch correction, pitch shifter, enhancer and dynamics are there, and any VST3 plugins found on the Plugins tab." />
               </StackPanel>
             </Border>
             <ScrollViewer IsVisible="{Binding !SelectedSlotEmpty}" VerticalScrollBarVisibility="Auto">
@@ -820,6 +825,8 @@
                       <Button Classes="ghost small" Command="{Binding MoveUpCommand}" IsEnabled="{Binding CanMoveUp}" ToolTip.Tip="Earlier in the rack"><c:Icon Kind="arrowup" Width="12" Height="12" /></Button>
                       <Button Classes="ghost small" Command="{Binding MoveDownCommand}" IsEnabled="{Binding CanMoveDown}" ToolTip.Tip="Later in the rack"><c:Icon Kind="arrowdown" Width="12" Height="12" /></Button>
                       <Button Classes="ghost small" Command="{Binding RemoveCommand}" Content="Remove" />
+                      <Button Classes="primary small" Command="{Binding TapCommand}" IsVisible="{Binding CanTap}" Content="TAP" FontWeight="Black" MinWidth="58"
+                              ToolTip.Tip="Tap in time with the song (two taps or more). The delay follows the tempo." />
                       <ToggleButton Classes="pill" IsChecked="{Binding Pre.Value}" Content="Before EQ"
                                     ToolTip.Tip="On: this effect sits at the top of the strip, before the EQ and dynamics (an insert). Off: after them." />
                       <ToggleButton Classes="pill" IsChecked="{Binding Bypass.Value}" Content="Bypass" />
@@ -832,10 +839,10 @@
                     <TextBlock Classes="small" Foreground="{StaticResource Accent}" VerticalAlignment="Center" Text="{Binding Status}" TextWrapping="Wrap" />
                   </StackPanel>
                   <ItemsControl ItemsSource="{Binding Choices}">
-                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="18" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:ChoiceParam">
-                        <StackPanel Spacing="4">
+                        <StackPanel Spacing="4" Margin="0,0,18,8">
                           <TextBlock Classes="eyebrow" Text="{Binding Label}" />
                           <ListBox Classes="seg" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" IsVisible="{Binding Options.Count, Converter={x:Static c:Conv.LessThan}, ConverterParameter=6}" />
                           <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" MinWidth="120" IsVisible="{Binding Options.Count, Converter={x:Static c:Conv.AtLeast}, ConverterParameter=6}" />

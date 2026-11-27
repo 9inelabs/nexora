@@ -15,19 +15,33 @@ internal sealed class CompCore
     private float _ms;       // mean square for the RMS detector
     private float _slow;     // long-term reduction, for the opto release
     private CompStyle _style;
+    private bool _rms;
     private double _releaseMs = 120;
 
     public CompCore(double sampleRate) => _sr = sampleRate;
 
     public float Reduction => _env;
 
-    public void Set(CompStyle style, double threshold, double ratio, double attackMs, double releaseMs, double knee)
+    public void Set(CompStyle style, double threshold, double ratio, double attackMs, double releaseMs, double knee, CompDetect detect = CompDetect.Auto)
     {
         _style = style;
         _thr = (float)threshold;
         _ratio = (float)Math.Max(1, ratio);
         _knee = (float)Math.Max(0, knee);
-        var minAttack = style == CompStyle.Fet ? 0.02 : 0.1;
+        if (style == CompStyle.Limit)
+        {
+            // A limiter: at least 20:1, a firm knee and never slower than 0.8 ms to grab a peak.
+            _ratio = Math.Max(20f, _ratio);
+            _knee = Math.Min(_knee, 2f);
+            attackMs = Math.Min(attackMs, 0.8);
+        }
+        _rms = detect switch
+        {
+            CompDetect.Peak => false,
+            CompDetect.Rms => true,
+            _ => style is CompStyle.Opto or CompStyle.Glue or CompStyle.Vintage,
+        };
+        var minAttack = style is CompStyle.Fet or CompStyle.Limit ? 0.02 : 0.1;
         _attack = (float)Dsp.Coef(Math.Max(minAttack, attackMs), _sr);
         _releaseMs = Math.Max(5, releaseMs);
         _release = (float)Dsp.Coef(_releaseMs, _sr);
@@ -50,7 +64,7 @@ internal sealed class CompCore
     public float Step(float key)
     {
         float level;
-        if (_style is CompStyle.Opto or CompStyle.Glue)
+        if (_rms)
         {
             _ms = _rmsCoef * _ms + (1 - _rmsCoef) * key * key;
             level = _ms <= 1e-12f ? -120f : 10f * MathF.Log10(_ms) + 3.01f; // +3 dB so a sine reads its peak
@@ -71,6 +85,11 @@ internal sealed class CompCore
                 _slow = 0.9999f * _slow + 0.0001f * _env;
                 var hold = Math.Clamp(_slow / 6f, 0f, 3f);
                 rel = MathF.Pow(_release, 1f / (1f + hold));
+            }
+            else if (_style == CompStyle.Vintage)
+            {
+                // Program dependent: the deeper it is pressing, the quicker it lets go (up to three times quicker).
+                rel = MathF.Pow(_release, 1f + Math.Clamp(_env / 8f, 0f, 2f));
             }
             _env = rel * _env + (1 - rel) * gr;
         }
@@ -124,7 +143,7 @@ public sealed class Compressor : Processor
         if (c is null) return;
         _on = c.On;
         _style = c.Style;
-        _core.Set(c.Style, c.Threshold, c.Ratio, c.Attack, c.Release, c.Knee);
+        _core.Set(c.Style, c.Threshold, c.Ratio, c.Attack, c.Release, c.Knee, c.Detect);
         var makeup = c.AutoMakeup ? AutoMakeup(c) : c.Makeup;
         _makeup = Db.ToGain(makeup);
         _mix = (float)Math.Clamp(c.Mix / 100, 0, 1);
@@ -136,6 +155,7 @@ public sealed class Compressor : Processor
     {
         On = !r.Bypass,
         Style = Enum.TryParse<CompStyle>(r.T("style", "Clean"), true, out var st) ? st : CompStyle.Clean,
+        Detect = Enum.TryParse<CompDetect>(r.T("detect", "Auto"), true, out var dt) ? dt : CompDetect.Auto,
         Threshold = r.P("threshold", -18),
         Ratio = r.P("ratio", 3),
         Attack = r.P("attack", 10),
@@ -161,7 +181,8 @@ public sealed class Compressor : Processor
         }
         var keyed = !_key.IsIdentity;
         var maxGr = 0f;
-        var fet = _style == CompStyle.Fet;
+        var fet = _style is CompStyle.Fet or CompStyle.Limit;
+        var vintage = _style == CompStyle.Vintage;
         for (var n = 0; n < frames; n++)
         {
             var l = left[n];
@@ -189,6 +210,12 @@ public sealed class Compressor : Processor
                 left[n] = MathF.Tanh(l * g * drive) / drive;
                 if (right is not null) right[n] = MathF.Tanh(r * g * drive) / drive;
             }
+            else if (vintage)
+            {
+                // A little warmth from the gain stage: rounds only the biggest peaks.
+                left[n] = Warm(l * g);
+                if (right is not null) right[n] = Warm(r * g);
+            }
             else
             {
                 left[n] = l * g;
@@ -203,6 +230,16 @@ public sealed class Compressor : Processor
                 for (var n = 0; n < frames; n++) right[n] = right[n] * _mix + _dryR[n] * dry;
         }
         Reduction = maxGr;
+    }
+
+    /// <summary>Linear up to half scale, then a gentle round-off (no change at normal levels).</summary>
+    private static float Warm(float x)
+    {
+        var a = MathF.Abs(x);
+        if (a <= 0.5f) return x;
+        var over = a - 0.5f;
+        var y = 0.5f + over / (1f + over * 0.6f);
+        return x < 0 ? -y : y;
     }
 
     public override void Reset()

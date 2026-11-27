@@ -526,6 +526,61 @@ public sealed class EffectGraph : Control
             case "limiter":
                 DynamicsGraph.Draw(ctx, Square(r), this, false, !it.Bypass, it.P("ceiling", -1), 100, 0, 0, 0, -90, true);
                 break;
+            case "eq":
+            {
+                var f = EqNode.Filters(it);
+                Curve(ctx, r, x => StripFilters.ResponseDb(f, x, 48000), accent, 15);
+                break;
+            }
+            case "colour":
+            {
+                var f = ColourStrip.Filters(it);
+                Curve(ctx, r, x => StripFilters.ResponseDb(f, x, 48000), accent, 15);
+                var comp = it.T("compstyle", "Off");
+                var dyn = it.T("dynamics", "Off");
+                var ch = it.T("character", "Tube");
+                var top = GraphKit.Text($"{(ch == "Clean" ? "Clean" : $"{ch} {it.P("drive", 6):0.#} dB")}   ·   compressor {(comp == "Off" ? "off" : comp.ToLowerInvariant())}   ·   {(dyn == "Off" ? "no gate" : dyn.ToLowerInvariant())}", 10);
+                ctx.DrawText(top, new Point(r.X, r.Y));
+                break;
+            }
+            case "dyneq6":
+            {
+                var bands = DynEq6.Settings(it).Bands.Where(x => x.On).ToList();
+                Curve(ctx, r, x => bands.Sum(d => Biquad.Make(FilterShape.Peak, d.Freq, d.Q, d.Range, 48000).MagnitudeDb(x, 48000)), accent, 18);
+                TopCaption(ctx, r, bands.Count == 0 ? "Give a band a range to switch it on" : "The most each band can move when its range gets loud");
+                break;
+            }
+            case "multiband6": Multiband6View(ctx, r, it, accent); break;
+            case "pitchshift":
+            {
+                var st = it.P("semis", 0) + it.P("cents", 0) / 100;
+                Caption(ctx, b, Math.Abs(st) < 0.005 ? "No shift yet: set the semitones" : $"Shifts {(st > 0 ? "up" : "down")} {Math.Abs(st):0.##} semitones, {it.P("mix", 100):0}% mixed in");
+                break;
+            }
+            case "enhancer":
+            {
+                var f0 = it.P("freq", 3000);
+                var lift = Enhancer.LiftDb(it.P("amount", 30));
+                var body = it.P("body", 0);
+                var sh = lift > 0.05 ? Biquad.Make(FilterShape.HighShelf, f0, 0.7, lift, 48000) : Biquad.Identity;
+                var bd = body > 0.05 ? Biquad.Make(FilterShape.LowShelf, 180, 0.7, body, 48000) : Biquad.Identity;
+                Curve(ctx, r, x => sh.MagnitudeDb(x, 48000) + bd.MagnitudeDb(x, 48000), accent, 12);
+                Caption(ctx, b, $"lifts and adds a little edge above {GraphKit.Hz(f0)}Hz");
+                break;
+            }
+            case "gate":
+                if (it.T("mode", "Gate") == "Ducker")
+                {
+                    var big = GraphKit.Text($"Dips by {it.P("range", 30):0} dB while what it listens to is above {it.P("threshold", -45):0} dB", 13, GraphKit.Bright);
+                    ctx.DrawText(big, new Point(r.X + (r.Width - big.Width) / 2, r.Y + (r.Height - big.Height) / 2));
+                    Caption(ctx, b, "Ducker: the music or mix steps back while the voice it listens to is speaking");
+                }
+                else
+                {
+                    DynamicsGraph.Draw(ctx, Square(r), this, true, !it.Bypass, it.P("threshold", -45), 1, 0, it.P("range", 30), 0, -90, true);
+                    Caption(ctx, b, "Gate: turns down while it is quiet");
+                }
+                break;
             default:
                 Caption(ctx, b, it.Type == "plugin" ? "Open the plugin window to see its own controls." : "");
                 break;
@@ -537,6 +592,8 @@ public sealed class EffectGraph : Control
         var s = Math.Min(r.Width, r.Height + 8);
         return new Rect(r.X + (r.Width - s) / 2, r.Y - 4, s, s);
     }
+
+    private static void TopCaption(DrawingContext ctx, Rect r, string text) => ctx.DrawText(GraphKit.Text(text, 10), new Point(r.X, r.Y));
 
     private static void Caption(DrawingContext ctx, Rect b, string text)
     {
@@ -712,6 +769,33 @@ public sealed class EffectGraph : Control
             ctx.DrawText(t, new Point(rect.X + (rect.Width - t.Width) / 2, rect.Bottom - t.Height - 6));
         }
         Caption(ctx, r.Inflate(new Thickness(10, 10, 10, 18)), $"notes in {key} {scale}: a voice is pulled to the nearest gold note");
+    }
+
+    private static void Multiband6View(DrawingContext ctx, Rect r, RackItem it, IBrush accent)
+    {
+        double X(double f) => r.X + r.Width * Math.Log(f / 20) / Math.Log(1000);
+        var edges = new List<double> { 20 };
+        for (var i = 1; i <= 5; i++) edges.Add(it.P($"x{i}", Multiband6.Splits[i - 1]));
+        edges.Add(20000);
+        var expand = it.T("mode", "Compress") == "Expand";
+        for (var i = 0; i < 6; i++)
+        {
+            var x0 = X(edges[i]);
+            var x1 = X(edges[i + 1]);
+            var thr = it.P($"t{i + 1}", -20);
+            var y = r.Y + (-thr) / 70 * r.Height;
+            ctx.FillRectangle(GraphKit.Tint(accent, (byte)(26 + i * 8)), new Rect(x0 + 1, y, Math.Max(1, x1 - x0 - 2), r.Bottom - y), 4);
+            ctx.DrawLine(new Pen(accent, 2), new Point(x0 + 1, y), new Point(x1 - 1, y));
+            var t = GraphKit.Text($"{thr:0}  {it.P($"r{i + 1}", 2):0.#}:1", 9.5, GraphKit.Bright);
+            if (x1 - x0 > t.Width + 6) ctx.DrawText(t, new Point(x0 + 4, Math.Max(r.Y, y - t.Height - 3)));
+        }
+        for (var i = 1; i <= 5; i++)
+        {
+            ctx.DrawLine(GraphKit.Guide, new Point(X(edges[i]), r.Y), new Point(X(edges[i]), r.Bottom));
+            ctx.DrawText(GraphKit.Text(GraphKit.Hz(edges[i])), new Point(X(edges[i]) + 3, r.Bottom + 2));
+        }
+        var cap = GraphKit.Text(expand ? "Expander: below each line, that band is turned down" : "Compressor: above each line, that band is turned down", 10);
+        ctx.DrawText(cap, new Point(r.X, r.Y));
     }
 
     private static void Multiband(DrawingContext ctx, Rect r, RackItem it, IBrush accent)

@@ -78,6 +78,12 @@ public sealed class Reverb : Processor
     {
         "room" => new Style(0.42, 0.9, 0.45, 0.62, 0.8, 3),
         "plate" => new Style(0.62, 1.7, 0.25, 0.78, 0.15, 6),
+        // A small, dense, bright room built for reverb: smooth on voices.
+        "chamber" => new Style(0.7, 1.4, 0.32, 0.78, 0.5, 5),
+        // A big stone church: long, dark tail and late first reflections.
+        "church" => new Style(1.45, 4.2, 0.6, 0.72, 0.35, 11),
+        // Just the sense of a space: short, mostly early reflections.
+        "ambience" => new Style(0.3, 0.45, 0.35, 0.5, 1.0, 2),
         _ => new Style(1.0, 2.3, 0.5, 0.7, 0.45, 9),
     };
 
@@ -85,7 +91,7 @@ public sealed class Reverb : Processor
     {
         if (settings is not RackItem r) return;
         var style = StyleFor(r.T("style", "hall"));
-        var size = Math.Clamp(r.P("size", 100) / 100.0, 0.2, 1.6) * style.Size;
+        var size = Math.Min(1.6, Math.Clamp(r.P("size", 100) / 100.0, 0.2, 1.6) * style.Size);
         var decay = Math.Clamp(r.P("decay", style.Decay), 0.1, 12);
         var damping = Math.Clamp(r.P("damping", style.Damping * 100) / 100.0, 0, 0.95);
         var sr = SampleRate / 48000.0;
