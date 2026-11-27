@@ -352,13 +352,17 @@ public class FailsafeTests
             await Task.Delay(30);
         }
         lock (recalls) Assert.Empty(recalls);
-        await Task.Delay(1200); // silence
+        // Silence. The hand-over says the recall a few times (UDP can drop one); wait until it has finished.
+        var done = new TaskCompletionSource();
+        w.Fired += _ => done.TrySetResult();
+        Assert.Same(done.Task, await Task.WhenAny(done.Task, Task.Delay(5000)));
+        int count;
         lock (recalls)
         {
             Assert.NotEmpty(recalls);
             Assert.All(recalls, r => Assert.Equal(("127.0.0.1", 5), r));
+            count = recalls.Count;
         }
-        var count = recalls.Count;
         await Task.Delay(600);
         lock (recalls) Assert.Equal(count, recalls.Count); // only once per epoch
         Assert.True(w.Engines.Single().Fired);
