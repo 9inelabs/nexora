@@ -113,7 +113,7 @@ jobs:
             --icon src/NexAudio.App/Assets/nexaudio.ico --outputDir Releases
           if ($LASTEXITCODE -ne 0) { throw "Could not build the NEX-Audio installer" }
           # Keep only this version's full package (the earlier one was only needed to make the delta).
-          Get-ChildItem Releases/*-full.nupkg | Where-Object { $_.Name -notlike "*-${{ steps.version.outputs.value }}-full.nupkg" } | Remove-Item
+          Get-ChildItem Releases/*-full.nupkg | Where-Object { $_.Name -notlike "*-${{ steps.version.outputs.value }}-full.nupkg" -and $_.Name -notlike "*-${{ steps.version.outputs.value }}-nexaudio-full.nupkg" } | Remove-Item
           Get-ChildItem Releases
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item Releases/Nexora-win-Setup.exe out/NEXORA-Setup.exe
