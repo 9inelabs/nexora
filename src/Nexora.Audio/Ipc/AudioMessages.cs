@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Nexora.Audio.Engine;
+using Nexora.Audio.Mix;
 
 namespace Nexora.Audio.Ipc;
 
@@ -74,6 +76,12 @@ public sealed record EngineStatus(
 [JsonDerivedType(typeof(RefreshDriversMsg), "drivers")]
 [JsonDerivedType(typeof(ResetClipsMsg), "clips")]
 [JsonDerivedType(typeof(QuitMsg), "quit")]
+[JsonDerivedType(typeof(MixStateMsg), "mix")]
+[JsonDerivedType(typeof(MixChangedMsg), "mixset")]
+[JsonDerivedType(typeof(DeskStatusMsg), "desk")]
+[JsonDerivedType(typeof(MixMetersMsg), "mixmeters")]
+[JsonDerivedType(typeof(SetMixMsg), "set")]
+[JsonDerivedType(typeof(DeskCommandMsg), "cmd")]
 public abstract record AudioMessage
 {
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
@@ -109,3 +117,30 @@ public sealed record RefreshDriversMsg : AudioMessage;
 public sealed record ResetClipsMsg : AudioMessage;
 /// <summary>Stops the sound and closes the engine process (only when someone presses Shut down engine).</summary>
 public sealed record QuitMsg : AudioMessage;
+
+// ---- The desk (Phases 2 to 5) ----
+
+/// <summary>The whole mix (when a screen connects, and after a change to its shape or a scene recall).</summary>
+public sealed record MixStateMsg(MixState Mix, long Rev) : AudioMessage;
+
+/// <summary>One setting changed (by any screen, or on the X32): apply it with MixParams.Apply.</summary>
+public sealed record MixChangedMsg(string Path, JsonElement Value, long Rev) : AudioMessage;
+
+public sealed record DeskStatusMsg(DeskStatus Desk) : AudioMessage;
+
+/// <summary>
+/// Strip levels since the last message, for every strip in mix order (channels, buses, main, mono, stream),
+/// with the solo bus, the stream's loudness and the analyser.
+/// </summary>
+public sealed record MixMetersMsg(
+    float[] In, float[] L, float[] R, float[] Gate, float[] Comp, float[] Rack, bool[] GateClosed,
+    float MonitorL, float MonitorR, LoudnessReading? Loudness, float[]? Spectrum) : AudioMessage;
+
+/// <summary>Change one mix setting by its path, for example "ch3.fader" or "ch3.send.mix1.level".</summary>
+public sealed record SetMixMsg(string Path, JsonElement Value) : AudioMessage;
+
+/// <summary>A desk command (add a bus, save a scene, arm the failsafe…). See EngineServer for the list.</summary>
+public sealed record DeskCommandMsg(string Cmd, Dictionary<string, string>? Args = null, JsonElement? Data = null) : AudioMessage
+{
+    public string? Arg(string name) => Args is not null && Args.TryGetValue(name, out var v) ? v : null;
+}

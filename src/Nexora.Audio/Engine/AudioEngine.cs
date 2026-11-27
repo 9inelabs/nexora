@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Nexora.Audio.Asio;
 using Nexora.Audio.Ipc;
+using Nexora.Audio.Mix;
 
 namespace Nexora.Audio.Engine;
 
@@ -42,14 +43,24 @@ public sealed class AudioEngine : IDisposable
     private int _latOut, _latIn;
     private IReadOnlyList<string> _drivers = [];
 
-    public AudioEngine(string dataDir, Action<string>? log = null, Func<string, IAudioDevice?>? makeDevice = null)
+    private readonly Desk? _desk;
+
+    public AudioEngine(string dataDir, Action<string>? log = null, Func<string, IAudioDevice?>? makeDevice = null, Desk? desk = null)
     {
+        _desk = desk;
         Directory.CreateDirectory(dataDir);
         _settingsFile = Path.Combine(dataDir, "engine.json");
         _log = log ?? (_ => { });
         _makeDevice = makeDevice ?? MakeDevice;
         _settings = LoadSettings(_settingsFile);
         _drivers = FindDrivers();
+        if (_desk is not null)
+        {
+            _desk.ImportPatch(_settings.Patch);
+            _desk.SetHealth(() => (
+                _state switch { EngineState.Running => "running", EngineState.Stopped => "stopped", _ => "problem" },
+                _core is not null && _stats.Flowing(0.25)));
+        }
         _thread = new DeviceThread(Tick, TimeSpan.FromMilliseconds(250));
         if (_settings.Running && _settings.Driver is { } d)
         {
@@ -95,8 +106,20 @@ public sealed class AudioEngine : IDisposable
         });
     }
 
+    /// <summary>The desk (mix, scenes, X32 link, failsafe, plugins), when this engine has one.</summary>
+    public Desk? Desk => _desk;
+
     public void SetPatch(int[] patch)
     {
+        if (_desk is not null)
+        {
+            _desk.Change(m =>
+            {
+                for (var o = 0; o < m.Outputs.Count && o < patch.Length; o++)
+                    m.Outputs[o].Source = patch[o] switch { EngineCore.Tone => "tone", >= 0 and var i => $"in:{i + 1}", _ => "off" };
+                return true;
+            });
+        }
         var core = _core;
         if (core is not null)
         {
@@ -170,6 +193,7 @@ public sealed class AudioEngine : IDisposable
             var f = device.Format!;
             var core = new EngineCore(f.Inputs, f.Outputs, f.BufferSize, f.SampleRate);
             if (_settings.Patch is { Length: > 0 } p) core.SetPatch(p);
+            if (_desk is not null) core.Mix = _desk.Attach(f.Inputs, f.Outputs, f.BufferSize, f.SampleRate);
             _stats.Reset();
             device.Start(core, _stats);
             _device = device;
@@ -197,11 +221,16 @@ public sealed class AudioEngine : IDisposable
         _core = null;
         _latencyRunning = false;
         _runningSince = DateTime.MinValue;
-        if (d is null) return;
+        if (d is null)
+        {
+            _desk?.Detach();
+            return;
+        }
         try { d.Close(); }
         catch (Exception ex) { _log("Audio engine close: " + ex.Message); }
         try { d.Dispose(); }
         catch (Exception) { }
+        _desk?.Detach(); // after the driver has stopped calling the mix
     }
 
     /// <summary>Four times a second: health, driver requests, the latency test, and trying again after a failure.</summary>

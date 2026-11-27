@@ -47,7 +47,9 @@ public static class EngineProcess
         try { File.Delete(StopFlag(dataRoot)); }
         catch (Exception) { }
         log($"Audio engine process started (pid {Environment.ProcessId}).");
-        using (var engine = new AudioEngine(Path.Combine(dataRoot, "audio"), log))
+        var audioDir = Path.Combine(dataRoot, "audio");
+        using var desk = new Desk(audioDir, log);
+        using (var engine = new AudioEngine(audioDir, log, desk: desk))
         using (var server = new EngineServer(engine, EngineNames.For(dataRoot), log))
         {
             server.QuitRequested += quit.Set;
