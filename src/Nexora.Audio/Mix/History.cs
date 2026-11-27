@@ -76,7 +76,15 @@ public sealed class MixHistory
             {
                 s.Fader = now.Fader;
                 s.Mute = now.Mute;
+                s.HardMute = now.HardMute;
                 s.Solo = now.Solo;
+            }
+        // Control group masters and mutes are live levels too.
+        foreach (var g in older.Controls)
+            if (current.Control(g.Id) is { } now)
+            {
+                g.Fader = now.Fader;
+                g.Mute = now.Mute;
             }
         return older;
     }
@@ -105,5 +113,5 @@ public sealed class MixHistory
     /// <summary>Settings Undo does not cover (the live levels).</summary>
     public static bool IsLevel(string path) =>
         path.EndsWith(".fader", StringComparison.Ordinal) || path.EndsWith(".mute", StringComparison.Ordinal) ||
-        path.EndsWith(".solo", StringComparison.Ordinal);
+        path.EndsWith(".solo", StringComparison.Ordinal) || path.EndsWith(".hardMute", StringComparison.Ordinal);
 }

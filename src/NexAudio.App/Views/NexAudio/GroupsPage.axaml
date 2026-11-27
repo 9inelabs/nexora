@@ -1,0 +1,170 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexAudio.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:a="using:NexAudio.App.Controls"
+             x:Class="NexAudio.App.Views.NexAudio.GroupsPage"
+             x:DataType="vm:NexAudioViewModel">
+  <UserControl.Styles>
+    <!-- A strip on a group's member list: tap to add or take out -->
+    <Style Selector="Button.member">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0,0,5,5" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="Opacity" Value="0.55" />
+    </Style>
+    <Style Selector="Button.member.in">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line2}" />
+      <Setter Property="Background" Value="{StaticResource Surface3}" />
+    </Style>
+    <Style Selector="Button.swatch">
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0,0,5,0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.swatch.current">
+      <Setter Property="BorderBrush" Value="{StaticResource Text1}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid ColumnDefinitions="*,12,330">
+    <!-- Control groups -->
+    <Border Classes="card" Padding="16,14">
+      <Grid RowDefinitions="Auto,12,*">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="3">
+            <TextBlock Classes="h3" Text="Control groups" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
+                       Text="A control group moves or mutes a set of strips together. Its master never mixes their sound together, so each one keeps its own EQ, sends and routing. Tap strips to put them in a group. The lock makes a member safe: it stays in the group but ignores it until you unlock it." />
+            <TextBlock Classes="faint small" Text="{Binding ControlCountText}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Top">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button Classes="primary small" Command="{Binding AddControlCommand}" CommandParameter="Vca" IsEnabled="{Binding CanAddControl}" Content="+ Control group (VCA)" />
+              <Button Classes="small" Command="{Binding AddControlCommand}" CommandParameter="Linked" IsEnabled="{Binding CanAddControl}" Content="+ Linked faders" />
+              <Button Classes="small" Command="{Binding AddControlCommand}" CommandParameter="Mute" IsEnabled="{Binding CanAddControl}" Content="+ Mute group" />
+            </StackPanel>
+            <CheckBox IsChecked="{Binding AddWithSelection}" HorizontalAlignment="Right">
+              <TextBlock Classes="small" Text="Start with the selected strip in it" />
+            </CheckBox>
+          </StackPanel>
+        </Grid>
+
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="10">
+            <Border Classes="well" Padding="16" IsVisible="{Binding !HasControlGroups}">
+              <TextBlock Classes="faint" TextWrapping="Wrap" Text="No control groups yet. Make one for the band, the vocals or the choir, and a mute group for the mics to cut during the sermon." />
+            </Border>
+            <ItemsControl ItemsSource="{Binding ControlGroups}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ControlGroupView">
+                  <Border Classes="well" Padding="0" Margin="0,0,0,10" ClipToBounds="True">
+                    <Grid ColumnDefinitions="5,*">
+                      <Border Background="{Binding Colour}" />
+                      <StackPanel Grid.Column="1" Spacing="10" Margin="14,12">
+                        <Grid ColumnDefinitions="Auto,10,220,10,200,*,Auto">
+                          <Border CornerRadius="5" Background="{Binding Colour}" Padding="7,3" VerticalAlignment="Center">
+                            <TextBlock FontSize="10" FontWeight="Bold" Foreground="{Binding ScribbleText}" Text="{Binding ModeText}" />
+                          </Border>
+                          <TextBox Grid.Column="2" Text="{Binding Name}" Watermark="{Binding Title}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                          <ComboBox Grid.Column="4" ItemsSource="{Binding ModeChoice.Options}" SelectedItem="{Binding ModeChoice.Selected}" HorizontalAlignment="Stretch" VerticalAlignment="Center" FontSize="12.5" />
+                          <ItemsControl Grid.Column="5" ItemsSource="{Binding Swatches}" Margin="14,0,0,0" VerticalAlignment="Center">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:Swatch">
+                                <Button Classes="swatch" Classes.current="{Binding IsCurrent}" Background="{Binding Brush}" Command="{Binding PickCommand}" />
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Button Classes="strip mute" Classes.active="{Binding Mute}" Command="{Binding ToggleMuteCommand}" Content="{Binding MuteText}" Padding="14,6" IsVisible="{Binding HasMute}" />
+                            <Button Classes="small" Classes.selected="{Binding IsSpilled}" Command="{Binding SpillCommand}" Content="Show on faders" ToolTip.Tip="Show only this group's members on the Mixer faders" />
+                            <Button Classes="ghost small" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove the group. Its members keep sounding the way they do now."><c:Icon Kind="x" Width="11" Height="11" /></Button>
+                          </StackPanel>
+                        </Grid>
+                        <Grid ColumnDefinitions="*,16,300">
+                          <StackPanel Spacing="2">
+                            <TextBlock Classes="small" Text="{Binding MemberText}" TextWrapping="Wrap" />
+                            <TextBlock Classes="faint small" Text="{Binding ModeHint}" TextWrapping="Wrap" />
+                          </StackPanel>
+                          <Grid Grid.Column="2" ColumnDefinitions="Auto,8,*,8,60" IsVisible="{Binding HasFader}" VerticalAlignment="Center">
+                            <TextBlock Classes="flabel" Text="Master" VerticalAlignment="Center" />
+                            <Slider Grid.Column="2" Classes="param" Minimum="-90" Maximum="10" Value="{Binding Fader}" />
+                            <Button Grid.Column="4" Classes="ghost small" Command="{Binding ResetFaderCommand}" ToolTip.Tip="Back to 0 dB">
+                              <TextBlock Classes="mono small" Text="{Binding FaderText}" />
+                            </Button>
+                          </Grid>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding Members}">
+                          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MemberChip">
+                              <Button Classes="member" Classes.in="{Binding IsMember}" Command="{Binding ToggleCommand}" Width="104">
+                                <Grid ColumnDefinitions="4,6,*,Auto" Height="30">
+                                  <Border CornerRadius="2" Background="{Binding Colour}" Margin="0,5" />
+                                  <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="-1">
+                                    <TextBlock FontSize="8.5" Classes="mono faint" Text="{Binding Number}" />
+                                    <TextBlock FontSize="11" FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                  </StackPanel>
+                                  <Button Grid.Column="3" Classes="ghost" Padding="5,4" Command="{Binding ToggleSafeCommand}" IsVisible="{Binding IsMember}"
+                                          ToolTip.Tip="Safe: stays in the group but ignores it for now">
+                                    <Panel>
+                                      <c:Icon Kind="lock" Width="11" Height="11" Foreground="{StaticResource Warn}" IsVisible="{Binding IsSafe}" />
+                                      <c:Icon Kind="lock" Width="11" Height="11" Opacity="0.3" IsVisible="{Binding !IsSafe}" />
+                                    </Panel>
+                                  </Button>
+                                </Grid>
+                              </Button>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+    </Border>
+
+    <!-- Solo and stereo pairs -->
+    <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="12">
+        <Border Classes="card" Padding="14,12">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="h3" Text="Solo" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Two solo buses: for example bus 1 on your headphones before the fader, and bus 2 on a wedge at the desk after it. Patch them on the Outputs tab (Solo bus 1 and Solo bus 2). A solo-safe strip (Channel page) stays soloed when solos are cleared." />
+            <ItemsControl ItemsSource="{Binding SoloParams}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="card" Padding="14,12">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="h3" Text="Stereo pairs" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Link two channels as left and right (keys, playback). The right one takes the left one's settings, then any change to either goes to both. Pan works as a mirror. Each side keeps its own name, input and preamp." />
+            <ItemsControl ItemsSource="{Binding PairRows}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:PairRow">
+                  <Grid ColumnDefinitions="74,*,Auto" Margin="0,1">
+                    <TextBlock Classes="mono small" FontWeight="SemiBold" Text="{Binding Title}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Classes="small faint" Text="{Binding Names}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding Linked.Value}" OnContent="" OffContent="" MinWidth="0" Margin="0,-6" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

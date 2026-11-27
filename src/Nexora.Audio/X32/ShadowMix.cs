@@ -15,13 +15,17 @@ public sealed class ShadowMix
     public static Dictionary<string, float> Desired(MixState s)
     {
         var d = new Dictionary<string, float>();
+        // What the room really hears: VCA masters, mute groups and hard mutes are folded in.
+        var fx = ControlRules.Effects(s);
+        float Fader(Strip x) => X32Client.DbToFader(ControlRules.Effective(x, fx.GetValueOrDefault(x.Id)));
+        int On(Strip x) => x.Mute || x.HardMute || fx.GetValueOrDefault(x.Id).Muted ? 0 : 1;
         foreach (var c in s.Channels)
         {
             var n = c.Number;
             if (n is < 1 or > 32) continue;
             var ch = $"/ch/{n:00}";
-            d[$"{ch}/mix/fader"] = X32Client.DbToFader(c.Fader);
-            d[$"{ch}/mix/on"] = c.Mute ? 0 : 1;
+            d[$"{ch}/mix/fader"] = Fader(c);
+            d[$"{ch}/mix/on"] = On(c);
             d[$"{ch}/mix/pan"] = (float)Math.Clamp((c.Pan + 1) / 2, 0, 1);
             foreach (var mix in s.BusesOf(StripKind.Mix))
             {
@@ -41,11 +45,11 @@ public sealed class ShadowMix
         foreach (var mix in s.BusesOf(StripKind.Mix))
         {
             if (mix.Number is < 1 or > 16) continue;
-            d[$"/bus/{mix.Number:00}/mix/fader"] = X32Client.DbToFader(mix.Fader);
-            d[$"/bus/{mix.Number:00}/mix/on"] = mix.Mute ? 0 : 1;
+            d[$"/bus/{mix.Number:00}/mix/fader"] = Fader(mix);
+            d[$"/bus/{mix.Number:00}/mix/on"] = On(mix);
         }
-        d["/main/st/mix/fader"] = X32Client.DbToFader(s.Main.Fader);
-        d["/main/st/mix/on"] = s.Main.Mute ? 0 : 1;
+        d["/main/st/mix/fader"] = Fader(s.Main);
+        d["/main/st/mix/on"] = On(s.Main);
         return d;
     }
 
@@ -72,6 +76,25 @@ public sealed class ShadowMix
     public static (string Path, object Value)? FromDesk(MixState s, string address, float value)
     {
         var p = address.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var r = FromDeskRaw(s, p, value);
+        if (r is not { } hit) return null;
+        // The X32 shows the level after VCA masters and group mutes: take the master back off, and never turn a group's mute into the strip's own.
+        var seg = hit.Path.Split('.');
+        if (seg.Length == 2 && s.Find(seg[0]) is { } st)
+        {
+            var e = ControlRules.Effects(s).GetValueOrDefault(st.Id);
+            if (seg[1] == "fader" && hit.Value is double db)
+            {
+                if (e.Silent) return null;
+                return (hit.Path, db <= Dsp.Db.Floor + 0.5 ? Dsp.Db.Floor : Math.Round(Math.Clamp(db - e.Offset, Dsp.Db.Floor, 10), 1));
+            }
+            if (seg[1] == "mute" && hit.Value is true && (e.Muted || st.HardMute) && !st.Mute) return null;
+        }
+        return hit;
+    }
+
+    private static (string Path, object Value)? FromDeskRaw(MixState s, string[] p, float value)
+    {
         if (p.Length >= 3 && p[0] == "ch" && int.TryParse(p[1], out var ch) && ch is >= 1 and <= 32)
         {
             var id = $"ch{ch}";

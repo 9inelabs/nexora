@@ -306,8 +306,21 @@ public sealed class Strip
     /// <summary>-1 left to 1 right (balance for stereo strips).</summary>
     public double Pan { get; set; }
     public double Fader { get; set; } = Db.Floor;
+    /// <summary>
+    /// Silent in the main mix, groups, every send (wedges too) and the stream. A direct out taken before the fader keeps
+    /// going, so a recording or broadcast feed of the mic carries on.
+    /// </summary>
     public bool Mute { get; set; }
+    /// <summary>
+    /// Completely silent, the direct out too. Scenes, mute groups and control groups can never bring it back:
+    /// only pressing hard mute again does (for a mic that buzzes or a channel that must stay dead).
+    /// </summary>
+    public bool HardMute { get; set; }
     public bool Solo { get; set; }
+    /// <summary>Stays soloed when other solos are cleared, or when another strip is soloed on its own.</summary>
+    public bool SoloSafe { get; set; }
+    /// <summary>Odd channels only: linked with the next channel as a stereo pair (keys, playback). Changes to one go to both, pan mirrored.</summary>
+    public bool Linked { get; set; }
 
     /// <summary>Goes to the main left and right (channels, effects and groups).</summary>
     public bool ToMain { get; set; } = true;
@@ -366,7 +379,7 @@ public sealed class Strip
         Id = Id, Kind = Kind, Name = Name, Colour = Colour, Stereo = Stereo, Trim = Trim, Invert = Invert, DelayMs = DelayMs,
         Input = Input, AltInput = AltInput, UseAlt = UseAlt, DirectTap = DirectTap,
         Hpf = Hpf.Clone(), Lpf = Lpf.Clone(), Drive = Drive.Clone(), Eq = Eq.Clone(), DynEq = DynEq.Clone(), Gate = Gate.Clone(), Comp = Comp.Clone(),
-        Order = Order, Rack = Rack.Select(r => r.Clone()).ToList(), Pan = Pan, Fader = Fader, Mute = Mute, Solo = Solo, ToMain = ToMain, SendsFrom = SendsFrom,
+        Order = Order, Rack = Rack.Select(r => r.Clone()).ToList(), Pan = Pan, Fader = Fader, Mute = Mute, HardMute = HardMute, Solo = Solo, SoloSafe = SoloSafe, Linked = Linked, ToMain = ToMain, SendsFrom = SendsFrom,
         Groups = [.. Groups], Sends = Sends.Select(s => s.Clone()).ToList(), StreamLevel = StreamLevel, StreamOn = StreamOn,
         Preamp = Preamp, Phantom = Phantom, RecallSafe = RecallSafe,
     };
@@ -378,7 +391,7 @@ public sealed class OutputPatch
     public int Number { get; set; }
     /// <summary>
     /// "off", "tone", "in:5" (input 5 as it arrives), "ch:5" (channel 5's direct out, from its direct-out tap point), "mix1", "mix1:L",
-    /// "main:L", "main:R", "mono", "mtx2", "stream:L", "stream:R", "mon:L", "mon:R" (the solo / monitor bus).
+    /// "main:L", "main:R", "mono", "mtx2", "stream:L", "stream:R", "mon:L", "mon:R" (solo bus 1), "mon2:L", "mon2:R" (solo bus 2).
     /// </summary>
     public string Source { get; set; } = "off";
     public string Name { get; set; } = "";
@@ -443,10 +456,125 @@ public sealed class ToneSettings
     public ToneSettings Clone() => (ToneSettings)MemberwiseClone();
 }
 
+/// <summary>Which solo bus a solo button sends to.</summary>
+public enum SoloRoute
+{
+    /// <summary>Solo bus 1 (usually the engineer's headphones).</summary>
+    Bus1,
+    /// <summary>Solo bus 2 (for example a wedge at the desk, or a second engineer).</summary>
+    Bus2,
+    /// <summary>Both solo buses.</summary>
+    Both,
+}
+
 public sealed class SoloSettings
 {
+    /// <summary>Solo bus 1: before or after the fader, and its level.</summary>
     public SoloMode Mode { get; set; } = SoloMode.Pfl;
     public double Level { get; set; }
+    /// <summary>Solo bus 2.</summary>
+    public SoloMode Mode2 { get; set; } = SoloMode.Afl;
+    public double Level2 { get; set; }
+    /// <summary>Where soloed strips are heard.</summary>
+    public SoloRoute Route { get; set; } = SoloRoute.Bus1;
+    /// <summary>Soloing a strip clears every other solo (except solo-safe strips).</summary>
+    public bool Exclusive { get; set; }
+    /// <summary>Selecting a strip solos it on its own (the screen does this).</summary>
+    public bool AutoSolo { get; set; }
+
+    public bool ToBus(int bus) => Route == SoloRoute.Both || (bus == 1 ? Route == SoloRoute.Bus1 : Route == SoloRoute.Bus2);
+}
+
+/// <summary>What a control group does to its members.</summary>
+public enum ControlMode
+{
+    /// <summary>A master fader that turns every member up or down together, keeping their balance, without mixing their sound together (VCA style).</summary>
+    Vca,
+    /// <summary>The members' own faders move together: move one and the rest follow by the same amount.</summary>
+    Linked,
+    /// <summary>One button mutes every member (for example all band mics during the sermon).</summary>
+    Mute,
+}
+
+/// <summary>A control group: a set of strips moved or muted together. Up to 24.</summary>
+public sealed class ControlGroup
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Colour { get; set; } = "";
+    public ControlMode Mode { get; set; } = ControlMode.Vca;
+    /// <summary>VCA: the master fader, in dB, added to every member's own fader. Linked: moving it moves every member's fader.</summary>
+    public double Fader { get; set; }
+    /// <summary>VCA and mute groups: mutes every member.</summary>
+    public bool Mute { get; set; }
+    /// <summary>The strips in the group (channels, effects, groups, mixes, matrices, main).</summary>
+    public List<string> Members { get; set; } = [];
+    /// <summary>Members left out of the group's action for now. They stay listed, so one tap brings them back.</summary>
+    public List<string> Safe { get; set; } = [];
+
+    public bool Acts(string id) => Members.Contains(id) && !Safe.Contains(id);
+
+    public ControlGroup Clone() => new()
+    {
+        Id = Id, Name = Name, Colour = Colour, Mode = Mode, Fader = Fader, Mute = Mute, Members = [.. Members], Safe = [.. Safe],
+    };
+}
+
+/// <summary>How the control groups change a strip: its fader moved by VCA masters, and whether a group mutes it.</summary>
+public readonly record struct ControlEffect(double Offset, bool Muted, bool Silent);
+
+public static class ControlRules
+{
+    /// <summary>The effect of every VCA and mute group on every strip they touch.</summary>
+    public static Dictionary<string, ControlEffect> Effects(MixState m)
+    {
+        var r = new Dictionary<string, ControlEffect>();
+        foreach (var g in m.Controls)
+        {
+            if (g.Mode == ControlMode.Linked) continue;
+            foreach (var id in g.Members)
+            {
+                if (!g.Acts(id)) continue;
+                var e = r.GetValueOrDefault(id);
+                var offset = e.Offset;
+                var silent = e.Silent;
+                if (g.Mode == ControlMode.Vca)
+                {
+                    // A master at the bottom silences its members, like a fader at the bottom.
+                    if (g.Fader <= Db.Floor + 0.5) silent = true;
+                    else offset += g.Fader;
+                }
+                r[id] = new ControlEffect(offset, e.Muted || g.Mute, silent);
+            }
+        }
+        return r;
+    }
+
+    /// <summary>The fader a strip really plays at, after its VCA masters (never above +10 dB).</summary>
+    public static double Effective(Strip s, ControlEffect e) =>
+        e.Silent || s.Fader <= Db.Floor + 0.5 ? Db.Floor : Math.Clamp(s.Fader + e.Offset, Db.Floor, 10);
+
+    /// <summary>The other half of a linked stereo pair, if this channel is in one.</summary>
+    public static Strip? Partner(MixState m, Strip s)
+    {
+        if (s.Kind != StripKind.Channel) return null;
+        var i = m.Channels.IndexOf(s);
+        if (i < 0) return null;
+        if (i % 2 == 0) return s.Linked && i + 1 < m.Channels.Count ? m.Channels[i + 1] : null;
+        return m.Channels[i - 1].Linked ? m.Channels[i - 1] : null;
+    }
+
+    /// <summary>The control groups a strip is in.</summary>
+    public static IEnumerable<ControlGroup> Of(MixState m, string id) => m.Controls.Where(g => g.Members.Contains(id));
+
+    public static string Label(ControlGroup g) => g.Name.Length > 0 ? g.Name : $"{ModeLabel(g.Mode)} {g.Id[2..]}";
+
+    public static string ModeLabel(ControlMode mode) => mode switch
+    {
+        ControlMode.Vca => "Control",
+        ControlMode.Linked => "Linked",
+        _ => "Mute group",
+    };
 }
 
 /// <summary>Everything about the mix. Saved to audio/mix.json and in scenes.</summary>
@@ -454,7 +582,7 @@ public sealed class MixState
 {
     public const int ChannelCount = 32;
     public const int OutputCount = 32;
-    public const int MaxMix = 16, MaxGroups = 8, MaxMatrix = 6, MaxFx = 8;
+    public const int MaxMix = 16, MaxGroups = 8, MaxMatrix = 6, MaxFx = 8, MaxControls = 24;
 
     /// <summary>3: channels choose their input (older files fed channel N from input N).</summary>
     public int Version { get; set; } = 3;
@@ -467,7 +595,11 @@ public sealed class MixState
     public StreamSettings StreamSettings { get; set; } = new();
     public SoloSettings Solo { get; set; } = new();
     public ToneSettings Tone { get; set; } = new();
+    /// <summary>Control groups: VCA masters, linked faders and mute groups ("cg1" to "cg24").</summary>
+    public List<ControlGroup> Controls { get; set; } = [];
     public List<OutputPatch> Outputs { get; set; } = [];
+
+    public ControlGroup? Control(string id) => Controls.FirstOrDefault(g => g.Id == id);
 
     public IEnumerable<Strip> AllStrips()
     {
@@ -510,6 +642,28 @@ public sealed class MixState
         for (var o = 1; o <= OutputCount; o++)
             s.Outputs.Add(new OutputPatch { Number = o, Source = $"in:{o}" });
         return s;
+    }
+
+    private void RepairControls()
+    {
+        Controls.RemoveAll(g => g is null);
+        var ids = new HashSet<string>();
+        var strips = AllStrips().Select(x => x.Id).Where(x => x != "stream").ToHashSet();
+        foreach (var g in Controls)
+        {
+            g.Name ??= "";
+            g.Colour ??= "";
+            g.Members ??= [];
+            g.Safe ??= [];
+            g.Members = g.Members.Where(strips.Contains).Distinct().ToList();
+            g.Safe = g.Safe.Where(g.Members.Contains).Distinct().ToList();
+            g.Fader = Math.Clamp(double.IsFinite(g.Fader) ? g.Fader : 0, Db.Floor, 10);
+            if (g.Mode == ControlMode.Linked) g.Mute = false;
+        }
+        // Ids "cg1" to "cg24", each once.
+        Controls.RemoveAll(g => !(g.Id is { Length: > 2 } id && id.StartsWith("cg", StringComparison.Ordinal) &&
+            int.TryParse(id[2..], out var n) && n >= 1 && n <= MaxControls && ids.Add(id)));
+        Controls.Sort((a, b) => int.Parse(a.Id[2..]).CompareTo(int.Parse(b.Id[2..])));
     }
 
     private string ValidKey(Strip s, string? key) =>
@@ -632,6 +786,7 @@ public sealed class MixState
         Stream.Id = "stream"; Stream.Kind = StripKind.Stream; Stream.Stereo = true; Stream.ToMain = false;
         StreamSettings ??= new StreamSettings();
         Solo ??= new SoloSettings();
+        Controls ??= [];
         Buses.RemoveAll(b => b is null || b.Kind is StripKind.Channel or StripKind.Main or StripKind.Mono or StripKind.Stream);
         var seen = new HashSet<string>();
         Buses.RemoveAll(b => !seen.Add(b.Id));
@@ -678,6 +833,10 @@ public sealed class MixState
         }
         // Nothing may feed back into itself (a file from elsewhere, or a hand edit).
         Routing.RemoveLoops(this);
+        // Only odd channels start a stereo pair.
+        for (var i = 0; i < Channels.Count; i++)
+            if (i % 2 == 1 || i + 1 >= Channels.Count) Channels[i].Linked = false;
+        RepairControls();
         for (var o = Outputs.Count + 1; o <= OutputCount; o++) Outputs.Add(new OutputPatch { Number = o, Source = "off" });
         if (Outputs.Count > OutputCount) Outputs.RemoveRange(OutputCount, Outputs.Count - OutputCount);
         for (var o = 0; o < Outputs.Count; o++)

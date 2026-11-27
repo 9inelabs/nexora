@@ -102,6 +102,8 @@ internal sealed class StripRt
     public volatile float Fader = 1;           // fader and mute only (for sends to mono buses)
     public volatile int InDelay;               // samples
     public volatile bool Muted;
+    /// <summary>Hard muted: the direct out goes silent too.</summary>
+    public volatile bool HardMuted;
 
     public SmoothGain GTrim, GFaderL, GFaderR;
 
@@ -184,9 +186,10 @@ internal sealed class Topology
     public ToneKind ToneKind;
     public double ToneFreq = 1000;
     public float ToneGain = 0.125893f;
-    public StripRt[] Soloed = [];
-    public bool SoloAfl;
-    public float SoloGain = 1;
+    /// <summary>The strips heard on solo bus 1 and solo bus 2 (empty: that bus plays the main mix).</summary>
+    public StripRt[] Soloed = [], Soloed2 = [];
+    public bool SoloAfl, SoloAfl2;
+    public float SoloGain = 1, SoloGain2 = 1;
     public bool StreamFromMain = true;
     public int StreamDelay;
     public StripRt? Analyse;
@@ -226,6 +229,7 @@ public sealed class MixEngine
         _scrR = new float[maxFrames];
         _tone = new float[maxFrames];
         _monitor = new StripRt("mon", StripKind.Mix, true, maxFrames, sampleRate);
+        _monitor2 = new StripRt("mon2", StripKind.Mix, true, maxFrames, sampleRate);
         Loudness = new LoudnessMeter(sampleRate);
         Analyser = new Analyser(sampleRate);
         StreamTap = new StreamTap(sampleRate);
@@ -280,8 +284,9 @@ public sealed class MixEngine
             topo.All = s.AllStrips().Select(Get).ToArray();
             foreach (var dead in _strips.Keys.Where(k => !seen.Contains(k)).ToList()) _strips.Remove(dead);
 
-            // Settings for every strip's own processing.
-            foreach (var st in s.AllStrips()) Configure(st, _strips[st.Id]);
+            // Settings for every strip's own processing, with its VCA masters and mute groups.
+            var controls = ControlRules.Effects(s);
+            foreach (var st in s.AllStrips()) Configure(st, _strips[st.Id], controls.GetValueOrDefault(st.Id));
 
             // Feeds: every route to the main mix, group assignment and send, grouped by the strip that sends.
             var feedsSeen = new HashSet<string>();
@@ -373,9 +378,13 @@ public sealed class MixEngine
                 _streamDelayR = new DelayLine(Math.Max(topo.StreamDelay, (int)_sr));
             }
 
-            topo.Soloed = anySolo ? s.AllStrips().Where(x => x.Solo).Select(x => _strips[x.Id]).ToArray() : [];
+            var soloed = anySolo ? s.AllStrips().Where(x => x.Solo).Select(x => _strips[x.Id]).ToArray() : [];
+            topo.Soloed = s.Solo.ToBus(1) ? soloed : [];
+            topo.Soloed2 = s.Solo.ToBus(2) ? soloed : [];
             topo.SoloAfl = s.Solo.Mode == SoloMode.Afl;
+            topo.SoloAfl2 = s.Solo.Mode2 == SoloMode.Afl;
             topo.SoloGain = Db.ToGain(s.Solo.Level);
+            topo.SoloGain2 = Db.ToGain(s.Solo.Level2);
             topo.Analyse = AnalyseId is { } a && _strips.TryGetValue(a, out var ar) ? ar : null;
 
             // Outputs (a channel's direct out comes from its own tap point).
@@ -432,7 +441,7 @@ public sealed class MixEngine
         return 0;
     }
 
-    private void Configure(Strip s, StripRt rt)
+    private void Configure(Strip s, StripRt rt, ControlEffect control = default)
     {
         rt.Trim = Db.ToGain(s.Trim) * (s.Invert ? -1 : 1);
         var inDelay = (int)(Math.Clamp(s.DelayMs, 0, MixParams.MaxDelayMs) * 0.001 * _sr);
@@ -444,8 +453,11 @@ public sealed class MixEngine
             rt.InDelayR = new DelayLine(room);
         }
         rt.InDelay = inDelay;
-        var fader = s.Mute ? 0f : Db.ToGain(s.Fader);
-        rt.Muted = s.Mute;
+        // A mute, a hard mute or a group's mute all silence the strip; a VCA master moves its fader.
+        var muted = s.Mute || s.HardMute || control.Muted;
+        var fader = muted ? 0f : Db.ToGain(ControlRules.Effective(s, control));
+        rt.Muted = muted;
+        rt.HardMuted = s.HardMute;
         rt.Fader = fader;
         if (s.Stereo)
         {
@@ -560,11 +572,11 @@ public sealed class MixEngine
         else if (src.Length > 0 && src != "off")
         {
             var parts = src.Split(':');
-            var id = parts[0] == "mon" ? "mon" : parts[0];
-            if (id == "mon")
+            var id = parts[0];
+            if (id is "mon" or "mon2")
             {
                 kind = parts.Length > 1 && parts[1] == "r" ? OutSource.StripRight : OutSource.StripLeft;
-                strip = _monitor;
+                strip = id == "mon" ? _monitor : _monitor2;
             }
             else if (_strips.TryGetValue(id, out var st))
             {
@@ -595,8 +607,8 @@ public sealed class MixEngine
         }
     }
 
-    // The solo / monitor bus (not part of the saved mix).
-    private readonly StripRt _monitor;
+    // The two solo / monitor buses (not part of the saved mix).
+    private readonly StripRt _monitor, _monitor2;
     private Dictionary<string, SendTap> _directTaps = [];
     private Dictionary<string, PathLatency> _latency = [];
     private readonly float[] _scrL, _scrR, _tone;
@@ -682,35 +694,9 @@ public sealed class MixEngine
             if (i < stepFeeds.Length) Mix(stepFeeds[i], frames);
         }
 
-        // 9. Solo / monitor bus: the soloed strips, or the main mix when nothing is soloed.
-        var mon = _monitor;
-        if (t.Soloed.Length == 0)
-        {
-            Array.Copy(t.Main.PostL, mon.PostL, frames);
-            Array.Copy(t.Main.PostR, mon.PostR, frames);
-        }
-        else
-        {
-            Array.Clear(mon.PostL, 0, frames);
-            Array.Clear(mon.PostR, 0, frames);
-            foreach (var s in t.Soloed)
-            {
-                var useAfl = t.SoloAfl;
-                var l = useAfl ? s.PostL : s.PreL;
-                var r = s.Stereo ? useAfl ? s.PostR : s.PreR : l;
-                for (var n = 0; n < frames; n++)
-                {
-                    mon.PostL[n] += l[n];
-                    mon.PostR[n] += r[n];
-                }
-            }
-        }
-        if (t.SoloGain != 1f)
-            for (var n = 0; n < frames; n++)
-            {
-                mon.PostL[n] *= t.SoloGain;
-                mon.PostR[n] *= t.SoloGain;
-            }
+        // 9. Solo / monitor buses: the soloed strips, or the main mix when nothing is soloed there.
+        Monitor(_monitor, t.Soloed, t.SoloAfl, t.SoloGain, t.Main, frames);
+        Monitor(_monitor2, t.Soloed2, t.SoloAfl2, t.SoloGain2, t.Main, frames);
 
         // 10. Outputs.
         for (var o = 0; o < output.Length && o < _outs.Length; o++)
@@ -726,7 +712,8 @@ public sealed class MixEngine
                     Array.Copy(input[rt.Input], dst, frames);
                     break;
                 case OutSource.ChannelDirect when rt.Strip is { } cs:
-                    if (cs.Muted) Array.Clear(dst, 0, frames);
+                    // A normal mute leaves a direct out taken before the fader going (a recording carries on); a hard mute silences it.
+                    if (cs.HardMuted || (cs.Muted && rt.Tap == SendTap.Post)) Array.Clear(dst, 0, frames);
                     else Array.Copy(rt.Tap switch
                     {
                         SendTap.Input => cs.TapInL,
@@ -874,6 +861,36 @@ public sealed class MixEngine
             }
             else f.SL.Mix(l, d.InL, frames, gl);
         }
+    }
+
+    private static void Monitor(StripRt mon, StripRt[] soloed, bool afl, float gain, StripRt main, int frames)
+    {
+        if (soloed.Length == 0)
+        {
+            Array.Copy(main.PostL, mon.PostL, frames);
+            Array.Copy(main.PostR, mon.PostR, frames);
+        }
+        else
+        {
+            Array.Clear(mon.PostL, 0, frames);
+            Array.Clear(mon.PostR, 0, frames);
+            foreach (var s in soloed)
+            {
+                var l = afl ? s.PostL : s.PreL;
+                var r = s.Stereo ? afl ? s.PostR : s.PreR : l;
+                for (var n = 0; n < frames; n++)
+                {
+                    mon.PostL[n] += l[n];
+                    mon.PostR[n] += r[n];
+                }
+            }
+        }
+        if (gain != 1f)
+            for (var n = 0; n < frames; n++)
+            {
+                mon.PostL[n] *= gain;
+                mon.PostR[n] *= gain;
+            }
     }
 
     private void RunBus(StripRt b, int frames)

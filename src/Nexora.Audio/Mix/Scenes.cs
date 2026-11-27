@@ -188,6 +188,16 @@ public static class SceneRecall
             result.Outputs = from.Outputs.Select(o => o.Clone()).ToList();
             result.StreamSettings = from.StreamSettings;
             result.Solo = from.Solo;
+            // Control groups: who is in them comes with the routing; their masters and mutes with the levels.
+            var live = result.Controls.ToDictionary(g => g.Id);
+            result.Controls = from.Controls.Select(g => g.Clone()).ToList();
+            if (!scope.HasFlag(RecallScope.Levels))
+                foreach (var g in result.Controls)
+                    if (live.TryGetValue(g.Id, out var was) && was.Mode == g.Mode)
+                    {
+                        g.Fader = was.Fader;
+                        g.Mute = was.Mute;
+                    }
             foreach (var ch in result.Channels)
             {
                 var src = from.Channels.FirstOrDefault(c => c.Id == ch.Id);
@@ -202,6 +212,14 @@ public static class SceneRecall
             for (var i = 0; i < result.Buses.Count; i++)
                 if (keepSafe.TryGetValue(result.Buses[i].Id, out var safe)) result.Buses[i] = safe;
         }
+
+        if (scope.HasFlag(RecallScope.Levels))
+            foreach (var g in result.Controls)
+                if (from.Control(g.Id) is { } sg && sg.Mode == g.Mode)
+                {
+                    g.Fader = sg.Fader;
+                    g.Mute = sg.Mute;
+                }
 
         foreach (var dst in result.AllStrips())
         {
@@ -258,6 +276,8 @@ public static class SceneRecall
                 if (a.SendTo(s.Bus) is { } sa)
                     s.Level = Lerp(sa.On ? sa.Level : Dsp.Db.Floor, s.On ? s.Level : Dsp.Db.Floor, t);
         }
+        foreach (var g in r.Controls)
+            if (from.Control(g.Id) is { } ga && ga.Mode == g.Mode && g.Mode == ControlMode.Vca) g.Fader = Lerp(ga.Fader, g.Fader, t);
         return r;
     }
 

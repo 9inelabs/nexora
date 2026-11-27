@@ -117,7 +117,8 @@ public sealed partial class NexAudioViewModel
 
     /// <summary>What decides the screen's layout: the strips, their names, racks and groups. Levels are not part of it.</summary>
     private static string StructureKey(MixState m) =>
-        string.Join("|", m.AllStrips().Select(s => $"{s.Id}:{s.Name}:{s.Stereo}:{string.Join(",", s.Rack.Select(r => r.Id))}:{s.Eq.Bands.Count}")) + "|" + m.Outputs.Count;
+        string.Join("|", m.AllStrips().Select(s => $"{s.Id}:{s.Name}:{s.Stereo}:{string.Join(",", s.Rack.Select(r => r.Id))}:{s.Eq.Bands.Count}")) + "|" + m.Outputs.Count +
+        "|" + string.Join(",", m.Controls.Select(g => $"{g.Id}:{g.Mode}"));
 
     /// <summary>Updates every value on screen without rebuilding (a scene fading in, for example).</summary>
     private void RefreshValues()
@@ -129,6 +130,7 @@ public sealed partial class NexAudioViewModel
         foreach (var p in StreamParams) p.Refresh(_mix);
         foreach (var p in StreamChannelParams) p.Refresh(_mix);
         RefreshRouting();
+        RefreshGroups();
         OnPropertyChanged(nameof(AnySolo));
         OnPropertyChanged(nameof(StreamOwnMix));
     }
@@ -170,7 +172,25 @@ public sealed partial class NexAudioViewModel
             RefreshTone();
             return;
         }
-        if (id is "streamset" or "solo")
+        if (id == "solo")
+        {
+            foreach (var p in SoloParams) p.Refresh(_mix);
+            foreach (var v in AllStripViews()) v.Update(_mix.Find(v.Id)!);
+            OnPropertyChanged(nameof(AnySolo));
+            return;
+        }
+        if (_mix.Control(id) is { } cg)
+        {
+            if (ControlGroups.FirstOrDefault(v => v.Id == id) is { } gv) gv.Update(cg);
+            // Members' chips, and their level after the master.
+            foreach (var v in AllStripViews().Where(v => cg.Members.Contains(v.Id) || path.Contains(".member.", StringComparison.Ordinal) || path.Contains(".safe.", StringComparison.Ordinal)))
+                if (_mix.Find(v.Id) is { } ms) v.Update(ms);
+            if (path.EndsWith(".name", StringComparison.Ordinal)) OnPropertyChanged(nameof(SpillTitle));
+            if (SpillId == id && (path.Contains(".member.", StringComparison.Ordinal))) FillVisible();
+            if (SelectedId is not null) RefreshChannel();
+            return;
+        }
+        if (id is "streamset")
         {
             foreach (var p in StreamParams) p.Refresh(_mix);
             OnPropertyChanged(nameof(StreamOwnMix));
@@ -179,6 +199,14 @@ public sealed partial class NexAudioViewModel
         if (_mix.Find(id) is { } s)
         {
             foreach (var v in AllStripViews().Where(v => v.Id == id)) v.Update(s);
+            // A stereo partner or linked faders moved too.
+            foreach (var other in MixParams.AlsoChanges(_mix, path).ToList())
+                if (_mix.Find(other) is { } os) foreach (var v in AllStripViews().Where(v => v.Id == other)) v.Update(os);
+            if (path.EndsWith(".linked", StringComparison.Ordinal))
+            {
+                foreach (var r in PairRows) r.Refresh(_mix);
+                foreach (var v in ControlGroups) if (_mix.Control(v.Id) is { } g) v.Update(g);
+            }
             if (BusTags.FirstOrDefault(t => t.Id == id) is { } tag) tag.Update(s, tag.IsCurrent, NameOf(s));
             if (path.Contains(".send.", StringComparison.Ordinal) || path.EndsWith(".solo", StringComparison.Ordinal)) foreach (var v in AllStripViews()) v.Update(_mix.Find(v.Id)!);
             if (SelectedId == id) RefreshChannel();
@@ -205,6 +233,7 @@ public sealed partial class NexAudioViewModel
         BuildOutputs();
         BuildStream();
         BuildRouting();
+        BuildGroups();
         OnPropertyChanged(nameof(AnySolo));
         OnPropertyChanged(nameof(LatencyMixText));
     }
@@ -229,17 +258,27 @@ public sealed partial class NexAudioViewModel
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(BankLow), nameof(BankHigh), nameof(BankBuses))]
+    [NotifyPropertyChangedFor(nameof(BankLow), nameof(BankHigh), nameof(BankBuses), nameof(BankGroups), nameof(ShowStrips))]
     private int _bank;
 
     public bool BankLow => Bank == 0;
     public bool BankHigh => Bank == 1;
     public bool BankBuses => Bank == 2;
+    /// <summary>The ordinary faders are showing (not the control group masters).</summary>
+    public bool ShowStrips => Bank != 3;
+
+    /// <summary>The mix as this screen has it.</summary>
+    internal MixState Mix => _mix;
 
     [RelayCommand]
     private void ShowBank(string bank)
     {
         Bank = int.Parse(bank, CultureInfo.InvariantCulture);
+        if (SpillId is not null)
+        {
+            SpillId = null;
+            foreach (var v in ControlGroups) v.IsSpilled = false;
+        }
         FillVisible();
     }
 
@@ -276,12 +315,16 @@ public sealed partial class NexAudioViewModel
     private void FillVisible()
     {
         VisibleStrips.Clear();
-        IEnumerable<StripView> src = Bank switch
-        {
-            0 => ChannelStrips.Take(16),
-            1 => ChannelStrips.Skip(16),
-            _ => BusStrips,
-        };
+        var spill = SpillId is { } sid ? _mix.Control(sid) : null;
+        IEnumerable<StripView> src = spill is not null
+            ? ChannelStrips.Concat(BusStrips).Where(v => spill.Members.Contains(v.Id))
+            : Bank switch
+            {
+                0 => ChannelStrips.Take(16),
+                1 => ChannelStrips.Skip(16),
+                3 => [],
+                _ => BusStrips,
+            };
         foreach (var v in src) VisibleStrips.Add(v);
     }
 
@@ -392,6 +435,7 @@ public sealed partial class NexAudioViewModel
         foreach (var v in AllStripViews()) v.IsSelected = v.Id == id;
         BuildChannel();
         _ = _engine.SendAsync(new DeskCommandMsg("analyse", new() { ["strip"] = id }));
+        AutoSolo(id);
         if (open) Tab = NexAudioTab.Channel;
     }
 
@@ -440,7 +484,25 @@ public sealed partial class NexAudioViewModel
         if (s.Kind is StripKind.Mix or StripKind.Fx or StripKind.Group or StripKind.Matrix)
             route.Items.Add(new ToggleParam($"{id}.stereo", "Stereo (left and right)", m => S(m)?.Stereo ?? false, q));
         route.Items.Add(new ToggleParam($"{id}.recallSafe", "Scenes leave this strip alone", m => S(m)?.RecallSafe ?? false, q));
+        if (s.Kind == StripKind.Channel && s.Number % 2 == 1 && s.Number < MixState.ChannelCount)
+            route.Items.Add(new ToggleParam($"{id}.linked", $"Stereo pair with channel {s.Number + 1} (changes go to both)", m => S(m)?.Linked ?? false, q));
+        else if (s.Kind == StripKind.Channel && ControlRules.Partner(_mix, s) is { } left)
+            route.Items.Add(new ToggleParam($"{left.Id}.linked", $"Stereo pair with channel {left.Number} (changes go to both)", m => m.Find(left.Id)?.Linked ?? false, q));
+        if (s.Kind is not (StripKind.Main or StripKind.Stream))
+            route.Items.Add(new ToggleParam($"{id}.soloSafe", "Solo safe (stays soloed when solos are cleared)", m => S(m)?.SoloSafe ?? false, q));
         ChannelSections.Add(route);
+
+        // Control groups this strip is in.
+        if (s.Kind != StripKind.Stream && _mix.Controls.Count > 0)
+        {
+            var cgs = new ParamSection("Control groups", "Tap to put this strip in a group or take it out. A safe member stays in the group but ignores it for now.");
+            foreach (var g in _mix.Controls)
+            {
+                var gid = g.Id;
+                cgs.Items.Add(new ToggleParam($"{gid}.member.{id}", $"{ControlRules.Label(g)} ({ControlRules.ModeLabel(g.Mode).ToLowerInvariant()})", m => m.Control(gid)?.Members.Contains(id) ?? false, q));
+            }
+            ChannelSections.Add(cgs);
+        }
 
         if (s.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group)
         {
@@ -585,8 +647,10 @@ public sealed partial class NexAudioViewModel
             }
         src.Add(new("stream:l", "Stream left"));
         src.Add(new("stream:r", "Stream right"));
-        src.Add(new("mon:l", "Solo / headphones left"));
-        src.Add(new("mon:r", "Solo / headphones right"));
+        src.Add(new("mon:l", "Solo bus 1 / headphones left"));
+        src.Add(new("mon:r", "Solo bus 1 / headphones right"));
+        src.Add(new("mon2:l", "Solo bus 2 left"));
+        src.Add(new("mon2:r", "Solo bus 2 right"));
         foreach (var c in _mix.Channels) src.Add(new($"ch:{c.Number}", $"Channel {c.Number} direct out · {NameOf(c)}"));
         for (var i = 1; i <= Math.Max(32, Status.Inputs); i++) src.Add(new($"in:{i}", $"Input {i} straight through"));
         var changed = !src.Select(x => x.Value + x.Label).SequenceEqual(_sources.Select(x => x.Value + x.Label));
