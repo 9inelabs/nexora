@@ -17,6 +17,9 @@ public static class MixParams
     /// <summary>The longest delay on a strip or output: 1.3 seconds (about 450 m of sound travel).</summary>
     public const double MaxDelayMs = 1300;
 
+    /// <summary>A bus's trim goes higher than a channel's (the brief: up to +60 dB), for very quiet sources summed into it.</summary>
+    public const double MaxBusTrim = 60;
+
     public static JsonNode? Node(object? v) => v switch
     {
         null => null,
@@ -297,6 +300,20 @@ public static class MixParams
                 s.Tone = u;
                 return true;
             }
+            case "mainset":
+            {
+                // Left and right, or left-centre-right. The centre keeps its own settings while it is switched off.
+                var u = SetIn(s.MainSettings, seg[1..], value);
+                if (u is null || !Enum.IsDefined(u.Layout)) return false;
+                s.MainSettings = u;
+                if (!s.IsLcr)
+                {
+                    s.Centre.Solo = false;
+                    foreach (var o in s.Outputs)
+                        if (o.Source.Equals("centre", StringComparison.OrdinalIgnoreCase)) o.Source = "off";
+                }
+                return true;
+            }
             case "solo":
             {
                 var u = SetIn(s.Solo, seg[1..], value);
@@ -390,7 +407,8 @@ public static class MixParams
         // These never change through a setting.
         updated2.Id = strip.Id;
         updated2.Kind = strip.Kind;
-        if (strip.Kind is StripKind.Channel or StripKind.Mono) updated2.Stereo = false;
+        if (strip.Kind is StripKind.Channel or StripKind.Mono or StripKind.Centre) updated2.Stereo = false;
+        if (strip.Kind is StripKind.Centre) updated2.Pan = 0;
         if (strip.Kind is StripKind.Main or StripKind.Stream) updated2.Stereo = true;
         updated2.Rack = strip.Rack;
         updated2.Sends = strip.Sends;
@@ -409,6 +427,7 @@ public static class MixParams
         if (ReferenceEquals(s.Main, old)) s.Main = now;
         else if (ReferenceEquals(s.Mono, old)) s.Mono = now;
         else if (ReferenceEquals(s.Stream, old)) s.Stream = now;
+        else if (ReferenceEquals(s.Centre, old)) s.Centre = now;
     }
 
     /// <summary>Sets a value inside an object by path (lists by index, "eq.2" meaning eq.bands[2]). Returns a new copy.</summary>
@@ -457,7 +476,7 @@ public static class MixParams
     /// <summary>Keeps every number in a safe range, whatever was typed or sent.</summary>
     public static void Clamp(Strip s)
     {
-        s.Trim = Math.Clamp(s.Trim, -24, 24);
+        s.Trim = Math.Clamp(s.Trim, -24, s.Kind == StripKind.Channel ? 24 : MaxBusTrim);
         s.DelayMs = Math.Clamp(s.DelayMs, 0, MaxDelayMs);
         if (s.Kind == StripKind.Channel)
         {
@@ -652,8 +671,8 @@ public static class MixParams
         }
         if (Has("dyn"))
         {
-            // The gate only exists on channels; a bus keeps its own.
-            if (b.Kind == StripKind.Channel)
+            // Every strip but the stream has a gate (on a bus, usually a ducker).
+            if (b.Kind != StripKind.Stream)
             {
                 b.Gate = from.Gate.Clone();
                 if (b.Gate.Key == b.Id) b.Gate.Key = "";

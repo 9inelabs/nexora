@@ -187,10 +187,12 @@ public sealed class ChannelControls
         Strip? S(MixState m) => m.Find(id);
         Action<string, object> q = owner.Queue;
         IsChannel = s.Kind == StripKind.Channel;
+        // Every strip but the stream has a gate (on a bus it is most useful as a ducker: the band dips under the pastor).
+        HasGate = s.Kind != StripKind.Stream;
 
         Preamp = new SliderParam($"{id}.preamp", "X32 gain", -12, 60, "dB", m => S(m)?.Preamp ?? 0, q, step: 0.5, def: 0);
         Phantom = new ToggleParam($"{id}.phantom", "+48 V", m => S(m)?.Phantom ?? false, q);
-        Trim = new SliderParam($"{id}.trim", "Trim", -24, 24, "dB", m => S(m)?.Trim, q, step: 0.5, def: 0);
+        Trim = new SliderParam($"{id}.trim", "Trim", -24, IsChannel ? 24 : MixParams.MaxBusTrim, "dB", m => S(m)?.Trim, q, step: 0.5, def: 0);
         Invert = new ToggleParam($"{id}.invert", "Polarity flip", m => S(m)?.Invert ?? false, q);
         Delay = new SliderParam($"{id}.delayMs", "Delay", 0, MixParams.MaxDelayMs, "ms", m => S(m)?.DelayMs, q, step: 0.1, def: 0);
         HpfOn = new ToggleParam($"{id}.hpf.on", "Low cut", m => S(m)?.Hpf.On ?? false, q);
@@ -245,6 +247,7 @@ public sealed class ChannelControls
     }
 
     public bool IsChannel { get; }
+    public bool HasGate { get; }
 
     public SliderParam Preamp { get; }
     public ToggleParam Phantom { get; }

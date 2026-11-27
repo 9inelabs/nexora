@@ -35,7 +35,7 @@ public sealed partial class NexAudioViewModel : IEqEditor, IGraphicEqEditor
     partial void OnChannelPageChanged(ChannelSection value)
     {
         foreach (var r in Rail) r.IsCurrent = r.Section == value;
-        if (value == ChannelSection.Gate && !(Ch?.IsChannel ?? false)) ChannelPage = ChannelSection.Home;
+        if (value == ChannelSection.Gate && !(Ch?.HasGate ?? false)) ChannelPage = ChannelSection.Home;
     }
 
     internal void OpenStripSection(string id, string section)
@@ -79,13 +79,13 @@ public sealed partial class NexAudioViewModel : IEqEditor, IGraphicEqEditor
         Rail.Clear();
         Rail.Add(new ChannelRailItem(ChannelSection.Home, "Home", this));
         Rail.Add(new ChannelRailItem(ChannelSection.Input, "Input", this));
-        if (Ch.IsChannel) Rail.Add(new ChannelRailItem(ChannelSection.Gate, "Gate", this));
+        if (Ch.HasGate) Rail.Add(new ChannelRailItem(ChannelSection.Gate, Ch.IsChannel ? "Gate" : "Gate / ducker", this));
         Rail.Add(new ChannelRailItem(ChannelSection.Eq, "EQ", this));
         Rail.Add(new ChannelRailItem(ChannelSection.Dynamics, "Compressor", this));
         Rail.Add(new ChannelRailItem(ChannelSection.Geq, "Graphic EQ", this));
         Rail.Add(new ChannelRailItem(ChannelSection.Effects, "Effects", this));
         Rail.Add(new ChannelRailItem(ChannelSection.Sends, "Sends", this));
-        if (!Ch.IsChannel && ChannelPage == ChannelSection.Gate) ChannelPage = ChannelSection.Home;
+        if (!Ch.HasGate && ChannelPage == ChannelSection.Gate) ChannelPage = ChannelSection.Home;
         foreach (var r in Rail) r.IsCurrent = r.Section == ChannelPage;
 
         if (SelectedBand >= s.Eq.Bands.Count) SelectedBand = -1;
@@ -147,8 +147,16 @@ public sealed partial class NexAudioViewModel : IEqEditor, IGraphicEqEditor
         get
         {
             if (SelectedStrip is not { } s) return "";
+            switch (s.Kind)
+            {
+                case StripKind.Main: return _mix.IsLcr ? "The main mix: left and right speakers (the centre has its own strip)" : "The main mix: left and right speakers";
+                case StripKind.Centre: return "The centre cluster of the main mix";
+                case StripKind.Mono: return "The mono / sub feed";
+                case StripKind.Stream: return "The stream mix";
+            }
             var to = new List<string>();
-            if (s.ToMain && s.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group) to.Add("Main");
+            if (s.ToMain && s.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group)
+                to.Add(_mix.IsLcr && Routing.FeedsCentre(_mix, s) ? "Main (left, centre, right)" : "Main");
             foreach (var g in s.Groups) if (_mix.Find(g) is { } gs) to.Add(NameOf(gs));
             return to.Count == 0 ? "Not routed to the main mix" : "To " + string.Join(", ", to);
         }

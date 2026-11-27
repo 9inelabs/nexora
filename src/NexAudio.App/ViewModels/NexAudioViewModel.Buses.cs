@@ -31,6 +31,7 @@ public sealed partial class NexAudioViewModel
             StripKind.Group => GroupPalette[n % GroupPalette.Length],
             StripKind.Matrix => "#94A3B8",
             StripKind.Main => "#E2BE76",
+            StripKind.Centre => "#F2D06B",
             StripKind.Mono => "#A4A7AE",
             StripKind.Stream => "#FF6B6B",
             _ => "#3A3D44",

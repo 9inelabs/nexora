@@ -204,7 +204,10 @@ public sealed partial class StripView : ObservableObject
     public int MeterIndex { get; }
     public int MeterIndexR { get; }
     public bool IsChannel => Kind == StripKind.Channel;
-    public bool CanSolo => Kind is not (StripKind.Main or StripKind.Stream);
+    public bool HasGate => Kind is not StripKind.Stream;
+    /// <summary>The centre of a left-centre-right main is one speaker feed, so it has nothing to pan.</summary>
+    public bool HasPan => Kind is not StripKind.Centre;
+    public bool CanSolo => Kind is not (StripKind.Main or StripKind.Stream or StripKind.Centre);
 
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private string _number = "";
@@ -269,6 +272,7 @@ public sealed partial class StripView : ObservableObject
         {
             StripKind.Channel => s.Number.ToString(CultureInfo.InvariantCulture),
             StripKind.Main => "L R",
+            StripKind.Centre => "C",
             StripKind.Mono => "M",
             StripKind.Stream => "STREAM",
             _ => $"{MixState.KindLabel(s.Kind).ToUpperInvariant()} {s.Number}",
@@ -278,7 +282,7 @@ public sealed partial class StripView : ObservableObject
         Scribble = new SolidColorBrush(sc);
         // Dark writing on light colours, white on dark ones, so the name always reads.
         ScribbleText = 0.299 * sc.R + 0.587 * sc.G + 0.114 * sc.B > 140 ? new SolidColorBrush(Color.Parse("#121316")) : Brushes.White;
-        GateOn = s.Kind == StripKind.Channel && s.Gate.On;
+        GateOn = s.Kind != StripKind.Stream && s.Gate.On;
         CompOn = s.Comp.On;
         HpfOn = s.Hpf.On;
         GainText = s.Preamp is { } pre ? $"{pre:+0;-0;0} dB" : Math.Abs(s.Trim) > 0.05 ? $"trim {s.Trim:+0.#;-0.#}" : s.Kind == StripKind.Channel ? "desk" : "";
@@ -304,7 +308,7 @@ public sealed partial class StripView : ObservableObject
         if (Filters is null || !SameFilters(Filters, f)) Filters = f;
         var layer = _owner.LayerBus;
         // The main mix, mono and stream never feed a mix or effect, so they keep their own faders.
-        if (s.Kind is StripKind.Main or StripKind.Mono or StripKind.Stream) layer = null;
+        if (s.Kind is StripKind.Main or StripKind.Mono or StripKind.Stream or StripKind.Centre) layer = null;
         OnLayer = layer is not null && s.Id != layer.Id;
         LayerTone = layer is null ? null : new SolidColorBrush(NexAudioViewModel.ColourOf(layer));
         if (layer is not null && OnLayer)

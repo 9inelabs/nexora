@@ -22,6 +22,25 @@ public enum StripKind
     Matrix,
     /// <summary>The stream and recording mix, sent to the Live Output PC.</summary>
     Stream,
+    /// <summary>The centre of a left-centre-right main (a centre speaker cluster). Only there when the main is LCR.</summary>
+    Centre,
+}
+
+/// <summary>How the main mix reaches the PA.</summary>
+public enum MainLayout
+{
+    /// <summary>Left and right.</summary>
+    Lr,
+    /// <summary>Left, centre and right: a centre cluster for speech and vocals, with its own processing and fader.</summary>
+    Lcr,
+}
+
+/// <summary>The main mix's own settings.</summary>
+public sealed class MainSettings
+{
+    public MainLayout Layout { get; set; } = MainLayout.Lr;
+
+    public MainSettings Clone() => (MainSettings)MemberwiseClone();
 }
 
 public enum CompStyle
@@ -324,6 +343,11 @@ public sealed class Strip
 
     /// <summary>Goes to the main left and right (channels, effects and groups).</summary>
     public bool ToMain { get; set; } = true;
+    /// <summary>
+    /// With a left-centre-right main: a mono strip pans across left, centre and right (in the middle it is only in the centre).
+    /// Off, it stays in left and right like a normal pan. Stereo strips always go to left and right only.
+    /// </summary>
+    public bool ToCentre { get; set; } = true;
     /// <summary>Mixes, effects and matrices: the tap point new sends to this bus start with (null: the usual one for the kind).</summary>
     public SendTap? SendsFrom { get; set; }
     /// <summary>The groups this channel feeds (after its fader).</summary>
@@ -379,7 +403,7 @@ public sealed class Strip
         Id = Id, Kind = Kind, Name = Name, Colour = Colour, Stereo = Stereo, Trim = Trim, Invert = Invert, DelayMs = DelayMs,
         Input = Input, AltInput = AltInput, UseAlt = UseAlt, DirectTap = DirectTap,
         Hpf = Hpf.Clone(), Lpf = Lpf.Clone(), Drive = Drive.Clone(), Eq = Eq.Clone(), DynEq = DynEq.Clone(), Gate = Gate.Clone(), Comp = Comp.Clone(),
-        Order = Order, Rack = Rack.Select(r => r.Clone()).ToList(), Pan = Pan, Fader = Fader, Mute = Mute, HardMute = HardMute, Solo = Solo, SoloSafe = SoloSafe, Linked = Linked, ToMain = ToMain, SendsFrom = SendsFrom,
+        Order = Order, Rack = Rack.Select(r => r.Clone()).ToList(), Pan = Pan, Fader = Fader, Mute = Mute, HardMute = HardMute, Solo = Solo, SoloSafe = SoloSafe, Linked = Linked, ToMain = ToMain, ToCentre = ToCentre, SendsFrom = SendsFrom,
         Groups = [.. Groups], Sends = Sends.Select(s => s.Clone()).ToList(), StreamLevel = StreamLevel, StreamOn = StreamOn,
         Preamp = Preamp, Phantom = Phantom, RecallSafe = RecallSafe,
     };
@@ -592,6 +616,10 @@ public sealed class MixState
     public Strip Main { get; set; } = new();
     public Strip Mono { get; set; } = new();
     public Strip Stream { get; set; } = new();
+    /// <summary>The centre of a left-centre-right main. Kept in the file always, used only when <see cref="MainSettings"/> says LCR.</summary>
+    public Strip Centre { get; set; } = NewCentre();
+    public MainSettings MainSettings { get; set; } = new();
+    public bool IsLcr => MainSettings.Layout == MainLayout.Lcr;
     public StreamSettings StreamSettings { get; set; } = new();
     public SoloSettings Solo { get; set; } = new();
     public ToneSettings Tone { get; set; } = new();
@@ -606,9 +634,12 @@ public sealed class MixState
         foreach (var c in Channels) yield return c;
         foreach (var b in Buses) yield return b;
         yield return Main;
+        if (IsLcr) yield return Centre;
         yield return Mono;
         yield return Stream;
     }
+
+    public static Strip NewCentre() => new() { Id = "centre", Kind = StripKind.Centre, Name = "Centre", Stereo = false, Fader = 0, ToMain = false };
 
     public Strip? Find(string id) => AllStrips().FirstOrDefault(s => s.Id == id);
 
@@ -714,6 +745,7 @@ public sealed class MixState
         StripKind.Mix => "Mix",
         StripKind.Main => "Main",
         StripKind.Mono => "Mono",
+        StripKind.Centre => "Centre",
         StripKind.Matrix => "Matrix",
         StripKind.Stream => "Stream",
         _ => "",
@@ -723,7 +755,7 @@ public sealed class MixState
     public static string Label(Strip s) => s.Name.Length > 0 ? s.Name : s.Kind switch
     {
         StripKind.Channel => $"Ch {s.Number}",
-        StripKind.Main or StripKind.Mono or StripKind.Stream => KindLabel(s.Kind),
+        StripKind.Main or StripKind.Mono or StripKind.Stream or StripKind.Centre => KindLabel(s.Kind),
         _ => $"{KindLabel(s.Kind)} {s.Number}",
     };
 
@@ -784,13 +816,17 @@ public sealed class MixState
         Mono.Id = "mono"; Mono.Kind = StripKind.Mono; Mono.Stereo = false; Mono.ToMain = false;
         Stream ??= new Strip();
         Stream.Id = "stream"; Stream.Kind = StripKind.Stream; Stream.Stereo = true; Stream.ToMain = false;
+        Centre ??= NewCentre();
+        Centre.Id = "centre"; Centre.Kind = StripKind.Centre; Centre.Stereo = false; Centre.ToMain = false; Centre.Pan = 0;
+        MainSettings ??= new MainSettings();
         StreamSettings ??= new StreamSettings();
         Solo ??= new SoloSettings();
         Controls ??= [];
-        Buses.RemoveAll(b => b is null || b.Kind is StripKind.Channel or StripKind.Main or StripKind.Mono or StripKind.Stream);
+        Buses.RemoveAll(b => b is null || b.Kind is StripKind.Channel or StripKind.Main or StripKind.Mono or StripKind.Stream or StripKind.Centre);
         var seen = new HashSet<string>();
         Buses.RemoveAll(b => !seen.Add(b.Id));
-        foreach (var s in AllStrips())
+        // The centre is repaired even while the main is left and right only, so it is ready when it is switched on.
+        foreach (var s in IsLcr ? AllStrips() : AllStrips().Append(Centre))
         {
             s.Hpf ??= new PassFilter();
             s.Lpf ??= new PassFilter { Freq = 18000 };
@@ -867,7 +903,7 @@ public static class Routing
         StripKind.Fx => 1,
         StripKind.Group => 2,
         StripKind.Mix => 3,
-        StripKind.Main => 4,
+        StripKind.Main or StripKind.Centre => 4,
         StripKind.Mono => 5,
         StripKind.Matrix => 6,
         StripKind.Stream => 7,
@@ -881,7 +917,7 @@ public static class Routing
         (StripKind.Fx, StripKind.Fx or StripKind.Mix or StripKind.Matrix) => true,
         (StripKind.Group, StripKind.Fx or StripKind.Mix or StripKind.Matrix) => true,
         (StripKind.Mix, StripKind.Mix or StripKind.Matrix) => true,
-        (StripKind.Main or StripKind.Mono, StripKind.Matrix) => true,
+        (StripKind.Main or StripKind.Mono or StripKind.Centre, StripKind.Matrix) => true,
         (StripKind.Matrix, StripKind.Matrix) => true,
         _ => false,
     };
@@ -897,12 +933,40 @@ public static class Routing
     {
         foreach (var x in s.AllStrips())
         {
-            if (x.ToMain && x.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group) yield return (x.Id, s.Main.Id, "main");
+            if (x.ToMain && x.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group)
+            {
+                yield return (x.Id, s.Main.Id, "main");
+                if (FeedsCentre(s, x)) yield return (x.Id, s.Centre.Id, "main");
+            }
             foreach (var g in x.Groups) yield return (x.Id, g, "group");
             foreach (var send in x.Sends) yield return (x.Id, send.Bus, "send");
         }
         yield return (s.Main.Id, s.Mono.Id, "fixed");
         yield return (s.Main.Id, s.Stream.Id, "fixed");
+        if (s.IsLcr)
+        {
+            yield return (s.Centre.Id, s.Mono.Id, "fixed");
+            yield return (s.Centre.Id, s.Stream.Id, "fixed");
+        }
+    }
+
+    /// <summary>With a left-centre-right main, a mono strip going to the main pans across the centre too (unless it is set to left and right only).</summary>
+    public static bool FeedsCentre(MixState s, Strip x) =>
+        s.IsLcr && x.ToMain && x.ToCentre && !x.Stereo && x.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group;
+
+    /// <summary>
+    /// Left-centre-right pan, keeping the power the same: hard left is only left, the middle is only the centre, hard right only right.
+    /// </summary>
+    public static (float L, float C, float R) LcrPan(double pan)
+    {
+        pan = Math.Clamp(pan, -1, 1);
+        if (pan <= 0)
+        {
+            var a = (pan + 1) * Math.PI / 2;
+            return ((float)Math.Cos(a), (float)Math.Sin(a), 0f);
+        }
+        var b = pan * Math.PI / 2;
+        return (0f, (float)Math.Cos(b), (float)Math.Sin(b));
     }
 
     private static Dictionary<string, List<string>> Map(MixState s, (string From, string To)? extra = null)

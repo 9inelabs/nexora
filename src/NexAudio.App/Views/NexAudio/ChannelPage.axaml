@@ -286,7 +286,7 @@
           </Border>
 
           <!-- GATE -->
-          <Border Grid.Column="2" Classes="dash" a:Paint.Tint="{StaticResource GateTone}" IsEnabled="{Binding Ch.IsChannel}">
+          <Border Grid.Column="2" Classes="dash" a:Paint.Tint="{StaticResource GateTone}" IsEnabled="{Binding Ch.HasGate}">
             <Grid RowDefinitions="Auto,6,*,6,Auto">
               <Grid ColumnDefinitions="*,Auto">
                 <Button Classes="head" Command="{Binding OpenSectionCommand}" CommandParameter="Gate">
@@ -541,10 +541,10 @@
               <Grid RowDefinitions="Auto,12,Auto">
                 <Grid ColumnDefinitions="*,Auto">
                   <StackPanel Spacing="2">
-                    <TextBlock Classes="sectitle" Text="Gate" />
-                    <TextBlock Classes="faint small" Text="Turns the channel down when nobody is using the mic, so spill and noise stay out of the mix." />
+                    <TextBlock Classes="sectitle" Text="Gate / ducker" />
+                    <TextBlock Classes="faint small" Text="A gate turns the sound down while it is quiet, so spill and noise stay out. A ducker dips it while what it listens to is loud." />
                   </StackPanel>
-                  <ToggleButton Grid.Column="1" Classes="pill" IsChecked="{Binding Ch.GateOn.Value}" Content="Gate on" VerticalAlignment="Center" />
+                  <ToggleButton Grid.Column="1" Classes="pill" IsChecked="{Binding Ch.GateOn.Value}" Content="On" VerticalAlignment="Center" />
                 </Grid>
                 <Grid Grid.Row="2" ColumnDefinitions="300,16,*,16,40" Height="300">
                   <a:DynamicsGraph IsGate="True" IsOn="{Binding Ch.GateOn.Value}" Threshold="{Binding Ch.GateThreshold.Value}"
@@ -922,7 +922,7 @@
                    Meters="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).StripMeters}"
                    MeterIndex="{Binding MeterIndex}" MeterIndexR="{Binding MeterIndexR}" />
           <TextBlock Grid.Row="6" Classes="mono" FontSize="16" HorizontalAlignment="Center" Text="{Binding FaderText, StringFormat='{}{0} dB'}" />
-          <a:Knob Grid.Row="8" Classes="small" HorizontalAlignment="Center" Bipolar="True" Label="Pan" Text="{Binding PanText}"
+          <a:Knob Grid.Row="8" IsVisible="{Binding HasPan}" Classes="small" HorizontalAlignment="Center" Bipolar="True" Label="Pan" Text="{Binding PanText}"
                   Position="{Binding PanPosition}" ResetCommand="{Binding CentrePanCommand}" />
           <StackPanel Grid.Row="10" Spacing="6">
             <Button Classes="strip mute" Classes.active="{Binding Mute}" Classes.group="{Binding GroupMuted}" Command="{Binding ToggleMuteCommand}" Content="MUTE" Padding="0,8" />

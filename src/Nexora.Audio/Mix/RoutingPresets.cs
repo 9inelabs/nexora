@@ -72,6 +72,9 @@ public static class RoutingRecall
                 TakeRouting(ch, src);
         if (!result.Main.RecallSafe) result.Main.Sends = from.Main.Sends.Select(x => x.Clone()).ToList();
         if (!result.Mono.RecallSafe) result.Mono.Sends = from.Mono.Sends.Select(x => x.Clone()).ToList();
+        // Left and right, or left-centre-right, and where the centre goes.
+        result.MainSettings.Layout = from.MainSettings.Layout;
+        if (!result.Centre.RecallSafe) result.Centre.Sends = from.Centre.Sends.Select(x => x.Clone()).ToList();
         result.StreamSettings.Source = from.StreamSettings.Source;
 
         // The output patch: what each output plays and its name. The speaker processing stays.
@@ -100,6 +103,7 @@ public static class RoutingRecall
         dst.UseAlt = src.UseAlt;
         dst.DirectTap = src.DirectTap;
         dst.ToMain = src.ToMain;
+        dst.ToCentre = src.ToCentre;
         dst.SendsFrom = src.SendsFrom;
         dst.Groups = [.. src.Groups];
         dst.Sends = src.Sends.Select(x => x.Clone()).ToList();

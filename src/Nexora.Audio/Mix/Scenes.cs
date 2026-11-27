@@ -188,6 +188,7 @@ public static class SceneRecall
             result.Outputs = from.Outputs.Select(o => o.Clone()).ToList();
             result.StreamSettings = from.StreamSettings;
             result.Solo = from.Solo;
+            result.MainSettings = from.MainSettings.Clone();
             // Control groups: who is in them comes with the routing; their masters and mutes with the levels.
             var live = result.Controls.ToDictionary(g => g.Id);
             result.Controls = from.Controls.Select(g => g.Clone()).ToList();
@@ -203,6 +204,7 @@ public static class SceneRecall
                 var src = from.Channels.FirstOrDefault(c => c.Id == ch.Id);
                 if (src is null || ch.RecallSafe) continue;
                 ch.ToMain = src.ToMain;
+                ch.ToCentre = src.ToCentre;
                 ch.Groups = [.. src.Groups];
                 ch.Sends = src.Sends.Select(x => x.Clone()).ToList();
                 ch.Name = src.Name;

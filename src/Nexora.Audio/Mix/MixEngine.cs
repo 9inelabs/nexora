@@ -178,6 +178,8 @@ internal sealed class Topology
     public StripRt[] Steps = [];
     public Feed[][] StepFeeds = [];
     public StripRt Main = null!, Mono = null!, Stream = null!;
+    /// <summary>The centre of a left-centre-right main, or null for left and right only.</summary>
+    public StripRt? Centre;
     public StripRt[] All = [];
     public Feed[] ChannelFeeds = [];
     /// <summary>The bus the test signal plays into, if any.</summary>
@@ -281,6 +283,7 @@ public sealed class MixEngine
             topo.Main = Get(s.Main);
             topo.Mono = Get(s.Mono);
             topo.Stream = Get(s.Stream);
+            topo.Centre = s.IsLcr ? Get(s.Centre) : null;
             topo.All = s.AllStrips().Select(Get).ToArray();
             foreach (var dead in _strips.Keys.Where(k => !seen.Contains(k)).ToList()) _strips.Remove(dead);
 
@@ -309,8 +312,18 @@ public sealed class MixEngine
             {
                 if (src.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group && src.ToMain)
                 {
-                    var (pl, pr) = PanGains(src.Pan, src.Stereo);
-                    MakeFeed(src, s.Main, SendTap.Post, pl, pr);
+                    if (Routing.FeedsCentre(s, src))
+                    {
+                        // Left-centre-right: the pan moves the sound across all three.
+                        var (l, c, r) = Routing.LcrPan(src.Pan);
+                        MakeFeed(src, s.Main, SendTap.Post, l, r);
+                        MakeFeed(src, s.Centre, SendTap.Post, c, c);
+                    }
+                    else
+                    {
+                        var (pl, pr) = PanGains(src.Pan, src.Stereo);
+                        MakeFeed(src, s.Main, SendTap.Post, pl, pr);
+                    }
                 }
                 foreach (var g in src.Groups)
                     if (s.Find(g) is { } grp && Routing.CanGroup(src, grp))
@@ -344,17 +357,40 @@ public sealed class MixEngine
                 if (!into.TryGetValue(f.To.Id, out var l)) into[f.To.Id] = l = [];
                 l.Add(f);
             }
-            int Out(Strip x) => arrive.GetValueOrDefault(x.Id) + RackLatency(x);
+            // With a centre, left-right and centre leave together: the faster one waits for the other.
+            var lcrAlign = new Dictionary<string, int>();
+            int Out(Strip x) => arrive.GetValueOrDefault(x.Id) + RackLatency(x) + (lcrAlign.TryGetValue(x.Id, out var extra) ? extra : 0);
+            int MainOut() => s.IsLcr ? Math.Max(Out(s.Main), Out(s.Centre)) : Out(s.Main);
             int Early(Strip x) => arrive.GetValueOrDefault(x.Id) + x.Rack.Where(r => r.Pre).Sum(LatencyOf);
             int Leaves(Feed f, Strip from) => f.Tap is SendTap.Input or SendTap.PreEq or SendTap.PostEq ? Early(from) : Out(from);
             var byId = s.AllStrips().ToDictionary(x => x.Id);
             foreach (var x in order)
             {
                 var at = 0;
-                if (x.Kind == StripKind.Mono || x.Kind == StripKind.Stream && topo.StreamFromMain) at = Out(s.Main);
+                if (x.Kind == StripKind.Mono || x.Kind == StripKind.Stream && topo.StreamFromMain) at = MainOut();
                 if (into.TryGetValue(x.Id, out var feeds))
                     foreach (var f in feeds) at = Math.Max(at, Leaves(f, byId[f.From.Id]));
                 arrive[x.Id] = at;
+                if (s.IsLcr && x.Kind is StripKind.Main or StripKind.Centre && arrive.ContainsKey(s.Main.Id) && arrive.ContainsKey(s.Centre.Id))
+                {
+                    lcrAlign.Clear();
+                    var gap = Out(s.Main) - Out(s.Centre);
+                    if (gap > 0) lcrAlign[s.Centre.Id] = gap;
+                    else if (gap < 0) lcrAlign[s.Main.Id] = -gap;
+                }
+            }
+            // That wait is added to the strip's own delay.
+            foreach (var st in s.AllStrips())
+            {
+                var rt = _strips[st.Id];
+                var extra = lcrAlign.GetValueOrDefault(st.Id);
+                var total = rt.InDelay + extra;
+                if (extra > 0 && total > rt.InDelayL.MaxDelay)
+                {
+                    rt.InDelayL = new DelayLine(total + 8);
+                    rt.InDelayR = new DelayLine(total + 8);
+                }
+                rt.InDelay = total;
             }
             foreach (var f in bySource.Values.SelectMany(l => l))
             {
@@ -366,7 +402,7 @@ public sealed class MixEngine
                 }
                 f.Delay = d;
             }
-            MixLatency = Out(s.Main);
+            MixLatency = MainOut();
             _latency = s.AllStrips().ToDictionary(x => x.Id, x => new PathLatency(x.Id, RackLatency(x), arrive.GetValueOrDefault(x.Id), Out(x)));
             topo.ChannelFeeds = s.Channels.SelectMany(c => bySource.GetValueOrDefault(c.Id) ?? []).ToArray();
             topo.StepFeeds = steps.Select(x => (bySource.GetValueOrDefault(x.Id) ?? []).ToArray()).ToArray();
@@ -504,7 +540,7 @@ public sealed class MixEngine
         }
         rt.DynamicsFirst = s.Order == ProcessOrder.DynamicsFirst;
         // A sidechain: the gate or compressor listens to another channel.
-        rt.GateKey = s.Kind == StripKind.Channel && s.Gate.Key is { Length: > 0 } gk && gk != s.Id && _strips.TryGetValue(gk, out var gks) && gks.Kind == StripKind.Channel ? gks : null;
+        rt.GateKey = s.Gate.Key is { Length: > 0 } gk && gk != s.Id && _strips.TryGetValue(gk, out var gks) && gks.Kind == StripKind.Channel ? gks : null;
         rt.CompKey = s.Comp.Key is { Length: > 0 } ck && ck != s.Id && _strips.TryGetValue(ck, out var cks) && cks.Kind == StripKind.Channel ? cks : null;
 
         // The rack: keep processors that are still there (their memory carries on), make new ones.
@@ -667,11 +703,24 @@ public sealed class MixEngine
         {
             var b = steps[i];
             if (b == t.Mono)
+            {
                 for (var n = 0; n < frames; n++) b.InL[n] = (t.Main.PostL[n] + t.Main.PostR[n]) * 0.5f;
+                // The centre goes into mono / sub too, at the level a centre-panned sound has in left and right.
+                if (t.Centre is { } c)
+                    for (var n = 0; n < frames; n++) b.InL[n] += c.PostL[n] * Fold;
+            }
             else if (b == t.Stream && t.StreamFromMain)
             {
                 Array.Copy(t.Main.PreL, b.InL, frames);
                 Array.Copy(t.Main.PreR, b.InR, frames);
+                // The stream is left and right: the centre is folded into both (before its fader, like the main), so the pastor is never lost.
+                if (t.Centre is { } c)
+                    for (var n = 0; n < frames; n++)
+                    {
+                        var v = c.PreL[n] * Fold;
+                        b.InL[n] += v;
+                        b.InR[n] += v;
+                    }
             }
             if (b == t.ToneInto)
             {
@@ -695,8 +744,8 @@ public sealed class MixEngine
         }
 
         // 9. Solo / monitor buses: the soloed strips, or the main mix when nothing is soloed there.
-        Monitor(_monitor, t.Soloed, t.SoloAfl, t.SoloGain, t.Main, frames);
-        Monitor(_monitor2, t.Soloed2, t.SoloAfl2, t.SoloGain2, t.Main, frames);
+        Monitor(_monitor, t.Soloed, t.SoloAfl, t.SoloGain, t.Main, t.Centre, frames);
+        Monitor(_monitor2, t.Soloed2, t.SoloAfl2, t.SoloGain2, t.Main, t.Centre, frames);
 
         // 10. Outputs.
         for (var o = 0; o < output.Length && o < _outs.Length; o++)
@@ -863,12 +912,22 @@ public sealed class MixEngine
         }
     }
 
-    private static void Monitor(StripRt mon, StripRt[] soloed, bool afl, float gain, StripRt main, int frames)
+    /// <summary>A centre-panned sound is at -3 dB in left and right; the centre folds back in at the same level.</summary>
+    private const float Fold = 0.70710678f;
+
+    private static void Monitor(StripRt mon, StripRt[] soloed, bool afl, float gain, StripRt main, StripRt? centre, int frames)
     {
         if (soloed.Length == 0)
         {
             Array.Copy(main.PostL, mon.PostL, frames);
             Array.Copy(main.PostR, mon.PostR, frames);
+            if (centre is not null)
+                for (var n = 0; n < frames; n++)
+                {
+                    var v = centre.PostL[n] * Fold;
+                    mon.PostL[n] += v;
+                    mon.PostR[n] += v;
+                }
         }
         else
         {
