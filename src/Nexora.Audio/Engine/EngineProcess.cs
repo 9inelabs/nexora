@@ -49,6 +49,15 @@ public static class EngineProcess
         log($"Audio engine process started (pid {Environment.ProcessId}).");
         var audioDir = Path.Combine(dataRoot, "audio");
         using var desk = new Desk(audioDir, log);
+        // A crash anywhere in the engine goes into the event log first, so it can be read after the screen restarts it.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            desk.Events.Add("The sound engine stopped with an error and was started again: " + (e.ExceptionObject as Exception)?.Message, EventLevel.Problem);
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            desk.Events.Add("A background job failed: " + e.Exception.InnerException?.Message, EventLevel.Warning);
+            e.SetObserved();
+        };
+        desk.Note("Sound engine started.", EventLevel.Info);
         using (var engine = new AudioEngine(audioDir, log, desk: desk))
         using (var server = new EngineServer(engine, EngineNames.For(dataRoot), log))
         {

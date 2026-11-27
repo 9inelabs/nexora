@@ -46,6 +46,18 @@ public sealed class AudioEngine : IDisposable
     private IReadOnlyList<string> _drivers = [];
 
     private readonly Desk? _desk;
+    private readonly DropoutWatch _dropouts = new();
+    private readonly ClockWatch _clockWatch = new();
+    private long _faultsSeen, _badSeen;
+    private int _losses;
+    private DateTime? _lastLoss;
+
+    /// <summary>Into the desk's event log (and the usual log), when there is a desk.</summary>
+    private void Event(string text, EventLevel level)
+    {
+        if (_desk is not null) _desk.Events.Add(text, level);
+        else _log(text);
+    }
 
     public AudioEngine(string dataDir, Action<string>? log = null, Func<string, IAudioDevice?>? makeDevice = null, Desk? desk = null)
     {
@@ -91,6 +103,22 @@ public sealed class AudioEngine : IDisposable
     }
 
     // ---- Commands (from the screen) ------------------------------------------------------
+
+    private volatile bool _pretendUnplugged;
+
+    /// <summary>The test device's pretend USB cable is out.</summary>
+    public bool PretendUnplugged => _pretendUnplugged;
+
+    /// <summary>
+    /// Pulls (or puts back) the test device's pretend USB cable, to try the recovery without an X32.
+    /// Only the test device listens to it; a real driver is never touched.
+    /// </summary>
+    public void PretendUnplug(bool unplugged)
+    {
+        _pretendUnplugged = unplugged;
+        Event(unplugged ? "Test: the test device's cable was pulled (pretend)." : "Test: the test device's cable was put back (pretend).", EventLevel.Warning);
+        Changed?.Invoke();
+    }
 
     public Task OpenAsync(string driver, int bufferSize, double sampleRate = 0)
     {
@@ -179,7 +207,10 @@ public sealed class AudioEngine : IDisposable
                 _latencyRunning, _latency, Version, _runningSince)
             {
                 SampleRates = f?.SampleRates ?? [],
-                WantedRate = _settings.SampleRate,
+                WantedRate = _settings.SampleRate, PretendUnplugged = _pretendUnplugged,
+                RecentDropouts = _dropouts.Recent, MeasuredRate = _clockWatch.Rate,
+                MixFaults = core?.MixFaults ?? 0, BadSamples = core?.BadSamples ?? 0, LastFault = core?.LastFault,
+                DeviceLosses = _losses, LastLossUtc = _lastLoss,
             };
         }
     }
@@ -195,6 +226,7 @@ public sealed class AudioEngine : IDisposable
         {
             var device = _makeDevice(driver) ?? throw new AudioDeviceException(
                 $"The driver \"{driver}\" is not on this PC. Install the X32 USB driver (X-USB ASIO) and plug in the X32.");
+            if (device is SimulatedDevice sim) sim.Unplugged = () => _pretendUnplugged;
             device.Open(bufferSize, sampleRate);
             var f = device.Format!;
             var core = new EngineCore(f.Inputs, f.Outputs, f.BufferSize, f.SampleRate);
@@ -210,10 +242,13 @@ public sealed class AudioEngine : IDisposable
             _core = core;
             _runningSince = DateTime.UtcNow;
             _silentSince = DateTime.MinValue;
+            _clockWatch.Reset();
+            _faultsSeen = _badSeen = 0;
             var rateNote = sampleRate > 0 && Math.Abs(f.SampleRate - sampleRate) >= 1
                 ? $" The driver could not run at {sampleRate / 1000:0.#} kHz, so it stays at {f.SampleRate / 1000:0.#} kHz."
                 : Math.Abs(f.SampleRate - 48000) < 1 || Math.Abs(f.SampleRate - 96000) < 1 ? "" : $" The driver is set to {f.SampleRate / 1000:0.#} kHz; NEX-Audio works best at 48 or 96 kHz.";
             SetState(EngineState.Running, $"Running on {driver}: {f.Inputs} in, {f.Outputs} out, {f.BufferSize} samples.{rateNote}");
+            Event($"Sound running on {driver}: {f.Inputs} in, {f.Outputs} out, {f.SampleRate / 1000:0.#} kHz, {f.BufferSize} samples.", EventLevel.Info);
             _log($"Audio engine running on {driver}: {f.Inputs}x{f.Outputs}, {f.SampleRate} Hz, buffer {f.BufferSize}, latency in {f.InputLatency} out {f.OutputLatency}");
         }
         catch (Exception ex)
@@ -221,6 +256,7 @@ public sealed class AudioEngine : IDisposable
             CloseOnThread();
             var text = ex is AudioDeviceException ? ex.Message : $"Could not start {driver}: {ex.Message}";
             SetState(EngineState.Problem, text + " NEX-Audio keeps trying every few seconds.");
+            if (!quiet || _restarts % 15 == 1) Event(text, EventLevel.Problem);
             if (!quiet) _log("Audio engine: " + ex);
         }
     }
@@ -258,9 +294,26 @@ public sealed class AudioEngine : IDisposable
             _loadPeak = Math.Max(peak, _loadPeak * 0.8);
             changed = true;
 
+            // Dropouts, the real clock, and faults inside the mix.
+            var now = DateTime.UtcNow;
+            if (_dropouts.Update(_stats.LateBuffers, _stats.DriverProblems, now) is { } drop) Event(drop, EventLevel.Warning);
+            _clockWatch.Update(core.Clock, now);
+            if (core.MixFaults > _faultsSeen)
+            {
+                Event($"The mix hit an error ({core.LastFault}). The outputs played the plain patch for {core.MixFaults - _faultsSeen} buffer(s); the mix was loaded again.", EventLevel.Problem);
+                _faultsSeen = core.MixFaults;
+                _desk?.ReloadMix();
+            }
+            if (core.BadSamples > _badSeen)
+            {
+                Event("A filter or effect produced samples that were not numbers. They were silenced before the outputs, and the mix was loaded again.", EventLevel.Problem);
+                _badSeen = core.BadSamples;
+                _desk?.ReloadMix();
+            }
             if (dev.ResetRequested)
             {
                 _restarts++;
+                Event("The driver asked to be opened again (its settings changed). Reopening it.", EventLevel.Warning);
                 _log("Audio driver asked to be opened again (settings changed in the driver).");
                 OpenOnThread(s.Driver!, s.BufferSize, s.SampleRate, quiet: false);
                 Changed?.Invoke();
@@ -271,7 +324,12 @@ public sealed class AudioEngine : IDisposable
             {
                 if (_silentSince == DateTime.MinValue) _silentSince = DateTime.UtcNow;
                 if (_state == EngineState.Running)
+                {
                     SetState(EngineState.Problem, "No sound is coming from the driver. Check the X32 is on and the USB cable is plugged in.");
+                    _losses++;
+                    _lastLoss = DateTime.UtcNow;
+                    Event("No sound is coming from the driver: the X32 may be off or the USB cable out. NEX-Audio opens it again by itself.", EventLevel.Problem);
+                }
                 if (DateTime.UtcNow - _silentSince > TimeSpan.FromSeconds(5))
                 {
                     _restarts++;
@@ -283,6 +341,7 @@ public sealed class AudioEngine : IDisposable
             {
                 _silentSince = DateTime.MinValue;
                 SetState(EngineState.Running, $"Running on {s.Driver} again.");
+                Event($"Sound is back on {s.Driver}.", EventLevel.Info);
             }
 
             if (_latencyRunning && core.LatencyResults is { } rounds)

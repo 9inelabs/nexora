@@ -98,6 +98,11 @@ public sealed record DeskStatus(
     public IReadOnlyList<string> Addresses { get; init; } = [];
     /// <summary>The last thing a NEXORA trigger did.</summary>
     public string? TriggerNote { get; init; }
+    /// <summary>The newest events on the desk, newest first (the Diagnostics page).</summary>
+    public IReadOnlyList<DeskEvent> Events { get; init; } = [];
+    /// <summary>How many times the X32 link was lost since the desk started, and when the X32 last answered.</summary>
+    public int X32Drops { get; init; }
+    public DateTime? X32LastHeardUtc { get; init; }
 
     public static DeskStatus Empty { get; } = new(0, new DeskSettings(), false, null, [], null, 0, 0, null, [], [], [], 0, false, null, [], 0, 0);
 }
@@ -114,7 +119,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
 {
     private readonly string _dir;
     private readonly string _mixFile, _settingsFile, _pluginsFile;
-    private readonly Action<string> _log;
+    private readonly Action<string> _log, _outer;
     private readonly object _gate = new();
     private readonly SceneStore _store;
     private readonly PresetStore _presets;
@@ -151,6 +156,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
     private bool _syncBusy;
     private int _tick;
     private volatile bool _reloadPdc;
+    private string? _lastTickError;
     private double _rate = 48000;
     private int _frames = 128;
 
@@ -166,7 +172,10 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
         _mixFile = Path.Combine(dataDir, "mix.json");
         _settingsFile = Path.Combine(dataDir, "desk.json");
         _pluginsFile = Path.Combine(dataDir, "plugins.json");
-        _log = log ?? (_ => { });
+        Events = new EventLog(Path.Combine(dataDir, "events"));
+        var outer = log ?? (_ => { });
+        _outer = outer;
+        _log = t => { outer(t); Events.Add(t); };
         _store = new SceneStore(dataDir);
         _presets = new PresetStore(dataDir);
         _launcher = launcher ?? new ProcessHostLauncher(Environment.ProcessPath ?? "NexAudio.exe");
@@ -184,6 +193,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
         _x32 = new X32Client();
         _x32.ValueChanged += OnDeskValue;
         _x32.Changed += () => Changed?.Invoke();
+        _x32.LinkChanged += OnX32Link;
         if (network)
         {
             _heartbeat = new HeartbeatSender(MakeHeartbeat) { Host = _settings.LiveOutputHost };
@@ -207,6 +217,30 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
     public long Rev => Interlocked.Read(ref _rev);
     public DeskSettings Settings { get { lock (_gate) return _settings; } }
     public X32Client X32 => _x32;
+    /// <summary>The desk's folder (audio).</summary>
+    public string Dir => _dir;
+
+    /// <summary>What happened on the desk: driver, dropouts, X32 link, failsafe, recalls (also kept in audio/events).</summary>
+    public EventLog Events { get; }
+
+    /// <summary>Writes to the log and the event log at a given level.</summary>
+    public void Note(string text, EventLevel level)
+    {
+        _outer(text);
+        Events.Add(text, level);
+    }
+
+    /// <summary>Loads the mix into the engine again from the desk's copy (after a fault inside the mix).</summary>
+    public void ReloadMix() => _reloadPdc = true;
+
+    private void OnX32Link(bool up)
+    {
+        if (Settings.Offline) return;
+        if (up)
+            Note("The X32 answers again. NEX-Audio sends it the whole mix again so the two agree.", EventLevel.Info);
+        else
+            Note("Lost the link to the X32 (network cable, switch or the X32 itself). The sound through USB is not affected; NEX-Audio keeps trying.", EventLevel.Problem);
+    }
 
     /// <summary>A copy of the whole mix.</summary>
     public MixState Mix { get { lock (_gate) return _mix.Clone(); } }
@@ -676,7 +710,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
         var s = Settings;
         SaveSettings(s with { HandedOver = true });
         _failsafeNote = $"{reason} The X32 runs the room on scene {s.ConsoleScene + 1}.";
-        _log("Failsafe: " + _failsafeNote);
+        Note("Failsafe: " + _failsafeNote, EventLevel.Problem);
         if (_x32.Connected) await _x32.RecallSceneAsync(s.ConsoleScene);
         else if (s.X32Host is { } h) await X32Client.RecallSceneAsync(h, s.ConsoleScene);
         Changed?.Invoke();
@@ -702,7 +736,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
         SaveSettings(s with { HandedOver = false, Epoch = s.Epoch + 1 });
         _failsafeNote = null;
         _notFlowingSince = DateTime.MinValue;
-        _log("Room returned to NEX-Audio.");
+        Note("Room returned to NEX-Audio.", EventLevel.Warning);
         Changed?.Invoke();
         return true;
     }
@@ -780,7 +814,8 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
         }
         catch (Exception ex)
         {
-            _log("Desk tick: " + ex.Message);
+            if (ex.Message != _lastTickError) Note("Desk tick: " + ex.Message, EventLevel.Warning);
+            _lastTickError = ex.Message;
         }
     }
 
@@ -815,6 +850,8 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
                 MidiInputs = _midiInputs, MidiOutputs = _midiOutputs, MidiText = MidiText(), MidiConnected = _midiInPort is not null,
                 RemoteRunning = _remote?.Running ?? false, RemoteError = _remoteError, RemoteClients = _remote?.Clients ?? [],
                 Addresses = LanAddresses(), TriggerNote = _triggerNote,
+                Events = Events.Latest(80), X32Drops = _x32.Drops,
+                X32LastHeardUtc = _x32.LastHeard == DateTime.MinValue ? null : _x32.LastHeard,
             };
         }
     }

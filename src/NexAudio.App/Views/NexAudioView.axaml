@@ -7,6 +7,23 @@
              xmlns:na="using:NexAudio.App.Views.NexAudio"
              x:Class="NexAudio.App.Views.NexAudioView"
              x:DataType="vm:NexAudioViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="DiagRowTemplate" x:DataType="vm:DiagRow">
+      <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="10,6" Margin="0,0,0,5">
+        <Grid ColumnDefinitions="Auto,8,*,Auto" RowDefinitions="Auto,1,Auto">
+          <Panel VerticalAlignment="Center">
+            <Ellipse Width="8" Height="8" Fill="{StaticResource PreviewBrush}" IsVisible="{Binding Good}" />
+            <Ellipse Width="8" Height="8" Fill="{StaticResource Warn}" IsVisible="{Binding Watch}" />
+            <Ellipse Width="8" Height="8" Fill="{StaticResource Live}" IsVisible="{Binding Bad}" />
+            <Ellipse Width="8" Height="8" Stroke="{StaticResource Text3}" StrokeThickness="1.5" IsVisible="{Binding Off}" />
+          </Panel>
+          <TextBlock Grid.Column="2" Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="3" Classes="mono" Text="{Binding Value}" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" MaxWidth="190" />
+          <TextBlock Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="2" Classes="faint small" TextWrapping="Wrap" Text="{Binding Note}" />
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
 
 
   <Panel Classes.hc="{Binding HighContrast}">
@@ -222,6 +239,7 @@
       </Button>
       <Button Classes="tab small" Classes.selected="{Binding OnPcCheck}" Command="{Binding ShowTabCommand}" CommandParameter="PcCheck" Content="PC check" />
       <Button Classes="tab small" Classes.selected="{Binding OnResources}" Command="{Binding ShowTabCommand}" CommandParameter="Resources" Content="Resources" />
+      <Button Classes="tab small" Classes.selected="{Binding OnDiagnostics}" Command="{Binding ShowTabCommand}" CommandParameter="Diagnostics" Content="Diagnostics" />
     </StackPanel>
 
     <StackPanel Grid.Row="4">
@@ -531,6 +549,86 @@
           </Border>
         </Grid>
       </Grid>
+
+      <!-- Diagnostics: device, clock, latency, load, dropouts, links, and the event log -->
+      <ScrollViewer IsVisible="{Binding OnDiagnostics}" VerticalScrollBarVisibility="Auto">
+      <Grid RowDefinitions="Auto,12,Auto,12,Auto">
+        <Border Classes="card" Padding="18,14">
+          <Grid ColumnDefinitions="Auto,14,*,Auto">
+            <Panel VerticalAlignment="Center">
+              <Border Classes="chip ok" IsVisible="{Binding DiagGood}"><StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="HEALTHY" /></StackPanel></Border>
+              <Border Classes="chip warn" IsVisible="{Binding DiagWatch}"><StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="WATCH" /></StackPanel></Border>
+              <Border Classes="chip bad" IsVisible="{Binding DiagBad}"><StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="ATTENTION" /></StackPanel></Border>
+            </Panel>
+            <StackPanel Grid.Column="2" Spacing="3">
+              <TextBlock Classes="h3" Text="{Binding DiagVerdict}" />
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding DiagAdvice}" />
+            </StackPanel>
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <Button Command="{Binding PretendUnplugCommand}" Content="{Binding UnplugText}" IsVisible="{Binding OnTestDevice}"
+                      ToolTip.Tip="Try the recovery without an X32: the test device stops sending sound, as if its USB cable came out." />
+              <Button Command="{Binding OpenEventsFolderCommand}" Content="Open the log folder" />
+              <Button Classes="accent" Command="{Binding SaveReportCommand}" Content="Save a report" />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <Grid Grid.Row="2" ColumnDefinitions="*,12,*,12,*,12,*">
+          <Border Classes="card" Padding="16,12" Grid.Column="0">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="eyebrow" Text="SOUND" Foreground="#6CB4F5" />
+              <ItemsControl ItemsSource="{Binding DiagSound}" ItemTemplate="{StaticResource DiagRowTemplate}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="card" Padding="16,12" Grid.Column="2">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="eyebrow" Text="DROPOUTS AND FAULTS" Foreground="#F59E5B" />
+              <ItemsControl ItemsSource="{Binding DiagProblems}" ItemTemplate="{StaticResource DiagRowTemplate}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="card" Padding="16,12" Grid.Column="4">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="eyebrow" Text="LINKS AND FAILSAFE" Foreground="#E2BE76" />
+              <ItemsControl ItemsSource="{Binding DiagLinks}" ItemTemplate="{StaticResource DiagRowTemplate}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="card" Padding="16,12" Grid.Column="6">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="eyebrow" Text="HARDWARE" Foreground="#A78BFA" />
+              <ItemsControl ItemsSource="{Binding DiagHardware}" ItemTemplate="{StaticResource DiagRowTemplate}" />
+            </StackPanel>
+          </Border>
+        </Grid>
+        <Border Grid.Row="4" Classes="card" Padding="16,12">
+          <Grid RowDefinitions="Auto,10,*">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="sectitle" Text="Event log" />
+                <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Driver starts and stops, dropouts, the X32 link, the failsafe and recalls, newest first. Every event is also kept in a file per day." />
+              </StackPanel>
+              <CheckBox Grid.Column="1" IsChecked="{Binding OnlyProblems}" Content="Only problems and things to watch" VerticalAlignment="Center" />
+            </Grid>
+              <StackPanel Grid.Row="2">
+                <TextBlock Classes="faint" Text="Nothing has happened yet." IsVisible="{Binding !HasEvents}" />
+                <ItemsControl ItemsSource="{Binding EventRows}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:EventRow">
+                      <Grid ColumnDefinitions="110,86,*" Margin="0,0,0,6">
+                        <TextBlock Classes="mono small" Text="{Binding Time}" VerticalAlignment="Top" Margin="0,2,0,0" />
+                        <Panel Grid.Column="1" VerticalAlignment="Top">
+                          <Border Classes="chip" IsVisible="{Binding IsInfo}" HorizontalAlignment="Left"><TextBlock Text="{Binding Tag}" /></Border>
+                          <Border Classes="chip warn" IsVisible="{Binding IsWarning}" HorizontalAlignment="Left"><TextBlock Text="{Binding Tag}" /></Border>
+                          <Border Classes="chip bad" IsVisible="{Binding IsProblem}" HorizontalAlignment="Left"><TextBlock Text="{Binding Tag}" /></Border>
+                        </Panel>
+                        <TextBlock Grid.Column="2" Text="{Binding Text}" TextWrapping="Wrap" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+          </Grid>
+        </Border>
+      </Grid>
+      </ScrollViewer>
 
       <Border Classes="card" Padding="18" IsVisible="{Binding OnPcCheck}">
         <Grid RowDefinitions="Auto,12,*">

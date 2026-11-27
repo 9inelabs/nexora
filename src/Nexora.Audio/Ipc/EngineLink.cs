@@ -150,6 +150,22 @@ public sealed class EngineServer : IDisposable
             case SetMixMsg set when _engine.Desk is { } desk:
                 if (!desk.Set(set.Path, set.Value)) await c.SendAsync(new NoticeMsg($"That setting could not be changed ({set.Path}).", true));
                 break;
+            case DeskCommandMsg { Cmd: "test.unplug" } t:
+                _engine.PretendUnplug(Bool(t.Args?.GetValueOrDefault("on")));
+                break;
+            case DeskCommandMsg { Cmd: "diag.report" } when _engine.Desk is { } desk:
+            {
+                var now = DateTime.UtcNow;
+                try
+                {
+                    var file = DiagReport.Write(desk.Dir, DiagReport.Text(_engine.Status, desk.Status, desk.Events.Latest(EventLog.Keep), now), now);
+                    desk.Note("Diagnostics report saved: " + file, EventLevel.Info);
+                    await c.SendAsync(new NoticeMsg("Report saved: " + file, false));
+                }
+                catch (Exception ex) { await c.SendAsync(new NoticeMsg("Could not save the report: " + ex.Message, true)); }
+                Interlocked.Exchange(ref _deskDirty, 1);
+                break;
+            }
             case DeskCommandMsg cmd when _engine.Desk is { } desk:
                 await DeskCommand(desk, cmd, c.SendAsync);
                 Interlocked.Exchange(ref _deskDirty, 1);

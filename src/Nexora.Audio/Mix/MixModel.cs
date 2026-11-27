@@ -411,6 +411,8 @@ public sealed class Strip
 
     /// <summary>Scenes and snapshots leave this strip alone.</summary>
     public bool RecallSafe { get; set; }
+    /// <summary>Sections a recall leaves alone on this strip (for example the EQ of a guest's mic), when it is not safe altogether.</summary>
+    public RecallScope Safe { get; set; }
 
     /// <summary>The number shown on the strip (channel 1 to 32, Mix 1 to 16, and so on).</summary>
     [JsonIgnore]
@@ -451,7 +453,7 @@ public sealed class Strip
         Hpf = Hpf.Clone(), Lpf = Lpf.Clone(), Drive = Drive.Clone(), Eq = Eq.Clone(), DynEq = DynEq.Clone(), Gate = Gate.Clone(), Comp = Comp.Clone(),
         Order = Order, Rack = Rack.Select(r => r.Clone()).ToList(), Pan = Pan, Fader = Fader, Mute = Mute, HardMute = HardMute, Solo = Solo, SoloSafe = SoloSafe, Linked = Linked, ToMain = ToMain, ToCentre = ToCentre, SendsFrom = SendsFrom,
         Groups = [.. Groups], Sends = Sends.Select(s => s.Clone()).ToList(), StreamLevel = StreamLevel, StreamOn = StreamOn,
-        Preamp = Preamp, Phantom = Phantom, RecallSafe = RecallSafe,
+        Preamp = Preamp, Phantom = Phantom, RecallSafe = RecallSafe, Safe = Safe,
     };
 }
 

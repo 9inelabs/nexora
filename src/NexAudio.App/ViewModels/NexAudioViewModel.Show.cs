@@ -385,7 +385,8 @@ public sealed partial class CueForm(NexAudioViewModel owner) : ObservableObject
     public static IReadOnlyList<Choice> Scopes { get; } =
     [
         new("", "As the snapshot was saved"), new("All", "Everything"), new("Levels", "Levels only"), new("Levels, Processing", "Levels and processing"),
-        new("Levels, Effects", "Levels and effects"),
+        new("Levels, Effects", "Levels and effects"), new("Fader, Mute", "Faders and mutes only"), new("Mute", "Mutes only"),
+        new("Sends", "Sends only (monitor mixes)"), new("Eq, Dynamics", "EQ and dynamics only"), new("Patch, Outputs", "Routing and outputs only"),
     ];
 
     public void Refresh()

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Nexora.Audio.Asio;
 
 namespace Nexora.Audio.Engine;
 
@@ -28,8 +29,15 @@ public sealed class SimulatedDevice : IAudioDevice
     public bool ResetRequested => false;
     public void ShowSettingsPanel() { }
 
+    /// <summary>
+    /// Pretends the USB cable is out (for trying the recovery without an X32): no buffers come,
+    /// and opening the device fails until it is "plugged in" again.
+    /// </summary>
+    public Func<bool>? Unplugged { get; set; }
+
     public void Open(int bufferSize, double sampleRate = 0)
     {
+        if (Unplugged?.Invoke() == true) throw new AudioDeviceException("The test device is unplugged (pretend). Plug it back in on the Diagnostics page.");
         _buffer = bufferSize is 32 or 64 or 128 or 256 or 512 ? bufferSize : 64;
         _delay = LoopDelayFor(_buffer);
         _rate = Rates.FirstOrDefault(r => Math.Abs(r - sampleRate) < 1, 48000);
@@ -55,6 +63,12 @@ public sealed class SimulatedDevice : IAudioDevice
         var next = Stopwatch.GetTimestamp();
         while (_run)
         {
+            if (Unplugged?.Invoke() == true)
+            {
+                Thread.Sleep(10);
+                next = Stopwatch.GetTimestamp();
+                continue;
+            }
             var begin = Stopwatch.GetTimestamp();
             Fill(core, frames);
             core.Process(frames);

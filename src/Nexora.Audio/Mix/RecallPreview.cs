@@ -94,7 +94,7 @@ public static class RecallDiff
 
         // Recall-safe strips the saved mix would have changed.
         var safe = now.AllStrips()
-            .Where(s => s.RecallSafe && saved.Find(s.Id) is { } sv && Differs(Strip(s), Strip(sv)))
+            .Where(s => (s.RecallSafe || s.Safe != RecallScope.None) && saved.Find(s.Id) is { } sv && Differs(Strip(s), Strip(sv)))
             .Select(Label)
             .ToList();
         return (lines, safe, touched.Count);
@@ -118,6 +118,7 @@ public static class RecallDiff
         var c = s.Clone();
         c.Solo = false;
         c.RecallSafe = false;
+        c.Safe = RecallScope.None;
         return c;
     }
 }

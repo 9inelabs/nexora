@@ -120,6 +120,7 @@ public static class MixParams
         right.StreamOn = left.StreamOn;
         right.Colour = left.Colour;
         right.RecallSafe = left.RecallSafe;
+        right.Safe = left.Safe;
         right.SoloSafe = left.SoloSafe;
         right.HardMute = left.HardMute;
         foreach (var g in s.Controls)

@@ -106,6 +106,11 @@ public partial class NexAudioViewModel
 
     partial void OnTabChanged(NexAudioTab value)
     {
+        if (value == NexAudioTab.Diagnostics)
+        {
+            _eventsKey = "";
+            BuildDiagnostics();
+        }
         if (value != NexAudioTab.Resources) return;
         RefreshPools();
         BuildCosts();

@@ -207,6 +207,12 @@ public sealed partial class NexAudioViewModel
             OnPropertyChanged(nameof(StreamOwnMix));
             return;
         }
+        if (path == id + ".colour")
+        {
+            // Every place that shows the strip takes its new colour.
+            RebuildAll();
+            return;
+        }
         if (_mix.Find(id) is { } s)
         {
             RefreshUtilities(id);
@@ -516,7 +522,18 @@ public sealed partial class NexAudioViewModel
         }
         if (s.Kind is StripKind.Mix or StripKind.Fx or StripKind.Group or StripKind.Matrix)
             route.Items.Add(new ToggleParam($"{id}.stereo", "Stereo (left and right)", m => S(m)?.Stereo ?? false, q));
+        route.Items.Add(new ChoiceParam($"{id}.colour", "Colour",
+        [
+            new("", s.Kind == StripKind.Channel ? "As on the X32" : "Its usual colour"), new("#E5484D", "Red"), new("#F59E5B", "Orange"), new("#F2D06B", "Yellow"),
+            new("#9BD66B", "Green"), new("#4FD1C5", "Cyan"), new("#6CB4F5", "Blue"), new("#A78BFA", "Purple"), new("#F472B6", "Pink"), new("#C9CDD4", "White"),
+        ], m => S(m)?.Colour ?? "", q));
         route.Items.Add(new ToggleParam($"{id}.recallSafe", "Scenes leave this strip alone", m => S(m)?.RecallSafe ?? false, q));
+        route.Items.Add(new ChoiceParam($"{id}.safe", "Or keep safe only",
+        [
+            new("None", "Nothing: scenes change all of it"), new("Input", "Its input (gain, trim, phantom)"), new("Eq, Dynamics", "Its EQ and dynamics"),
+            new("Input, Eq, Dynamics, Inserts", "All its processing"), new("Fader, Mute", "Its fader and mute"), new("Sends", "Its sends (monitor mixes)"),
+            new("Input, Eq, Dynamics, Inserts, Fader, Mute", "Processing, fader and mute (a guest's mic)"),
+        ], m => S(m)?.Safe.ToString(), q));
         if (s.Kind == StripKind.Channel && s.Number % 2 == 1 && s.Number < MixState.ChannelCount)
             route.Items.Add(new ToggleParam($"{id}.linked", $"Stereo pair with channel {s.Number + 1} (changes go to both)", m => S(m)?.Linked ?? false, q));
         else if (s.Kind == StripKind.Channel && ControlRules.Partner(_mix, s) is { } left)
@@ -805,6 +822,7 @@ public sealed partial class NexAudioViewModel
         ApplyShow(d);
         ApplySurfaces(d);
         ApplyTape(d.Tape);
+        BuildDiagnostics();
         var key = string.Join("|", d.Scenes.Concat(d.Snapshots).Select(s => s.Id + s.Name + s.SavedUtc.Ticks)) + d.Settings.CurrentSceneId + _currentSnapshot;
         if (key != _scenesKey)
         {
@@ -862,15 +880,22 @@ public sealed partial class NexAudioViewModel
     public IReadOnlyList<Choice> ScopeChoices { get; } =
     [
         new("All", "Everything"), new("Levels", "Levels only (faders, mutes, sends)"), new("Levels, Processing", "Levels and processing"),
-        new("Levels, Effects", "Levels and effects"),
+        new("Levels, Effects", "Levels and effects"), new("Custom", "Choose the sections…"),
     ];
 
-    public static string ScopeText(RecallScope s) => s switch
+    /// <summary>The sections to tick when a snapshot's scope is "Choose the sections".</summary>
+    public IReadOnlyList<ScopeToggle> ScopeSections { get; } = RecallScopes.Sections.Select(s => new ScopeToggle(s, RecallScopes.Name(s), s is RecallScope.Fader or RecallScope.Mute)).ToList();
+    public bool IsCustomScope => SceneScope?.Value == "Custom";
+    partial void OnSceneScopeChanged(Choice? value) => OnPropertyChanged(nameof(IsCustomScope));
+
+    private string SnapshotScope()
     {
-        RecallScope.All => "everything",
-        RecallScope.Levels => "levels only",
-        _ => string.Join(", ", Enum.GetValues<RecallScope>().Where(f => f is not (RecallScope.None or RecallScope.All) && s.HasFlag(f)).Select(f => f.ToString().ToLowerInvariant())),
-    };
+        if (!IsCustomScope) return (SceneScope ?? ScopeChoices[1]).Value;
+        var scope = ScopeSections.Where(t => t.IsOn).Aggregate(RecallScope.None, (a, t) => a | t.Scope);
+        return (scope == RecallScope.None ? RecallScope.Levels : scope).ToString();
+    }
+
+    public static string ScopeText(RecallScope s) => RecallScopes.Text(s);
 
     public string CurrentSceneText => DeskStatus.Scenes.FirstOrDefault(s => s.Id == DeskStatus.Settings.CurrentSceneId) is { } sc ? $"Current scene: {sc.Name}" : "No scene recalled yet";
     public bool FadeRunning => DeskStatus.SceneFade is > 0 and < 1;
@@ -892,7 +917,7 @@ public sealed partial class NexAudioViewModel
         NewSnapshotName = "";
         return Command("scene.save", new()
         {
-            ["name"] = name, ["by"] = Live.User?.Name ?? "", ["snapshot"] = "true", ["scope"] = (SceneScope ?? ScopeChoices[1]).Value,
+            ["name"] = name, ["by"] = Live.User?.Name ?? "", ["snapshot"] = "true", ["scope"] = SnapshotScope(),
             ["fade"] = SnapshotFade.ToString(CultureInfo.InvariantCulture),
         });
     }
@@ -1001,4 +1026,12 @@ public sealed partial class NexAudioViewModel
 
     [RelayCommand]
     private Task RefreshX32Scenes() => Command("x32.scenes");
+}
+
+/// <summary>One section of a recall, ticked or not.</summary>
+public sealed partial class ScopeToggle(RecallScope scope, string label, bool on) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+{
+    public RecallScope Scope { get; } = scope;
+    public string Label { get; } = label;
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private bool _isOn = on;
 }
