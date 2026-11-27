@@ -30,6 +30,17 @@ public static partial class ShowFiles
     private static readonly string[] Folders = ["scenes", "snapshots", "presets"];
     private static readonly JsonSerializerOptions Json = new(MixState.Json) { WriteIndented = true };
 
+    /// <summary>
+    /// Copies a file into the show file without stopping the desk from saving over it meanwhile
+    /// (on Windows, a file open only for reading cannot be replaced).
+    /// </summary>
+    private static void AddShared(ZipArchive zip, string file, string entry)
+    {
+        using var src = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var dst = zip.CreateEntry(entry, CompressionLevel.Optimal).Open();
+        src.CopyTo(dst);
+    }
+
     /// <summary>Writes the desk's files into one show file.</summary>
     public static void Export(string dataDir, string file, string name, string by)
     {
@@ -44,7 +55,7 @@ public static partial class ShowFiles
             foreach (var top in new[] { "mix.json", "show.json" })
             {
                 var f = Path.Combine(dataDir, top);
-                if (File.Exists(f)) zip.CreateEntryFromFile(f, top, CompressionLevel.Optimal);
+                if (File.Exists(f)) AddShared(zip, f, top);
             }
             foreach (var folder in Folders)
             {
@@ -53,7 +64,7 @@ public static partial class ShowFiles
                 foreach (var f in Directory.EnumerateFiles(d, "*.json"))
                 {
                     var entry = $"{folder}/{Path.GetFileName(f)}";
-                    if (AllowedEntry().IsMatch(entry)) zip.CreateEntryFromFile(f, entry, CompressionLevel.Optimal);
+                    if (AllowedEntry().IsMatch(entry)) AddShared(zip, f, entry);
                 }
             }
         }

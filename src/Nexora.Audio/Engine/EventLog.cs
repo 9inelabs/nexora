@@ -92,6 +92,11 @@ public sealed class DropoutWatch
     /// </summary>
     public string? Update(long late, long driver, DateTime now)
     {
+        lock (_samples) return UpdateLocked(late, driver, now);
+    }
+
+    private string? UpdateLocked(long late, long driver, DateTime now)
+    {
         if (late < _lastLate || driver < _lastDriver) _lastLate = _lastDriver = 0;
         var newLate = late - _lastLate;
         var newDriver = driver - _lastDriver;
@@ -108,12 +113,18 @@ public sealed class DropoutWatch
     }
 
     /// <summary>Dropouts in the last 10 minutes.</summary>
-    public long Recent => _samples.Sum(s => s.Late + s.Driver);
+    public long Recent
+    {
+        get { lock (_samples) return _samples.Sum(s => s.Late + s.Driver); }
+    }
 
     public void Clear()
     {
-        _samples.Clear();
-        _pending = 0;
+        lock (_samples)
+        {
+            _samples.Clear();
+            _pending = 0;
+        }
     }
 }
 
