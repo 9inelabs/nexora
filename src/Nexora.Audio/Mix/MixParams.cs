@@ -342,11 +342,9 @@ public static class MixParams
         if (s.Find(toId) is not { } b) return false;
         var all = parts is "" or "all";
         bool Has(string p) => all || parts.Split(',').Contains(p);
+        // The trim, polarity and delay belong to the mic and stand, so they are never pasted.
         if (Has("input"))
         {
-            b.Trim = from.Trim;
-            b.Invert = from.Invert;
-            b.DelayMs = from.DelayMs;
             b.Hpf = from.Hpf.Clone();
             b.Lpf = from.Lpf.Clone();
             b.Drive = from.Drive.Clone();

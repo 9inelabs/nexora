@@ -167,11 +167,11 @@ public sealed class EngineServer : IDisposable
         {
             case "bus.add":
                 if (!Enum.TryParse<StripKind>(m.Arg("kind"), true, out var kind)) throw new InvalidOperationException("Pick the kind of bus.");
-                if (!desk.Change(s => MixParams.AddBus(s, kind, m.Arg("name")) is not null))
+                if (!desk.Change(s => MixParams.AddBus(s, kind, m.Arg("name")) is not null, "add a bus"))
                     throw new InvalidOperationException("There is no room for another bus of that kind.");
                 break;
             case "bus.remove":
-                desk.Change(s => MixParams.RemoveBus(s, m.Arg("id") ?? ""));
+                desk.Change(s => MixParams.RemoveBus(s, m.Arg("id") ?? ""), "remove a bus");
                 break;
             case "rack.add":
             {
@@ -185,18 +185,41 @@ public sealed class EngineServer : IDisposable
                 }
                 else if (Effects.Get(type) is null) throw new InvalidOperationException("That effect is not known.");
                 else item = Effects.Default(type, m.Arg("style"));
-                if (!desk.Change(s => MixParams.AddRackItem(s, m.Arg("strip") ?? "", item, Int(m.Arg("index"), -1))))
+                if (!desk.Change(s => MixParams.AddRackItem(s, m.Arg("strip") ?? "", item, Int(m.Arg("index"), -1)), "add an effect"))
                     throw new InvalidOperationException("That rack is full (8 effects at most).");
                 break;
             }
             case "rack.remove":
-                desk.Change(s => MixParams.RemoveRackItem(s, m.Arg("strip") ?? "", m.Arg("item") ?? ""));
+                desk.Change(s => MixParams.RemoveRackItem(s, m.Arg("strip") ?? "", m.Arg("item") ?? ""), "remove an effect");
                 break;
             case "rack.move":
-                desk.Change(s => MixParams.MoveRackItem(s, m.Arg("strip") ?? "", m.Arg("item") ?? "", Int(m.Arg("index"))));
+                desk.Change(s => MixParams.MoveRackItem(s, m.Arg("strip") ?? "", m.Arg("item") ?? "", Int(m.Arg("index"))), "move an effect");
                 break;
             case "copy":
-                desk.Change(s => MixParams.CopyProcessing(s, m.Arg("from") ?? "", m.Arg("to") ?? ""));
+                desk.Change(s => MixParams.CopyProcessing(s, m.Arg("from") ?? "", m.Arg("to") ?? ""), $"copy to {m.Arg("to")}");
+                break;
+            case "paste":
+            {
+                var from = m.Data is { } pd ? pd.Deserialize<Strip>(MixState.Json) : null;
+                if (from is null) throw new InvalidOperationException("Nothing has been copied yet.");
+                desk.Change(s => MixParams.Paste(s, m.Arg("to") ?? "", from, m.Arg("parts") ?? "all"), $"paste on {m.Arg("to")}");
+                break;
+            }
+            case "undo":
+                if (!desk.Undo()) throw new InvalidOperationException("There is nothing to undo.");
+                break;
+            case "redo":
+                if (!desk.Redo()) throw new InvalidOperationException("There is nothing to redo.");
+                break;
+            case "preset.save":
+                desk.SavePreset(m.Arg("strip") ?? "", m.Arg("name") ?? "");
+                break;
+            case "preset.load":
+                if (!desk.LoadPreset(m.Arg("strip") ?? "", m.Arg("id") ?? "", m.Arg("parts") ?? "all"))
+                    throw new InvalidOperationException("That preset could not be found.");
+                break;
+            case "preset.delete":
+                desk.DeletePreset(m.Arg("id") ?? "");
                 break;
             case "mix.replace":
             {
@@ -305,7 +328,7 @@ public sealed class EngineServer : IDisposable
         var mm = new MixMetersMsg(
             m.Select(x => x.In).ToArray(), m.Select(x => x.L).ToArray(), m.Select(x => x.R).ToArray(),
             m.Select(x => x.Gate).ToArray(), m.Select(x => x.Comp).ToArray(), m.Select(x => x.Rack).ToArray(), m.Select(x => x.GateClosed).ToArray(),
-            ml, mr, tick % 3 == 0 ? _engine.Desk.Loudness() : null, tick % 2 == 0 ? mix.Analyser.Bands() : null);
+            ml, mr, tick % 3 == 0 ? _engine.Desk.Loudness() : null, tick % 2 == 0 ? mix.Analyser.Bands() : null, m.Select(x => x.DynEq).ToArray());
         foreach (var c in conns) _ = c.SendAsync(mm);
     }
 

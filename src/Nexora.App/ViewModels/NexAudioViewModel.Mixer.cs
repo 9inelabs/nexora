@@ -292,6 +292,7 @@ public sealed partial class NexAudioViewModel
                 SelectedGate = m.Gate[i];
                 SelectedComp = m.Comp[i];
                 SelectedRack = m.Rack[i];
+                SelectedDynEq = m.DynEq is { } dq && i < dq.Length ? dq[i] : 0;
                 SelectedIn = m.In[i] <= 0 ? -60 : Math.Max(-60, 20 * Math.Log10(m.In[i]));
                 PushHistory(m.In[i] <= 0 ? -90 : 20 * Math.Log10(m.In[i]), m.Gate[i], m.Comp[i]);
             }
@@ -676,6 +677,7 @@ public sealed partial class NexAudioViewModel
     {
         _applyingDesk = true;
         DeskStatus = d;
+        ApplyTools(d);
         var key = string.Join("|", d.Scenes.Concat(d.Snapshots).Select(s => s.Id + s.Name + s.SavedUtc.Ticks)) + d.Settings.CurrentSceneId + _currentSnapshot;
         if (key != _scenesKey)
         {

@@ -16,6 +16,8 @@ internal sealed class RackSlot
     public string Type { get; }
     public Processor Processor { get; }
     public volatile bool Bypass;
+    /// <summary>Runs before the EQ and dynamics instead of after them.</summary>
+    public volatile bool Pre;
     public volatile int Latency;
     public string? LastConfig;
     private DelayLine? _bl, _br;
@@ -61,6 +63,9 @@ internal sealed class StripRt
         Filters = new StripFilters(sampleRate, maxFrames);
         Gate = new Gate(sampleRate, maxFrames);
         Comp = new Compressor(sampleRate, maxFrames);
+        Drive = new Saturator(sampleRate, maxFrames);
+        DynEq = new DynamicEq(sampleRate, maxFrames);
+        Raw = new float[maxFrames];
         var maxDelay = (int)(0.1 * sampleRate);
         InDelayL = new DelayLine(maxDelay);
         InDelayR = new DelayLine(maxDelay);
@@ -73,10 +78,16 @@ internal sealed class StripRt
     public readonly StripFilters Filters;
     public readonly Gate Gate;
     public readonly Compressor Comp;
+    public readonly Saturator Drive;
+    public readonly DynamicEq DynEq;
+    /// <summary>Channels: this buffer's input after the trim, for other strips' gates and compressors to listen to.</summary>
+    public readonly float[] Raw;
     public volatile RackSlot[] Rack = [];
+    public volatile StripRt? GateKey, CompKey;
+    public volatile bool DynamicsFirst;
     public readonly DelayLine InDelayL, InDelayR;
     public DelayLine? PdcL, PdcR, LatePre, LatePost, LatePostRd;
-    public string? LastFilters, LastGate, LastComp;
+    public string? LastFilters, LastGate, LastComp, LastDrive, LastDynEq;
 
     // Targets, written by the control thread (single floats and ints, so always whole).
     public volatile int Input = -1;            // channels: which driver input feeds this strip
@@ -91,7 +102,7 @@ internal sealed class StripRt
     public SmoothGain GTrim, GFaderL, GFaderR;
 
     // Meters (written by the audio thread, taken by the control thread).
-    public float MeterIn, MeterL, MeterR, MeterGate, MeterComp, MeterRack;
+    public float MeterIn, MeterL, MeterR, MeterGate, MeterComp, MeterRack, MeterDynEq;
 }
 
 /// <summary>A feed from one strip into another: a send, a group assignment, or a strip's place in the main mix.</summary>
@@ -411,6 +422,22 @@ public sealed class MixEngine
             rt.LastComp = key;
             rt.Comp.Configure(s.Comp.Clone());
         }
+        key = System.Text.Json.JsonSerializer.Serialize(s.Drive, MixState.Json);
+        if (key != rt.LastDrive)
+        {
+            rt.LastDrive = key;
+            rt.Drive.Configure(s.Drive.Clone());
+        }
+        key = System.Text.Json.JsonSerializer.Serialize(s.DynEq, MixState.Json);
+        if (key != rt.LastDynEq)
+        {
+            rt.LastDynEq = key;
+            rt.DynEq.Configure(s.DynEq.Clone());
+        }
+        rt.DynamicsFirst = s.Order == ProcessOrder.DynamicsFirst;
+        // A sidechain: the gate or compressor listens to another channel.
+        rt.GateKey = s.Kind == StripKind.Channel && s.Gate.Key is { Length: > 0 } gk && gk != s.Id && _strips.TryGetValue(gk, out var gks) && gks.Kind == StripKind.Channel ? gks : null;
+        rt.CompKey = s.Comp.Key is { Length: > 0 } ck && ck != s.Id && _strips.TryGetValue(ck, out var cks) && cks.Kind == StripKind.Channel ? cks : null;
 
         // The rack: keep processors that are still there (their memory carries on), make new ones.
         var slots = new List<RackSlot>();
@@ -426,6 +453,7 @@ public sealed class MixEngine
                 _slots[item.Id] = slot;
             }
             slot.Bypass = item.Bypass;
+            slot.Pre = item.Pre;
             slot.Latency = LatencyOf(item);
             var cfg = System.Text.Json.JsonSerializer.Serialize(item, MixState.Json);
             if (cfg != slot.LastConfig)
@@ -523,7 +551,18 @@ public sealed class MixEngine
             return;
         }
 
-        // 1. Channels.
+        // 1. Channels. First every channel's input (after its trim), so any channel can key another's gate or compressor.
+        foreach (var ch in t.Channels)
+        {
+            var src = ch.Input;
+            if (src >= 0 && src < input.Length)
+            {
+                var a = input[src];
+                var g = ch.Trim;
+                for (var n = 0; n < frames; n++) ch.Raw[n] = a[n] * g;
+            }
+            else Array.Clear(ch.Raw, 0, frames);
+        }
         foreach (var ch in t.Channels)
         {
             var src = ch.Input;
@@ -718,16 +757,40 @@ public sealed class MixEngine
             s.InDelayL.Process(s.L, frames, s.InDelay);
             if (r is not null) s.InDelayR.Process(r, frames, s.InDelay);
         }
-        s.Filters.Run(s.L, r, frames);
-        s.Gate.Run(s.L, r, frames);
-        s.Comp.Run(s.L, r, frames);
+        // Low and high cut, then the drive, then any inserts placed before the EQ and dynamics.
+        s.Filters.RunCuts(s.L, r, frames);
+        s.Drive.Run(s.L, r, frames);
         var rack = s.Rack;
         var rackGr = 0f;
         foreach (var slot in rack)
         {
+            if (!slot.Pre) continue;
             slot.Run(s.L, r, frames);
             if (slot.Processor.Reduction > rackGr) rackGr = slot.Processor.Reduction;
         }
+        s.Gate.KeyInput = s.GateKey?.Raw;
+        s.Comp.KeyInput = s.CompKey?.Raw;
+        if (s.DynamicsFirst)
+        {
+            s.Gate.Run(s.L, r, frames);
+            s.Comp.Run(s.L, r, frames);
+            s.Filters.RunEq(s.L, r, frames);
+            s.DynEq.Run(s.L, r, frames);
+        }
+        else
+        {
+            s.Filters.RunEq(s.L, r, frames);
+            s.DynEq.Run(s.L, r, frames);
+            s.Gate.Run(s.L, r, frames);
+            s.Comp.Run(s.L, r, frames);
+        }
+        foreach (var slot in rack)
+        {
+            if (slot.Pre) continue;
+            slot.Run(s.L, r, frames);
+            if (slot.Processor.Reduction > rackGr) rackGr = slot.Processor.Reduction;
+        }
+        if (s.DynEq.Reduction > s.MeterDynEq) s.MeterDynEq = s.DynEq.Reduction;
         if (s.Pdc > 0)
         {
             s.PdcL ??= new DelayLine(16384);
@@ -791,8 +854,8 @@ public sealed class MixEngine
         for (var i = 0; i < t.All.Length; i++)
         {
             var s = t.All[i];
-            result[i] = new StripMeters(s.MeterIn, s.MeterL, s.MeterR, s.MeterGate, s.MeterComp, s.MeterRack, s.Gate.On && !s.Gate.IsOpen);
-            s.MeterIn = s.MeterL = s.MeterR = s.MeterGate = s.MeterComp = s.MeterRack = 0;
+            result[i] = new StripMeters(s.MeterIn, s.MeterL, s.MeterR, s.MeterGate, s.MeterComp, s.MeterRack, s.Gate.On && !s.Gate.IsOpen, s.MeterDynEq);
+            s.MeterIn = s.MeterL = s.MeterR = s.MeterGate = s.MeterComp = s.MeterRack = s.MeterDynEq = 0;
         }
         return result;
     }
@@ -810,4 +873,4 @@ public sealed class MixEngine
     }
 }
 
-public readonly record struct StripMeters(float In, float L, float R, float Gate, float Comp, float Rack, bool GateClosed);
+public readonly record struct StripMeters(float In, float L, float R, float Gate, float Comp, float Rack, bool GateClosed, float DynEq = 0);

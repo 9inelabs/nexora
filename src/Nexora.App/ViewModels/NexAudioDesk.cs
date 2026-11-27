@@ -363,6 +363,7 @@ public sealed partial class RackItemView : ObservableObject
         CanMoveUp = index > 0;
         CanMoveDown = index < count - 1;
         Bypass = new ToggleParam($"{stripId}.rack.{item.Id}.bypass", "Bypass", m => Find(m)?.Bypass ?? false, owner.Queue);
+        Pre = new ToggleParam($"{stripId}.rack.{item.Id}.pre", "Before EQ and dynamics", m => Find(m)?.Pre ?? false, owner.Queue);
         if (Effects.Get(item.Type) is { } info)
         {
             foreach (var c in info.Choices)
@@ -387,6 +388,8 @@ public sealed partial class RackItemView : ObservableObject
     public bool CanMoveUp { get; }
     public bool CanMoveDown { get; }
     public ToggleParam Bypass { get; }
+    /// <summary>An insert at the top of the strip (before the EQ and dynamics) instead of after them.</summary>
+    public ToggleParam Pre { get; }
     public ObservableCollection<MixParam> Params { get; } = [];
     public IEnumerable<SliderParam> Knobs => Type == "eq31" ? [] : Params.OfType<SliderParam>();
     public IEnumerable<ChoiceParam> Choices => Params.OfType<ChoiceParam>();
@@ -397,6 +400,7 @@ public sealed partial class RackItemView : ObservableObject
     public void Refresh(MixState m)
     {
         Bypass.Refresh(m);
+        Pre.Refresh(m);
         foreach (var p in Params) p.Refresh(m);
     }
 

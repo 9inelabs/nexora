@@ -11,7 +11,7 @@
       <Setter Property="CornerRadius" Value="9" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="BorderBrush" Value="{StaticResource Line}" />
-      <Setter Property="Width" Value="148" />
+      <Setter Property="Width" Value="162" />
       <Setter Property="Height" Value="62" />
       <Setter Property="Margin" Value="0,0,6,0" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -19,6 +19,19 @@
     </Style>
     <Style Selector="Button.bustag:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="BorderBrush" Value="{StaticResource Line2}" />
+    </Style>
+    <Style Selector="Button.busedit">
+      <Setter Property="Width" Value="32" />
+      <Setter Property="Height" Value="32" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Background" Value="#14FFFFFF" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.busedit:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#2EFFFFFF" />
     </Style>
     <Style Selector="Button.bustag.current">
       <Setter Property="BorderThickness" Value="1.5" />
@@ -88,8 +101,8 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:BusTagView">
               <Button Classes="bustag" Classes.current="{Binding IsCurrent}" Background="{Binding ToneTint}" Command="{Binding ShowCommand}"
-                      BorderBrush="{Binding Edge}"
-                      ToolTip.Tip="Tap to show this bus on the faders. The pencil opens it: EQ, compressor, graphic EQ and effects.">
+                      BorderBrush="{Binding Edge}" DoubleTapped="OnBusDoubleTapped"
+                      ToolTip.Tip="Tap to show this bus on the faders. Double-tap, or the pencil, to edit it: EQ, compressor, graphic EQ and effects.">
                 <Grid ColumnDefinitions="4,8,*,Auto" RowDefinitions="*" Margin="0,0,4,0">
                   <Border CornerRadius="8,0,0,8" Background="{Binding Tone}" />
                   <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*,Auto" Margin="0,6,0,6">
@@ -101,8 +114,8 @@
                     </Grid>
                   </Grid>
                   <StackPanel Grid.Column="3" Spacing="2" VerticalAlignment="Center" Margin="4,0,0,0">
-                    <Button Classes="ghost" Padding="4" Command="{Binding EditCommand}" ToolTip.Tip="Edit this bus: EQ, compressor, graphic EQ, effects">
-                      <c:Icon Kind="edit" Width="12" Height="12" />
+                    <Button Classes="busedit" Command="{Binding EditCommand}" ToolTip.Tip="Edit this bus: EQ, compressor, graphic EQ, effects">
+                      <c:Icon Kind="edit" Width="15" Height="15" />
                     </Button>
                     <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center">
                       <Ellipse Width="5" Height="5" Fill="{StaticResource EqTone}" IsVisible="{Binding HasEq}" />

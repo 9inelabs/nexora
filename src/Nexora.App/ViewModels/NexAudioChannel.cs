@@ -210,6 +210,22 @@ public sealed class ChannelControls
         CompKey = new SliderParam($"{id}.comp.keyFilter", "Key filter", 0, 400, "Hz", m => S(m)?.Comp.KeyFilter, q, step: 5, def: 0);
 
         EqOn = new ToggleParam($"{id}.eq.on", "On", m => S(m)?.Eq.On ?? false, q);
+
+        DriveOn = new ToggleParam($"{id}.drive.on", "Drive", m => S(m)?.Drive.On ?? false, q);
+        DriveStyle = new ChoiceParam($"{id}.drive.style", "Colour", [new("Warm", "Warm"), new("Edge", "Edge")], m => S(m)?.Drive.Style.ToString(), q);
+        DriveAmount = new SliderParam($"{id}.drive.drive", "Drive", 0, 24, "dB", m => S(m)?.Drive.Drive, q, step: 0.5, def: 6);
+        DriveMix = new SliderParam($"{id}.drive.mix", "Mix", 0, 100, "%", m => S(m)?.Drive.Mix, q, step: 1, def: 100);
+        DriveOutput = new SliderParam($"{id}.drive.output", "Output", -12, 12, "dB", m => S(m)?.Drive.Output, q, step: 0.5, def: 0);
+
+        DynEqOn = new ToggleParam($"{id}.dynEq.on", "On", m => S(m)?.DynEq.On ?? false, q);
+        for (var b = 0; b < s.DynEq.Bands.Count; b++) DynBands.Add(new DynEqBandView(id, b, q));
+
+        GateMode = new ChoiceParam($"{id}.gate.mode", "Mode", [new("Gate", "Gate"), new("Ducker", "Ducker")], m => S(m)?.Gate.Mode.ToString(), q);
+        var keys = new List<Choice> { new("", "Itself") };
+        keys.AddRange(mix.Channels.Where(c => c.Id != id).Select(c => new Choice(c.Id, $"{c.Number} · {owner.NameOf(c)}")));
+        GateKeySource = new ChoiceParam($"{id}.gate.key", "Listens to", keys, m => S(m)?.Gate.Key ?? "", q);
+        CompKeySource = new ChoiceParam($"{id}.comp.key", "Listens to", keys, m => S(m)?.Comp.Key ?? "", q);
+        Order = new ChoiceParam($"{id}.order", "Order", [new("EqFirst", "EQ → Dynamics"), new("DynamicsFirst", "Dynamics → EQ")], m => S(m)?.Order.ToString(), q);
         for (var b = 0; b < s.Eq.Bands.Count; b++) Bands.Add(new EqBandView(owner, id, b, q));
 
         var buses = mix.Buses.Where(b => Routing.CanSend(s, b)).OrderBy(b => Routing.Stage(b.Kind)).ThenBy(b => b.Number).ToList();
@@ -252,6 +268,21 @@ public sealed class ChannelControls
     public SliderParam CompKey { get; }
 
     public ToggleParam EqOn { get; }
+
+    public ToggleParam DriveOn { get; }
+    public ChoiceParam DriveStyle { get; }
+    public SliderParam DriveAmount { get; }
+    public SliderParam DriveMix { get; }
+    public SliderParam DriveOutput { get; }
+
+    public ToggleParam DynEqOn { get; }
+    public ObservableCollection<DynEqBandView> DynBands { get; } = [];
+
+    public ChoiceParam GateMode { get; }
+    public ChoiceParam GateKeySource { get; }
+    public ChoiceParam CompKeySource { get; }
+    public ChoiceParam Order { get; }
+    public bool IsDucker => GateMode.Selected?.Value == "Ducker";
     public ObservableCollection<EqBandView> Bands { get; } = [];
     public ObservableCollection<SendView> Sends { get; } = [];
     public bool HasSends => Sends.Count > 0;
@@ -269,12 +300,50 @@ public sealed class ChannelControls
         yield return CompOn; yield return CompStyle; yield return CompThreshold; yield return CompRatio; yield return CompAttack; yield return CompRelease;
         yield return CompKnee; yield return CompMakeup; yield return CompAuto; yield return CompMix; yield return CompKey;
         yield return EqOn;
+        yield return DriveOn; yield return DriveStyle; yield return DriveAmount; yield return DriveMix; yield return DriveOutput;
+        yield return DynEqOn; yield return GateMode; yield return GateKeySource; yield return CompKeySource; yield return Order;
     }
 
     public void Refresh(MixState m)
     {
         foreach (var p in All()) p.Refresh(m);
         foreach (var b in Bands) b.Refresh(m);
+        foreach (var b in DynBands) b.Refresh(m);
         foreach (var s in Sends) s.Refresh(m);
+    }
+}
+
+/// <summary>One dynamic EQ band: a bell that only moves when its range gets loud.</summary>
+public sealed partial class DynEqBandView : ObservableObject
+{
+    public DynEqBandView(string id, int band, Action<string, object> q)
+    {
+        Band = band;
+        DynEqBand? B(MixState m) => m.Find(id) is { } st && band < st.DynEq.Bands.Count ? st.DynEq.Bands[band] : null;
+        On = new ToggleParam($"{id}.dynEq.{band}.on", "On", m => B(m)?.On ?? false, q);
+        Freq = new SliderParam($"{id}.dynEq.{band}.freq", "Freq", 20, 20000, "Hz", m => B(m)?.Freq, q, log: true);
+        Q = new SliderParam($"{id}.dynEq.{band}.q", "Width (Q)", 0.3, 10, "", m => B(m)?.Q, q, log: true, def: 2);
+        Threshold = new SliderParam($"{id}.dynEq.{band}.threshold", "Threshold", -60, 0, "dB", m => B(m)?.Threshold, q, step: 0.5, def: -30);
+        Range = new SliderParam($"{id}.dynEq.{band}.range", "Range", -18, 12, "dB", m => B(m)?.Range, q, step: 0.5, def: -6);
+        Ratio = new SliderParam($"{id}.dynEq.{band}.ratio", "Ratio", 1, 20, ":1", m => B(m)?.Ratio, q, log: true, def: 3);
+        Attack = new SliderParam($"{id}.dynEq.{band}.attack", "Attack", 0.1, 200, "ms", m => B(m)?.Attack, q, log: true, def: 5);
+        Release = new SliderParam($"{id}.dynEq.{band}.release", "Release", 10, 2000, "ms", m => B(m)?.Release, q, log: true, def: 120);
+    }
+
+    public int Band { get; }
+    public string Title => $"DYNAMIC BAND {Band + 1}";
+    public ToggleParam On { get; }
+    public SliderParam Freq { get; }
+    public SliderParam Q { get; }
+    public SliderParam Threshold { get; }
+    public SliderParam Range { get; }
+    public SliderParam Ratio { get; }
+    public SliderParam Attack { get; }
+    public SliderParam Release { get; }
+
+    public void Refresh(MixState m)
+    {
+        On.Refresh(m); Freq.Refresh(m); Q.Refresh(m); Threshold.Refresh(m); Range.Refresh(m);
+        Ratio.Refresh(m); Attack.Refresh(m); Release.Refresh(m);
     }
 }

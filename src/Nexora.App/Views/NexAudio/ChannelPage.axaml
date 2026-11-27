@@ -206,13 +206,24 @@
             <TextBlock Classes="eyebrow" Text="{Binding SelectedKind}" />
             <TextBlock Classes="h2" Text="{Binding SelectedTitle}" />
           </StackPanel>
-          <TextBox Text="{Binding SelectedName}" Watermark="Name on this desk" Width="170" VerticalAlignment="Center" />
+          <TextBox Text="{Binding SelectedName}" Watermark="Name" Width="120" VerticalAlignment="Center" />
           <Button Command="{Binding RenameCommand}" Content="Rename" VerticalAlignment="Center" />
         </StackPanel>
-        <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <TextBlock Classes="faint small" VerticalAlignment="Center" Text="Copy processing to" />
-          <ComboBox ItemsSource="{Binding CopyTargets}" SelectedItem="{Binding CopyTarget}" MinWidth="140" />
-          <Button Command="{Binding CopyProcessingCommand}" Content="Copy" />
+        <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Button Classes="ghost" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}" ToolTip.Tip="{Binding UndoTip}">
+            <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="restart" Width="13" Height="13" /><TextBlock Text="Undo" /></StackPanel>
+          </Button>
+          <Button Classes="ghost" Command="{Binding RedoCommand}" IsEnabled="{Binding CanRedo}" ToolTip.Tip="{Binding RedoTip}" Content="Redo" />
+          <Border Classes="hairline" Width="1" Height="24" Margin="4,0" />
+          <Button Command="{Binding CopyStripCommand}" Content="Copy" ToolTip.Tip="Copy this strip's sound (not its level, sends or routing)" />
+          <Button Command="{Binding PasteStripCommand}" IsEnabled="{Binding HasClipboard}" ToolTip.Tip="{Binding ClipboardName, StringFormat='Paste from {0}'}" Content="Paste" />
+          <ComboBox ItemsSource="{x:Static vm:NexAudioViewModel.PasteParts}" SelectedItem="{Binding PastePart}" MinWidth="150"
+                    ToolTip.Tip="What Paste and Load bring over" />
+          <Border Classes="hairline" Width="1" Height="24" Margin="4,0" />
+          <ComboBox ItemsSource="{Binding PresetChoices}" SelectedItem="{Binding PresetChoice}" MinWidth="190" PlaceholderText="Presets" />
+          <Button Classes="primary" Command="{Binding LoadPresetCommand}" Content="Load" />
+          <TextBox Text="{Binding NewPresetName}" Watermark="New preset name" Width="140" />
+          <Button Command="{Binding SavePresetCommand}" Content="Save" />
         </StackPanel>
       </Grid>
     </Border>
@@ -256,6 +267,7 @@
                   <ToggleButton Classes="mini input" IsChecked="{Binding Ch.Invert.Value}" Content="Ø" />
                   <ToggleButton Classes="mini input" IsChecked="{Binding Ch.HpfOn.Value}" Content="LOW CUT" />
                   <ToggleButton Classes="mini input" IsChecked="{Binding Ch.LpfOn.Value}" Content="HI CUT" />
+                  <ToggleButton Classes="mini input" IsChecked="{Binding Ch.DriveOn.Value}" Content="DRIVE" />
                 </StackPanel>
               </Grid>
               <Grid Grid.Row="2" ColumnDefinitions="*,8,12">
@@ -280,6 +292,7 @@
                   <StackPanel Orientation="Horizontal" Spacing="6"><Ellipse Width="8" Height="8" Fill="{StaticResource GateTone}" /><TextBlock Classes="dtitle" Foreground="{StaticResource GateTone}" Text="GATE" /><c:Icon Kind="right" Width="10" Height="10" /></StackPanel>
                 </Button>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                  <TextBlock Classes="faint" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Text="{Binding Ch.GateMode.Selected.Label}" />
                   <TextBlock Classes="mono" FontSize="11" Foreground="{StaticResource GateTone}" VerticalAlignment="Center" Text="{Binding SelectedGate, StringFormat='GR -{0:0.0}'}" />
                   <ToggleButton Classes="mini gate" IsChecked="{Binding Ch.GateOn.Value}" Content="ON" />
                 </StackPanel>
@@ -308,7 +321,9 @@
                 </Button>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
                   <TextBlock Classes="faint small" VerticalAlignment="Center" Text="Drag a point · wheel for width" />
+                  <TextBlock Classes="mono" FontSize="10.5" Foreground="{StaticResource EqTone}" VerticalAlignment="Center" Text="{Binding SelectedDynEq, StringFormat='DYN {0:0.0} dB'}" />
                   <Button Classes="ghost small" Command="{Binding FlattenEqCommand}" Content="Flat" />
+                  <ToggleButton Classes="mini eq" IsChecked="{Binding Ch.DynEqOn.Value}" Content="DYNAMIC" />
                   <ToggleButton Classes="mini eq" IsChecked="{Binding Ch.EqOn.Value}" Content="ON" />
                 </StackPanel>
               </Grid>
@@ -496,6 +511,26 @@
                 <c:EqCurve Grid.Column="2" MinHeight="200" Settings="{Binding SelectedFilters}" Spectrum="{Binding Spectrum}" ShowBands="False" />
               </Grid>
             </Border>
+            <Border Classes="card" Padding="18,14">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="10">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="sectitle" Text="Drive" />
+                    <TextBlock Classes="faint small" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
+                               Text="Adds harmonics and rounds off peaks, after the low and high cut. Warm is thick and rounded; Edge is brighter and firmer. The level is matched afterwards, so you hear colour, not just loudness." />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="16">
+                    <c:Knob Classes="big" Source="{Binding Ch.DriveAmount}" IsActive="{Binding Ch.DriveOn.Value}" />
+                    <c:Knob Source="{Binding Ch.DriveMix}" IsActive="{Binding Ch.DriveOn.Value}" VerticalAlignment="Center" />
+                    <c:Knob Bipolar="True" Source="{Binding Ch.DriveOutput}" IsActive="{Binding Ch.DriveOn.Value}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="10" VerticalAlignment="Top">
+                  <ToggleButton Classes="pill" IsChecked="{Binding Ch.DriveOn.Value}" Content="Drive on" HorizontalAlignment="Right" />
+                  <ListBox Classes="seg" ItemsSource="{Binding Ch.DriveStyle.Options}" SelectedItem="{Binding Ch.DriveStyle.Selected}" />
+                </StackPanel>
+              </Grid>
+            </Border>
           </StackPanel>
         </ScrollViewer>
 
@@ -535,6 +570,20 @@
                 <TextBlock Classes="faint small" Width="200" TextWrapping="Wrap" VerticalAlignment="Center"
                            Text="Key filter: the gate listens above this pitch, so a kick drum's boom does not open the snare's gate." />
               </StackPanel>
+            </Border>
+            <Border Classes="card" Padding="18,14">
+              <Grid ColumnDefinitions="Auto,24,Auto,24,*">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="eyebrow" Text="MODE" />
+                  <ListBox Classes="seg" ItemsSource="{Binding Ch.GateMode.Options}" SelectedItem="{Binding Ch.GateMode.Selected}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="8">
+                  <TextBlock Classes="eyebrow" Text="LISTENS TO (SIDECHAIN)" />
+                  <ComboBox ItemsSource="{Binding Ch.GateKeySource.Options}" SelectedItem="{Binding Ch.GateKeySource.Selected}" MinWidth="220" />
+                </StackPanel>
+                <TextBlock Grid.Column="4" Classes="faint small" TextWrapping="Wrap" VerticalAlignment="Center"
+                           Text="Gate turns this channel down while what it listens to is quiet. Ducker does the opposite: it dips this channel while what it listens to is loud. For example, put a ducker on the music playback, listening to the pastor's mic, so the music drops whenever the pastor speaks." />
+              </Grid>
             </Border>
           </StackPanel>
         </ScrollViewer>
@@ -586,6 +635,53 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <Border Classes="card" Padding="18,14">
+              <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="sectitle" Text="Dynamic EQ" />
+                    <TextBlock Classes="faint small" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
+                               Text="Bells that only move when their own range gets loud: tame a harsh note or a boomy word at the moment it happens and leave the rest of the voice alone." />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Classes="mono" Foreground="{StaticResource EqTone}" VerticalAlignment="Center" Text="{Binding SelectedDynEq, StringFormat='moving {0:0.0} dB'}" />
+                    <ToggleButton Classes="pill" IsChecked="{Binding Ch.DynEqOn.Value}" Content="Dynamic EQ on" />
+                  </StackPanel>
+                </Grid>
+                <ItemsControl ItemsSource="{Binding Ch.DynBands}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:DynEqBandView">
+                      <Border Background="{StaticResource Surface2}" CornerRadius="10" Padding="12,10" Margin="0,0,10,0">
+                        <StackPanel Spacing="8">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Classes="eyebrow" Foreground="{StaticResource EqTone}" Text="{Binding Title}" VerticalAlignment="Center" />
+                            <ToggleButton Grid.Column="1" Classes="pill" IsChecked="{Binding On.Value}" Content="On" />
+                          </Grid>
+                          <UniformGrid Rows="1">
+                            <c:Knob Classes="small" Source="{Binding Freq}" IsActive="{Binding On.Value}" />
+                            <c:Knob Classes="small" Source="{Binding Q}" IsActive="{Binding On.Value}" />
+                            <c:Knob Classes="small" Source="{Binding Threshold}" IsActive="{Binding On.Value}" />
+                            <c:Knob Classes="small" Bipolar="True" Source="{Binding Range}" IsActive="{Binding On.Value}" />
+                            <c:Knob Classes="small" Source="{Binding Ratio}" IsActive="{Binding On.Value}" />
+                            <c:Knob Classes="small" Source="{Binding Attack}" IsActive="{Binding On.Value}" />
+                            <c:Knob Classes="small" Source="{Binding Release}" IsActive="{Binding On.Value}" />
+                          </UniformGrid>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Grid ColumnDefinitions="Auto,16,*">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="eyebrow" Text="ORDER" />
+                    <ListBox Classes="seg" ItemsSource="{Binding Ch.Order.Options}" SelectedItem="{Binding Ch.Order.Selected}" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Classes="faint small" TextWrapping="Wrap" VerticalAlignment="Center"
+                             Text="EQ first: the gate and compressor hear the EQ'd sound. Dynamics first: boosting the EQ never pushes the compressor harder." />
+                </Grid>
+              </StackPanel>
+            </Border>
           </StackPanel>
         </ScrollViewer>
 
@@ -631,6 +727,20 @@
                 <c:Knob Source="{Binding Ch.CompMix}" IsActive="{Binding Ch.CompOn.Value}" VerticalAlignment="Center" />
                 <c:Knob Source="{Binding Ch.CompKey}" IsActive="{Binding Ch.CompOn.Value}" VerticalAlignment="Center" />
               </StackPanel>
+            </Border>
+            <Border Classes="card" Padding="18,14">
+              <Grid ColumnDefinitions="Auto,24,Auto,24,*">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="eyebrow" Text="LISTENS TO (SIDECHAIN)" />
+                  <ComboBox ItemsSource="{Binding Ch.CompKeySource.Options}" SelectedItem="{Binding Ch.CompKeySource.Selected}" MinWidth="220" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="8">
+                  <TextBlock Classes="eyebrow" Text="ORDER" />
+                  <ListBox Classes="seg" ItemsSource="{Binding Ch.Order.Options}" SelectedItem="{Binding Ch.Order.Selected}" />
+                </StackPanel>
+                <TextBlock Grid.Column="4" Classes="faint small" TextWrapping="Wrap" VerticalAlignment="Center"
+                           Text="Listening to another channel turns this one down when that channel is loud, for example the band group under the worship leader's mic." />
+              </Grid>
             </Border>
           </StackPanel>
         </ScrollViewer>
@@ -710,6 +820,8 @@
                       <Button Classes="ghost small" Command="{Binding MoveUpCommand}" IsEnabled="{Binding CanMoveUp}" ToolTip.Tip="Earlier in the rack"><c:Icon Kind="arrowup" Width="12" Height="12" /></Button>
                       <Button Classes="ghost small" Command="{Binding MoveDownCommand}" IsEnabled="{Binding CanMoveDown}" ToolTip.Tip="Later in the rack"><c:Icon Kind="arrowdown" Width="12" Height="12" /></Button>
                       <Button Classes="ghost small" Command="{Binding RemoveCommand}" Content="Remove" />
+                      <ToggleButton Classes="pill" IsChecked="{Binding Pre.Value}" Content="Before EQ"
+                                    ToolTip.Tip="On: this effect sits at the top of the strip, before the EQ and dynamics (an insert). Off: after them." />
                       <ToggleButton Classes="pill" IsChecked="{Binding Bypass.Value}" Content="Bypass" />
                     </StackPanel>
                   </Grid>

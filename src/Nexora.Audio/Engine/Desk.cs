@@ -52,6 +52,11 @@ public sealed record DeskStatus(
     double MixLatencyMs,
     double SceneFade)
 {
+    /// <summary>What Undo and Redo would do, or null.</summary>
+    public string? UndoText { get; init; }
+    public string? RedoText { get; init; }
+    public IReadOnlyList<PresetInfo> Presets { get; init; } = [];
+
     public static DeskStatus Empty { get; } = new(0, new DeskSettings(), false, null, [], null, 0, 0, null, [], [], [], 0, false, null, [], 0, 0);
 }
 
@@ -70,6 +75,8 @@ public sealed class Desk : IDisposable
     private readonly Action<string> _log;
     private readonly object _gate = new();
     private readonly SceneStore _store;
+    private readonly PresetStore _presets;
+    private readonly MixHistory _history = new();
     private readonly X32Client _x32;
     private readonly HeartbeatSender? _heartbeat;
     private readonly StreamSender? _stream;
@@ -112,6 +119,7 @@ public sealed class Desk : IDisposable
         _pluginsFile = Path.Combine(dataDir, "plugins.json");
         _log = log ?? (_ => { });
         _store = new SceneStore(dataDir);
+        _presets = new PresetStore(dataDir);
         _launcher = launcher ?? new ProcessHostLauncher(Environment.ProcessPath ?? "Nexora.exe");
         _settings = LoadJson<DeskSettings>(_settingsFile) ?? new DeskSettings();
         _mix = (File.Exists(_mixFile) ? MixState.FromJson(File.ReadAllText(_mixFile)) : null) ?? MixState.CreateDefault();
@@ -207,24 +215,32 @@ public sealed class Desk : IDisposable
     public bool Set(string path, JsonElement value)
     {
         long rev;
+        var newStep = false;
         lock (_gate)
         {
+            var level = MixHistory.IsLevel(path);
+            var before = !level && _history.Wants(path) ? _mix.Clone() : null;
             if (!MixParams.Apply(_mix, path, value)) return false;
+            if (before is not null && _history.Before(before, MixHistory.Describe(path), path)) newStep = true;
+            else if (!level) _history.Touch(path);
             CancelFade();
             rev = Touch();
         }
         MixChanged?.Invoke(path, value, rev);
+        if (newStep) Changed?.Invoke();
         return true;
     }
 
     /// <summary>Runs a change to the shape of the mix and sends everyone the new mix.</summary>
-    public bool Change(Func<MixState, bool> change)
+    public bool Change(Func<MixState, bool> change, string? label = null)
     {
         MixState copy;
         long rev;
         lock (_gate)
         {
+            var before = _mix.Clone();
             if (!change(_mix)) return false;
+            if (label is not null) _history.Before(before, label);
             _mix.Repair();
             CancelFade();
             rev = Touch();
@@ -232,7 +248,57 @@ public sealed class Desk : IDisposable
         }
         DropUnused();
         MixReplaced?.Invoke(copy, rev);
+        if (label is not null) Changed?.Invoke();
         return true;
+    }
+
+    // ---- Undo, redo and presets --------------------------------------------------------------------
+
+    public bool Undo() => Restore(_history.Undo);
+
+    public bool Redo() => Restore(_history.Redo);
+
+    private bool Restore(Func<MixState, MixState?> step)
+    {
+        MixState copy;
+        long rev;
+        lock (_gate)
+        {
+            var back = step(_mix);
+            if (back is null) return false;
+            back.Repair();
+            CancelFade();
+            _mix = back;
+            rev = Touch();
+            copy = _mix.Clone();
+        }
+        DropUnused();
+        MixReplaced?.Invoke(copy, rev);
+        Changed?.Invoke();
+        return true;
+    }
+
+    public ChannelPreset SavePreset(string stripId, string name)
+    {
+        Strip s;
+        lock (_gate) s = (_mix.Find(stripId) ?? throw new InvalidOperationException("That strip could not be found.")).Clone();
+        var p = _presets.Save(name, s);
+        Changed?.Invoke();
+        return p;
+    }
+
+    public bool LoadPreset(string stripId, string presetId, string parts)
+    {
+        var p = _presets.Load(presetId);
+        if (p is null) return false;
+        return Change(m => MixParams.Paste(m, stripId, p.Sound, parts), $"preset \"{p.Name}\" on {stripId}");
+    }
+
+    public bool DeletePreset(string id)
+    {
+        var ok = _presets.Delete(id);
+        if (ok) Changed?.Invoke();
+        return ok;
     }
 
     private long Touch()
@@ -292,6 +358,7 @@ public sealed class Desk : IDisposable
         lock (_gate)
         {
             target = SceneRecall.Apply(_mix, saved.Mix, sc);
+            _history.Before(_mix, $"recall \"{saved.Name}\"");
             if (seconds > 0.05)
             {
                 _fadeFrom = _mix.Clone();
@@ -606,7 +673,10 @@ public sealed class Desk : IDisposable
                 _shadowPending, _stream?.PacketsSent ?? 0, _failsafeNote,
                 _store.Scenes, _store.Snapshots, _pluginList.Plugins, _pluginList.Seen.Count, _scanning, _scanNote, slots,
                 engine is null ? 0 : engine.MixLatency * 1000.0 / engine.SampleRate,
-                _fadeTo != null ? Math.Clamp((DateTime.UtcNow - _fadeStart).TotalSeconds / _fadeSeconds, 0, 1) : 0);
+                _fadeTo != null ? Math.Clamp((DateTime.UtcNow - _fadeStart).TotalSeconds / _fadeSeconds, 0, 1) : 0)
+            {
+                UndoText = _history.UndoLabel, RedoText = _history.RedoLabel, Presets = _presets.List(),
+            };
         }
     }
 

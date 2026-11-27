@@ -106,8 +106,11 @@ public sealed partial class NexAudioViewModel : IEqEditor, IGraphicEqEditor
             {
                 ChannelSection.Home => ("Everything at a glance", false),
                 ChannelSection.Input => (InputSummary(s), s.Hpf.On || s.Phantom || s.Invert),
-                ChannelSection.Gate => s.Gate.On ? ($"Opens at {s.Gate.Threshold:0} dB", true) : ("Off", false),
-                ChannelSection.Eq => !s.Eq.On ? ("Off", false) : s.Eq.IsFlat ? ("Flat", false) : ($"{s.Eq.Bands.Count(b => b.On && Math.Abs(b.Gain) >= 0.01)} bands shaping", true),
+                ChannelSection.Gate => !s.Gate.On ? ("Off", false)
+                    : s.Gate.Mode == GateMode.Ducker ? ($"Ducks under {(_mix.Find(s.Gate.Key) is { } k ? NameOf(k) : "itself")}", true)
+                    : ($"Opens at {s.Gate.Threshold:0} dB", true),
+                ChannelSection.Eq => !s.Eq.On ? ("Off", false)
+                    : ((s.Eq.IsFlat ? "Flat" : $"{s.Eq.Bands.Count(b => b.On && Math.Abs(b.Gain) >= 0.01)} bands shaping") + (s.DynEq.Active ? " · dynamic" : ""), !s.Eq.IsFlat || s.DynEq.Active),
                 ChannelSection.Dynamics => s.Comp.On ? ($"{s.Comp.Ratio:0.#}:1 from {s.Comp.Threshold:0} dB", true) : ("Off", false),
                 ChannelSection.Geq => GeqItem(s) is { } g ? (g.Bypass ? "Bypassed" : "In use", !g.Bypass) : ("Not added", false),
                 ChannelSection.Effects => s.Rack.Count == 0 ? ("Empty rack", false) : ($"{s.Rack.Count} of 8 in use", s.Rack.Any(x => !x.Bypass)),
@@ -129,6 +132,7 @@ public sealed partial class NexAudioViewModel : IEqEditor, IGraphicEqEditor
         else if (Math.Abs(s.Trim) > 0.01) parts.Add($"trim {s.Trim:+0.#;-0.#}");
         if (s.Phantom) parts.Add("48 V");
         if (s.Hpf.On) parts.Add($"cut {GraphKitHz(s.Hpf.Freq)}");
+        if (s.Drive.On) parts.Add("drive");
         return parts.Count == 0 ? "As it arrives" : string.Join(" · ", parts);
     }
 
