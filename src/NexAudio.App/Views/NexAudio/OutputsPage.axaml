@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexAudio.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:a="using:NexAudio.App.Controls"
+             xmlns:p="using:Nexora.Audio.Plugins"
+             x:Class="NexAudio.App.Views.NexAudio.OutputsPage"
+             x:DataType="vm:NexAudioViewModel">
+  <Border Classes="card" Padding="16">
+    <Grid RowDefinitions="Auto,12,Auto,6,*">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="3">
+          <TextBlock Classes="h3" Text="What each X32 output plays" />
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Each line is one card return on the X32. On the desk, route the speaker outputs from the card (Routing > XLR Out: Card) and NEX-Audio decides what plays on them, with speaker delay, low cut and a safety limiter." />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+          <Button Command="{Binding OutputsSuggestedCommand}" Content="Suggested layout" ToolTip.Tip="Main on 1 and 2, mono on 3, mixes from 5, the stream on 15 and 16" />
+          <Button Classes="ghost" Command="{Binding OutputsStraightCommand}" Content="Inputs straight through" />
+        </StackPanel>
+      </Grid>
+      <Grid Grid.Row="2" ColumnDefinitions="36,8,150,8,*,8,210,8,70,8,170,8,190,8,90" Margin="10,0">
+        <TextBlock Classes="eyebrow" Text="OUT" />
+        <TextBlock Grid.Column="2" Classes="eyebrow" Text="SPEAKER NAME" />
+        <TextBlock Grid.Column="4" Classes="eyebrow" Text="PLAYS" />
+        <TextBlock Grid.Column="6" Classes="eyebrow" Text="LEVEL" />
+        <TextBlock Grid.Column="8" Classes="eyebrow" Text="MUTE" />
+        <TextBlock Grid.Column="10" Classes="eyebrow" Text="DELAY" />
+        <TextBlock Grid.Column="12" Classes="eyebrow" Text="LOW CUT" />
+        <TextBlock Grid.Column="14" Classes="eyebrow" Text="LIMITER" />
+      </Grid>
+      <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding OutputRows}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:OutputRow">
+              <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="10,5" Margin="0,0,0,6">
+                <Grid ColumnDefinitions="36,8,150,8,*,8,210,8,70,8,170,8,190,8,90">
+                  <Border Background="{StaticResource Surface4}" CornerRadius="5" Padding="6,2" VerticalAlignment="Center" HorizontalAlignment="Left">
+                    <TextBlock Text="{Binding NumberText}" Classes="mono" FontWeight="Bold" FontSize="12" />
+                  </Border>
+                  <TextBox Grid.Column="2" Text="{Binding Name}" Watermark="e.g. Left PA" VerticalAlignment="Center" FontSize="12.5" />
+                  <ComboBox Grid.Column="4" ItemsSource="{Binding Source.Options}" SelectedItem="{Binding Source.Selected}" HorizontalAlignment="Stretch" VerticalAlignment="Center" FontSize="12.5" />
+                  <Grid Grid.Column="6" ColumnDefinitions="*,6,58">
+                    <Slider Classes="param" Minimum="0" Maximum="1000" Value="{Binding Level.Position}" />
+                    <TextBlock Grid.Column="2" Classes="mono small" Text="{Binding Level.Text}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                  </Grid>
+                  <ToggleSwitch Grid.Column="8" IsChecked="{Binding Mute.Value}" OnContent="" OffContent="" Margin="0,-6" />
+                  <Grid Grid.Column="10" ColumnDefinitions="*,6,56">
+                    <Slider Classes="param" Minimum="0" Maximum="1000" Value="{Binding Delay.Position}" />
+                    <TextBlock Grid.Column="2" Classes="mono small" Text="{Binding Delay.Text}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                  </Grid>
+                  <Grid Grid.Column="12" ColumnDefinitions="Auto,4,*,6,52">
+                    <ToggleSwitch IsChecked="{Binding HpfOn.Value}" OnContent="" OffContent="" MinWidth="0" Margin="0,-6" />
+                    <Slider Grid.Column="2" Classes="param" Minimum="0" Maximum="1000" Value="{Binding HpfFreq.Position}" IsEnabled="{Binding HpfOn.Value}" />
+                    <TextBlock Grid.Column="4" Classes="mono small" Text="{Binding HpfFreq.Text}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                  </Grid>
+                  <ToggleSwitch Grid.Column="14" IsChecked="{Binding Limit.Value}" OnContent="" OffContent="" Margin="0,-6" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Grid>
+  </Border>
+</UserControl>

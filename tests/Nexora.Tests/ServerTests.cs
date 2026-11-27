@@ -102,6 +102,20 @@ public class ServerTests
     }
 
     [Fact]
+    public async Task Nex_audio_opens_on_its_own_pc_and_never_becomes_a_screen_source()
+    {
+        await using var f = new ServerFixture();
+        await f.Server.StartAsync();
+        await using var c = await SignedIn(f, "audio-pc", f.Admin, "1111", SectionKind.Scripture);
+        await c.OpenSectionsAsync([SectionKind.Scripture, SectionKind.Audio]);
+        await Task.Delay(300);
+        Assert.DoesNotContain(c.Snapshot.Sources, s => s.Section == SectionKind.Audio);
+        Assert.Contains(c.Snapshot.Sources, s => s.Section == SectionKind.Scripture && s.Online);
+        Assert.False(Sections.UserMayOpen(Role.Scripture | Role.Lyrics, SectionKind.Audio));
+        Assert.True(Sections.UserMayOpen(Role.Audio, SectionKind.Audio));
+    }
+
+    [Fact]
     public async Task Wrong_pairing_code_is_refused()
     {
         await using var f = new ServerFixture();

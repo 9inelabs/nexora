@@ -1,0 +1,242 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexAudio.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="NexAudio.App.Views.NexAudio.ShowPage"
+             x:DataType="vm:NexAudioViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.go">
+      <Setter Property="MinWidth" Value="150" />
+      <Setter Property="MinHeight" Value="84" />
+      <Setter Property="FontSize" Value="30" />
+      <Setter Property="FontWeight" Value="Black" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.cue">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="Margin" Value="0,0,0,6" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.cue.current">
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+      <Setter Property="Background" Value="{StaticResource TintAccent}" />
+    </Style>
+    <Style Selector="Border.cue.next">
+      <Setter Property="BorderBrush" Value="{StaticResource PreviewBrush}" />
+    </Style>
+    <Style Selector="Border.num">
+      <Setter Property="Width" Value="34" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Background" Value="{StaticResource Surface3}" />
+    </Style>
+    <Style Selector="Border.cue.current Border.num">
+      <Setter Property="Background" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="Border.cue.current Border.num TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
+    </Style>
+    <Style Selector="Button.macro">
+      <Setter Property="Width" Value="146" />
+      <Setter Property="Height" Value="74" />
+      <Setter Property="Margin" Value="0,0,8,8" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Stretch" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="BorderThickness" Value="0,0,0,3" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid ColumnDefinitions="3*,12,2*">
+    <!-- ORDER OF SERVICE -->
+    <Border Classes="card" Padding="16">
+      <Grid RowDefinitions="Auto,12,Auto,12,*">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="3">
+            <TextBlock Classes="h3" Text="Order of service" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap"
+                       Text="Each cue recalls a snapshot (or a scene) and can run a macro. Press GO for the next one. Preview shows what a cue would change before it does." />
+          </StackPanel>
+          <Button Grid.Column="1" Classes="primary small" Command="{Binding AddCueCommand}" VerticalAlignment="Top">
+            <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="plus" Width="12" Height="12" /><TextBlock Text="Add cue" /></StackPanel>
+          </Button>
+        </Grid>
+
+        <Border Grid.Row="2" Classes="well" Padding="14,12">
+          <Grid ColumnDefinitions="*,16,Auto">
+            <Grid RowDefinitions="Auto,2,Auto,10,Auto,2,Auto,Auto">
+              <TextBlock Classes="eyebrow" Text="NOW" Foreground="{StaticResource Accent}" />
+              <TextBlock Grid.Row="2" Classes="h2" Text="{Binding CurrentCueText}" TextTrimming="CharacterEllipsis" />
+              <TextBlock Grid.Row="4" Classes="eyebrow" Text="NEXT" Foreground="{StaticResource PreviewBrush}" />
+              <TextBlock Grid.Row="6" FontSize="17" FontWeight="SemiBold" Text="{Binding NextCueText}" TextTrimming="CharacterEllipsis" />
+              <TextBlock Grid.Row="7" Classes="muted small" Text="{Binding NextCueNotes}" TextWrapping="Wrap" MaxHeight="48" Margin="0,3,0,0" />
+            </Grid>
+            <StackPanel Grid.Column="2" Spacing="8" VerticalAlignment="Center">
+              <Button Classes="primary go" Command="{Binding GoCueCommand}" IsEnabled="{Binding HasNextCue}" Content="GO"
+                      ToolTip.Tip="Fire the next cue" />
+              <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                <Button Classes="ghost small" Command="{Binding BackCueCommand}" ToolTip.Tip="Go back one cue (it fires again)">
+                  <c:Icon Kind="left" Width="12" Height="12" />
+                </Button>
+                <Button Classes="ghost small" Command="{Binding PreviewNextCueCommand}" IsEnabled="{Binding HasNextCue}" ToolTip.Tip="What the next cue would change">
+                  <StackPanel Orientation="Horizontal" Spacing="5"><c:Icon Kind="eye" Width="12" Height="12" /><TextBlock Text="Preview" /></StackPanel>
+                </Button>
+                <Button Classes="ghost small" Command="{Binding ResetCuesCommand}" ToolTip.Tip="Start the list again from the top (nothing changes until GO)">
+                  <c:Icon Kind="restart" Width="12" Height="12" />
+                </Button>
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Panel Grid.Row="4">
+          <TextBlock Classes="faint" TextWrapping="Wrap" IsVisible="{Binding NoCues}" Margin="4"
+                     Text="No cues yet. Save snapshots on the Scenes tab (worship, sermon, altar call), then press Add cue for each moment of the service." />
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding CueRows}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:CueRow">
+                  <Border Classes="cue" Classes.current="{Binding IsCurrent}" Classes.next="{Binding IsNext}">
+                    <Grid ColumnDefinitions="Auto,12,*,8,Auto">
+                      <Border Classes="num" VerticalAlignment="Top">
+                        <TextBlock Text="{Binding Number}" FontWeight="Bold" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                      <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14.5" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="small" Foreground="{StaticResource EqTone}" Text="{Binding Recall}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="faint small" Text="{Binding Notes}" TextWrapping="Wrap" IsVisible="{Binding HasNotes}" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <Button Classes="primary small" Command="{Binding GoCommand}" Content="Go" ToolTip.Tip="Fire this cue now" />
+                        <Button Classes="ghost small" Command="{Binding PreviewCommand}" ToolTip.Tip="What this cue would change"><c:Icon Kind="eye" Width="12" Height="12" /></Button>
+                        <Button Classes="ghost small" Command="{Binding EditCommand}" ToolTip.Tip="Change this cue"><c:Icon Kind="edit" Width="12" Height="12" /></Button>
+                        <Button Classes="ghost small" Command="{Binding UpCommand}" ToolTip.Tip="Move up"><c:Icon Kind="arrowup" Width="11" Height="11" /></Button>
+                        <Button Classes="ghost small" Command="{Binding DownCommand}" ToolTip.Tip="Move down"><c:Icon Kind="arrowdown" Width="11" Height="11" /></Button>
+                        <Button Classes="ghost small" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete this cue"><c:Icon Kind="trash" Width="12" Height="12" /></Button>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Panel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Column="2" RowDefinitions="*,12,Auto">
+      <!-- MACROS -->
+      <Border Classes="card" Padding="16">
+        <Grid RowDefinitions="Auto,12,*">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="3">
+              <TextBlock Classes="h3" Text="Macros" />
+              <TextBlock Classes="faint small" TextWrapping="Wrap" Text="One button for several things: choir mics off and pulpit up, start recording, back to live inputs. Give one an F key to run it from the keyboard." />
+              <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding MacroRunningText}" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="ghost small" Command="{Binding AddMacroCommand}" VerticalAlignment="Top">
+              <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="plus" Width="12" Height="12" /><TextBlock Text="New macro" /></StackPanel>
+            </Button>
+          </Grid>
+          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <Panel>
+              <TextBlock Classes="faint" TextWrapping="Wrap" IsVisible="{Binding !HasMacros}" Text="No macros yet." Margin="4" />
+              <ItemsControl ItemsSource="{Binding MacroButtons}">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:MacroButton">
+                    <Panel>
+                      <Button Classes="macro" Background="{Binding Tint}" BorderBrush="{Binding Tone}" Command="{Binding RunCommand}" ToolTip.Tip="Run this macro">
+                        <Grid RowDefinitions="*,Auto">
+                          <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" TextWrapping="Wrap" Foreground="{Binding Tone}" />
+                          <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
+                            <Border Background="{StaticResource Surface3}" CornerRadius="4" Padding="4,0" IsVisible="{Binding HasKey}">
+                              <TextBlock Classes="mono" FontSize="10" Text="{Binding KeyText}" />
+                            </Border>
+                            <TextBlock Classes="faint" FontSize="10.5" Text="{Binding StepsText}" VerticalAlignment="Center" />
+                          </StackPanel>
+                        </Grid>
+                      </Button>
+                      <Button Classes="ghost" Padding="5" Margin="0,4,12,0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                              Command="{Binding EditCommand}" ToolTip.Tip="Change this macro">
+                        <c:Icon Kind="edit" Width="12" Height="12" />
+                      </Button>
+                    </Panel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Panel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+
+      <!-- SHOW FILE -->
+      <Border Grid.Row="2" Classes="card" Padding="16">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="2">
+              <TextBlock Classes="eyebrow" Text="SHOW FILE" />
+              <TextBlock Classes="h3" Text="{Binding ShowNameText}" />
+              <TextBlock Classes="faint small" Text="{Binding ShowFileText}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Button Classes="primary small" x:Name="SaveShowButton" ToolTip.Tip="Save the mix, scenes, snapshots, presets, cues and macros in one file">
+              <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="download" Width="12" Height="12" /><TextBlock Text="Save show…" /></StackPanel>
+            </Button>
+            <Button Classes="ghost small" x:Name="OpenShowButton" ToolTip.Tip="Open a show file saved here or on another NEX-Audio">
+              <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="upload" Width="12" Height="12" /><TextBlock Text="Open show…" /></StackPanel>
+            </Button>
+            <Button Classes="ghost small" Content="New cue list">
+              <Button.Flyout>
+                <Flyout Placement="TopEdgeAlignedLeft">
+                  <StackPanel Width="280" Spacing="8" Margin="4">
+                    <TextBlock Classes="small" TextWrapping="Wrap" Text="Starts an empty cue list and set of macros. The mix, scenes and snapshots stay. A backup is saved first." />
+                    <TextBox Text="{Binding NewShowName}" Watermark="Name, for example Easter Sunday" />
+                    <Button Classes="primary small" Command="{Binding NewShowCommand}" Content="Start new cue list" />
+                  </StackPanel>
+                </Flyout>
+              </Button.Flyout>
+            </Button>
+          </StackPanel>
+          <Border Classes="hairline" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="faint small" Text="{Binding BackupText}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0">
+              <Button Classes="ghost small" Command="{Binding BackupNowCommand}" Content="Back up now" />
+              <Button Classes="ghost small" Content="Backups">
+                <Button.Flyout>
+                  <Flyout Placement="TopEdgeAlignedRight">
+                    <StackPanel Width="380" Spacing="6" Margin="4">
+                      <TextBlock Classes="eyebrow" Text="GO BACK TO A BACKUP" />
+                      <ScrollViewer MaxHeight="340">
+                        <ItemsControl ItemsSource="{Binding BackupRows}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:BackupRow">
+                              <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                                <StackPanel Spacing="0">
+                                  <TextBlock Text="{Binding When}" FontWeight="SemiBold" FontSize="12.5" />
+                                  <TextBlock Classes="faint small" Text="{Binding Reason}" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Classes="ghost small" Command="{Binding RestoreCommand}" Content="Go back to this" VerticalAlignment="Center" />
+                              </Grid>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </ScrollViewer>
+                    </StackPanel>
+                  </Flyout>
+                </Button.Flyout>
+              </Button>
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

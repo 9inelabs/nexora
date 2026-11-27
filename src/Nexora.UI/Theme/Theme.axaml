@@ -47,10 +47,23 @@
       <SolidColorBrush x:Key="TintPinned" Color="#1F5AA9F0" />
       <SolidColorBrush x:Key="TintPreview" Color="#1F3DD68C" />
       <SolidColorBrush x:Key="TintWarn" Color="#1FF0B44C" />
+      <!-- NEX-Audio section colours: each part of a strip keeps its colour everywhere it appears. -->
+      <SolidColorBrush x:Key="InputTone" Color="#6CB4F5" />
+      <SolidColorBrush x:Key="GateTone" Color="#4FD1C5" />
+      <SolidColorBrush x:Key="EqTone" Color="#A78BFA" />
+      <SolidColorBrush x:Key="DynTone" Color="#F59E5B" />
+      <SolidColorBrush x:Key="FxTone" Color="#F472B6" />
+      <SolidColorBrush x:Key="SendTone" Color="#E2BE76" />
+      <SolidColorBrush x:Key="InputTint" Color="#1A6CB4F5" />
+      <SolidColorBrush x:Key="GateTint" Color="#1A4FD1C5" />
+      <SolidColorBrush x:Key="EqTint" Color="#1AA78BFA" />
+      <SolidColorBrush x:Key="DynTint" Color="#1AF59E5B" />
+      <SolidColorBrush x:Key="FxTint" Color="#1AF472B6" />
+      <SolidColorBrush x:Key="SendTint" Color="#1AE2BE76" />
 
-      <FontFamily x:Key="FontUi">avares://Nexora/Assets/Fonts#Manrope</FontFamily>
-      <FontFamily x:Key="FontDisplay">avares://Nexora/Assets/Fonts#Sora</FontFamily>
-      <FontFamily x:Key="FontMono">avares://Nexora/Assets/Fonts#JetBrains Mono</FontFamily>
+      <FontFamily x:Key="FontUi">avares://Nexora.UI/Assets/Fonts#Manrope</FontFamily>
+      <FontFamily x:Key="FontDisplay">avares://Nexora.UI/Assets/Fonts#Sora</FontFamily>
+      <FontFamily x:Key="FontMono">avares://Nexora.UI/Assets/Fonts#JetBrains Mono</FontFamily>
 
       <!-- Fluent overrides so stock controls match the palette -->
       <Color x:Key="SystemAccentColor">#E2BE76</Color>
@@ -375,6 +388,24 @@
     <Setter Property="MinHeight" Value="38" />
     <Setter Property="CornerRadius" Value="9" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
+  </Style>
+  <!-- A small tap-point picker (sends): the box shows IN / PRE EQ / POST EQ / PRE / POST, the list the full names. -->
+  <Style Selector="ComboBox.tap">
+    <Setter Property="MinHeight" Value="24" />
+    <Setter Property="Height" Value="24" />
+    <Setter Property="Width" Value="100" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Padding" Value="6,0,0,0" />
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="SelectionBoxItemTemplate">
+      <DataTemplate><TextBlock Text="{ReflectionBinding Short}" FontSize="{ReflectionBinding $parent[ComboBox].FontSize}" FontWeight="Bold" Foreground="{StaticResource InputTone}" VerticalAlignment="Center" /></DataTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ComboBox.tap ComboBoxItem">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="Normal" />
   </Style>
   <Style Selector="ToolTip">
     <Setter Property="Background" Value="{StaticResource Surface3}" />

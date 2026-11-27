@@ -429,6 +429,25 @@
                   </StackPanel>
                 </Border>
               </Grid>
+              <Border Classes="well" Padding="12">
+                <StackPanel Spacing="6">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <c:Icon Kind="faders" Width="15" Height="15" VerticalAlignment="Center" />
+                    <TextBlock Classes="h3" Text="NEX-Audio" VerticalAlignment="Center" />
+                    <Border Classes="chip ok" IsVisible="{Binding NexAudioArmed}">
+                      <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="Failsafe armed" /></StackPanel>
+                    </Border>
+                    <Border Classes="chip warn" IsVisible="{Binding NexAudioHandedOver}">
+                      <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="X32 running the room" /></StackPanel>
+                    </Border>
+                    <Border Classes="chip" IsVisible="{Binding NexAudioIdle}">
+                      <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="Not armed" /></StackPanel>
+                    </Border>
+                  </StackPanel>
+                  <TextBlock Classes="muted small" Text="{Binding NexAudioFailsafeText}" TextWrapping="Wrap" />
+                  <TextBlock Classes="faint small" Text="{Binding NexAudioSoundText}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
               <TextBlock Classes="flabel" Text="Message to the stage (shows on the Stage Monitor)" />
               <Grid ColumnDefinitions="*,8,Auto,8,Auto">
                 <TextBox Text="{Binding BoothText}" Watermark="e.g. Wrap up in 5 minutes" MaxLength="200" />

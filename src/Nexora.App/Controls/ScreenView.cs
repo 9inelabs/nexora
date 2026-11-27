@@ -94,9 +94,9 @@ public sealed class ScreenView : UserControl
     private static readonly IBrush OutputAccent = new SolidColorBrush(Color.Parse("#E9C77E"));
     private static readonly IBrush Dim = new SolidColorBrush(Color.Parse("#8A8D94"));
     private static readonly IBrush Panel2 = new SolidColorBrush(Color.Parse("#17181C"));
-    private static readonly FontFamily Ui = new("avares://Nexora/Assets/Fonts#Manrope");
-    private static readonly FontFamily Display = new("avares://Nexora/Assets/Fonts#Sora");
-    private static readonly FontFamily Mono = new("avares://Nexora/Assets/Fonts#JetBrains Mono");
+    private static readonly FontFamily Ui = new("avares://Nexora.UI/Assets/Fonts#Manrope");
+    private static readonly FontFamily Display = new("avares://Nexora.UI/Assets/Fonts#Sora");
+    private static readonly FontFamily Mono = new("avares://Nexora.UI/Assets/Fonts#JetBrains Mono");
 
     private readonly Panel _canvas;
     private readonly Viewbox _box;

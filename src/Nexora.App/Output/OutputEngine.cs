@@ -32,6 +32,7 @@ public sealed class OutputEngine
     private DispatcherTimer? _statusTimer;
     private DispatcherTimer? _frameTimer;
     private readonly Recorder _recorder = new();
+    private readonly NexAudioLink _nexAudio = new();
     private StageLayout _stage = StageLayout.Default;
     private DateTime _framesStart;
     private long _framesSent;
@@ -163,6 +164,8 @@ public sealed class OutputEngine
         {
             case EngineSettings es:
                 _recorder.Settings = es.Settings;
+                _nexAudio.Apply(es.Settings);
+                _recorder.Relay = _nexAudio.Relay;
                 _stage = es.Stage;
                 foreach (var w in _windows.Values) w.View.StageLayout = _stage;
                 break;
@@ -294,6 +297,7 @@ public sealed class OutputEngine
             var problem = _recorder.RecordProblem;
             var free = _recorder.DiskFreeGb;
             if (_recorder.Recording && free is > 0 and < 5) problem = $"Low disk space: {free:0.0} GB left on the recording drive.";
+            var nex = _nexAudio.Describe();
             var status = new EngineStatus(
                 Recording: _recorder.Recording,
                 RecordingFile: _recorder.RecordingFile is { } f ? Path.GetFileName(f) : null,
@@ -313,7 +317,11 @@ public sealed class OutputEngine
                 NdiAvailable: Ndi.Available,
                 VideoAvailable: VlcFeed.Vlc is not null,
                 FfmpegAvailable: Recorder.FfmpegPath is not null,
-                CameraProblem: Ndi.Available ? null : Ndi.Problem);
+                CameraProblem: Ndi.Available ? null : Ndi.Problem,
+                NexAudioSound: nex.Sound,
+                NexAudioFailsafe: nex.Failsafe,
+                NexAudioArmed: nex.Armed,
+                NexAudioHandedOver: nex.HandedOver);
             _ = _client?.SendAsync(new EngineStatusMessage(status));
         }
         catch (Exception ex)
@@ -329,6 +337,7 @@ public sealed class OutputEngine
         _frameTimer?.Stop();
         AppLog.Write("Output engine stopping on request");
         _recorder.Dispose();
+        _nexAudio.Dispose();
         Power.KeepAwake(false);
         foreach (var w in _windows.Values) w.CloseQuietly();
         _windows.Clear();

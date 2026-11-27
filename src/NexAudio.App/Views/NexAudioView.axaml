@@ -1,0 +1,515 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexAudio.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:a="using:NexAudio.App.Controls"
+             xmlns:x32="using:Nexora.Audio.X32"
+             xmlns:na="using:NexAudio.App.Views.NexAudio"
+             x:Class="NexAudio.App.Views.NexAudioView"
+             x:DataType="vm:NexAudioViewModel">
+  <UserControl.Styles>
+    <Style Selector="Border.stat">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,5" />
+    </Style>
+    <Style Selector="TextBlock.statvalue">
+      <Setter Property="FontSize" Value="13.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontFamily" Value="{StaticResource FontDisplay}" />
+    </Style>
+    <Style Selector="TextBlock.flabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.row">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="Margin" Value="0,0,8,8" />
+    </Style>
+    <Style Selector="Button.strip">
+      <Setter Property="Padding" Value="0,3" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.strip.mute.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Live}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.strip.solo.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Accent}" />
+      <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
+    </Style>
+    <Style Selector="Border.ind">
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="3,0" />
+      <Setter Property="Background" Value="{StaticResource Surface3}" />
+    </Style>
+    <Style Selector="Border.ind TextBlock">
+      <Setter Property="FontSize" Value="9" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{StaticResource Text3}" />
+    </Style>
+    <Style Selector="Border.ind.on">
+      <Setter Property="Background" Value="{StaticResource TintAccent}" />
+    </Style>
+    <Style Selector="Border.ind.on TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="Border.stripcard">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="6,6" />
+      <Setter Property="Width" Value="80" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.stripcard.selected">
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="Slider.param">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,-6" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.DataTemplates>
+    <DataTemplate DataType="vm:SliderParam">
+      <Grid ColumnDefinitions="128,8,*,8,64" Margin="0,2">
+        <TextBlock Classes="flabel" Text="{Binding Label}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Label}" />
+        <Slider Grid.Column="2" Classes="param" Minimum="0" Maximum="1000" Value="{Binding Position}" />
+        <TextBlock Grid.Column="4" Classes="mono small" Text="{Binding Text}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+      </Grid>
+    </DataTemplate>
+    <DataTemplate DataType="vm:ToggleParam">
+      <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+        <TextBlock Classes="flabel" Text="{Binding Label}" TextWrapping="Wrap" />
+        <ToggleSwitch Grid.Column="1" IsChecked="{Binding Value}" OnContent="" OffContent="" MinWidth="0" Margin="0,-6" />
+      </Grid>
+    </DataTemplate>
+    <DataTemplate DataType="vm:ChoiceParam">
+      <Grid ColumnDefinitions="128,8,*" Margin="0,2">
+        <TextBlock Classes="flabel" Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+        <ComboBox Grid.Column="2" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch" FontSize="12.5" />
+      </Grid>
+    </DataTemplate>
+  </UserControl.DataTemplates>
+
+  <Grid RowDefinitions="Auto,8,Auto,Auto,Auto,8,*" Margin="16,12,16,14">
+
+    <!-- Engine status, on one line so the desk gets the room -->
+    <Border Classes="card" Padding="12,8">
+      <Grid ColumnDefinitions="Auto,10,Auto,10,*,12,Auto,10,Auto,10,Auto">
+        <Panel VerticalAlignment="Center">
+          <Border Classes="chip ok" IsVisible="{Binding IsRunning}">
+            <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
+          </Border>
+          <Border Classes="chip warn" IsVisible="{Binding IsStarting}">
+            <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
+          </Border>
+          <Border Classes="chip bad" IsVisible="{Binding HasProblem}">
+            <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
+          </Border>
+          <Border Classes="chip" IsVisible="{Binding IsStopped}">
+            <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
+          </Border>
+        </Panel>
+        <TextBlock Grid.Column="2" Classes="h3" Text="NEX-Audio" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="4" Spacing="0" VerticalAlignment="Center">
+          <TextBlock Classes="muted small" Text="{Binding MessageText}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Classes="small" Foreground="{StaticResource Live}" Text="{Binding Notice}" TextTrimming="CharacterEllipsis" IsVisible="{Binding Notice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+        <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Border Classes="stat" ToolTip.Tip="{Binding ChannelsText}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="eyebrow" Text="RATE" VerticalAlignment="Center" />
+              <TextBlock Classes="statvalue" Text="{Binding RateText}" Foreground="{StaticResource InputTone}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="stat">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="eyebrow" Text="BUFFER" VerticalAlignment="Center" />
+              <TextBlock Classes="statvalue" Text="{Binding BufferText}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="stat" ToolTip.Tip="{Binding RoundTripNote}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="eyebrow" Text="ROUND TRIP" VerticalAlignment="Center" />
+              <TextBlock Classes="statvalue" Text="{Binding RoundTripText}" Foreground="{StaticResource GateTone}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="stat" ToolTip.Tip="{Binding LoadNote}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="eyebrow" Text="LOAD" VerticalAlignment="Center" />
+              <TextBlock Classes="statvalue" Text="{Binding LoadText}" Classes.error="{Binding LoadHigh}" Foreground="{StaticResource EqTone}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="stat" ToolTip.Tip="{Binding ClicksNote}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="eyebrow" Text="CLICKS" VerticalAlignment="Center" />
+              <TextBlock Classes="statvalue" Text="{Binding ClicksText}" Classes.error="{Binding ClicksBad}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+        <StackPanel Grid.Column="8" VerticalAlignment="Center" IsEnabled="{Binding CanControl}" Orientation="Horizontal" Spacing="6">
+          <Button Classes="ghost small" Command="{Binding UpdateCommand}" IsVisible="{Binding HasUpdate}" BorderBrush="{StaticResource PreviewBrush}" BorderThickness="1"
+                  ToolTip.Tip="A new NEX-Audio is ready. Stop the sound first; it never updates during a service.">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <c:Icon Kind="download" Width="12" Height="12" Foreground="{StaticResource PreviewBrush}" />
+              <TextBlock Text="{Binding UpdateButtonText}" Foreground="{StaticResource PreviewBrush}" />
+            </StackPanel>
+          </Button>
+          <Button Classes="primary small" Command="{Binding StartSoundCommand}" IsVisible="{Binding !SoundOn}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <c:Icon Kind="play" Width="11" Height="11" />
+              <TextBlock Text="Start sound" />
+            </StackPanel>
+          </Button>
+          <Button Classes="warn small" Command="{Binding StopSoundCommand}" IsVisible="{Binding SoundOn}"
+                  ToolTip.Tip="Stops NEX-Audio. Any X32 output fed from NEX-Audio goes silent." Content="Stop sound" />
+        </StackPanel>
+        <!-- Who is signed in: sign out, updates -->
+        <Button Grid.Column="10" Classes="ghost" Padding="4" VerticalAlignment="Center" ToolTip.Tip="{Binding UserName}">
+          <Panel>
+            <Border Width="30" Height="30" CornerRadius="999" Background="{StaticResource Surface3}" BorderThickness="2" BorderBrush="{StaticResource FxTone}">
+              <TextBlock Text="{Binding UserInitials}" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <Ellipse Width="9" Height="9" Fill="{StaticResource Warn}" HorizontalAlignment="Right" VerticalAlignment="Bottom" IsVisible="{Binding SignedInOffline}" />
+          </Panel>
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedRight">
+              <StackPanel Width="300" Spacing="10" Margin="6">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{Binding UserName}" FontWeight="SemiBold" FontSize="14" />
+                  <TextBlock Classes="faint small" Text="{Binding AccountNote}" TextWrapping="Wrap" />
+                </StackPanel>
+                <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding SignOutCommand}"
+                        ToolTip.Tip="The sound keeps running after you sign out.">
+                  <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Kind="signout" Width="14" Height="14" /><TextBlock Text="Sign out (the sound keeps running)" /></StackPanel>
+                </Button>
+                <Border Classes="hairline" />
+                <TextBlock Classes="eyebrow" Text="{Binding VersionText}" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <Button Classes="ghost small" Content="Check for updates" Command="{Binding CheckForUpdateCommand}" />
+                  <Button Classes="ghost small" Content="Update" Command="{Binding UpdateCommand}" />
+                </StackPanel>
+                <TextBlock Classes="muted small" Text="{Binding UpdateText}" TextWrapping="Wrap" IsVisible="{Binding UpdateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              </StackPanel>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+      </Grid>
+    </Border>
+
+    <!-- Tabs, and on the right the recorder light and the next cue with its GO button -->
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+    <StackPanel Orientation="Horizontal" Spacing="4">
+      <Button Classes="tab" Classes.selected="{Binding OnMixer}" Command="{Binding ShowTabCommand}" CommandParameter="Mixer" Content="Mixer" />
+      <Button Classes="tab" Classes.selected="{Binding OnChannel}" Command="{Binding ShowTabCommand}" CommandParameter="Channel" Content="Channel" />
+      <Button Classes="tab" Classes.selected="{Binding OnOutputs}" Command="{Binding ShowTabCommand}" CommandParameter="Outputs" Content="Outputs" />
+      <Button Classes="tab" Classes.selected="{Binding OnStream}" Command="{Binding ShowTabCommand}" CommandParameter="Stream" Content="Stream" />
+      <Button Classes="tab" Classes.selected="{Binding OnScenes}" Command="{Binding ShowTabCommand}" CommandParameter="Scenes" Content="Scenes" />
+      <Button Classes="tab" Classes.selected="{Binding OnShow}" Command="{Binding ShowTabCommand}" CommandParameter="Show" Content="Show" />
+      <Button Classes="tab" Classes.selected="{Binding OnSoundcheck}" Command="{Binding ShowTabCommand}" CommandParameter="Soundcheck">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <Ellipse Width="7" Height="7" Fill="{StaticResource Live}" IsVisible="{Binding IsRecording}" VerticalAlignment="Center" />
+          <Ellipse Width="7" Height="7" Fill="{StaticResource Warn}" IsVisible="{Binding PlaybackMode}" VerticalAlignment="Center" />
+          <TextBlock Text="Soundcheck" />
+        </StackPanel>
+      </Button>
+      <Button Classes="tab" Classes.selected="{Binding OnPlugins}" Command="{Binding ShowTabCommand}" CommandParameter="Plugins" Content="Plugins" />
+      <Button Classes="tab" Classes.selected="{Binding OnFailsafe}" Command="{Binding ShowTabCommand}" CommandParameter="Failsafe">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" IsVisible="{Binding Armed}" VerticalAlignment="Center" />
+          <TextBlock Text="Failsafe" />
+        </StackPanel>
+      </Button>
+      <Button Classes="tab" Classes.selected="{Binding OnSetup}" Command="{Binding ShowTabCommand}" CommandParameter="Meters" Content="Setup" />
+    </StackPanel>
+    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+      <Border Classes="chip live" IsVisible="{Binding IsRecording}" ToolTip.Tip="NEX-Audio is recording (Soundcheck tab)">
+        <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding TapeClock, StringFormat=REC {0}}" /></StackPanel>
+      </Border>
+      <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="10,3" IsVisible="{Binding HasHeaderCue}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <StackPanel Spacing="0" VerticalAlignment="Center" MaxWidth="230">
+            <TextBlock Classes="eyebrow" FontSize="9" Text="NEXT CUE" Foreground="{StaticResource PreviewBrush}" />
+            <TextBlock FontSize="12.5" FontWeight="SemiBold" Text="{Binding NextCueText}" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+          <Button Classes="primary small" Command="{Binding GoCueCommand}" IsEnabled="{Binding HasNextCue}" Content="GO" FontWeight="Black" MinWidth="54" ToolTip.Tip="Fire the next cue (Show tab)" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+    </Grid>
+    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="4" Margin="0,8,0,0" IsVisible="{Binding OnSetup}">
+      <Button Classes="tab small" Classes.selected="{Binding OnMeters}" Command="{Binding ShowTabCommand}" CommandParameter="Meters" Content="Meters" />
+      <Button Classes="tab small" Classes.selected="{Binding OnLatency}" Command="{Binding ShowTabCommand}" CommandParameter="Latency" Content="Latency test" />
+      <Button Classes="tab small" Classes.selected="{Binding OnDriver}" Command="{Binding ShowTabCommand}" CommandParameter="Driver" Content="Driver" />
+      <Button Classes="tab small" Classes.selected="{Binding OnConsole}" Command="{Binding ShowTabCommand}" CommandParameter="Console">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" IsVisible="{Binding X32Connected}" VerticalAlignment="Center" />
+          <TextBlock Text="X32 link" />
+        </StackPanel>
+      </Button>
+      <Button Classes="tab small" Classes.selected="{Binding OnPcCheck}" Command="{Binding ShowTabCommand}" CommandParameter="PcCheck" Content="PC check" />
+    </StackPanel>
+
+    <!-- Virtual soundcheck: never forget the mics are not live -->
+    <Border Grid.Row="4" Background="{StaticResource TintWarn}" BorderBrush="{StaticResource Warn}" BorderThickness="1" CornerRadius="8" Padding="12,6" Margin="0,8,0,0"
+            IsVisible="{Binding PlaybackMode}">
+      <Grid ColumnDefinitions="Auto,10,*,10,Auto">
+        <c:Icon Kind="info" Width="16" Height="16" Foreground="{StaticResource Warn}" />
+        <TextBlock Grid.Column="2" Foreground="{StaticResource Warn}" FontWeight="SemiBold" Text="{Binding PlaybackBanner}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        <Button Grid.Column="4" Classes="warn small" Command="{Binding LiveInputsCommand}" Content="Back to live inputs" />
+      </Grid>
+    </Border>
+
+    <Panel Grid.Row="6">
+      <na:MixerPage IsVisible="{Binding OnMixer}" />
+      <na:ChannelPage IsVisible="{Binding OnChannel}" />
+      <na:OutputsPage IsVisible="{Binding OnOutputs}" />
+      <na:StreamPage IsVisible="{Binding OnStream}" />
+      <na:ScenesPage IsVisible="{Binding OnScenes}" />
+      <na:ShowPage IsVisible="{Binding OnShow}" />
+      <na:SoundcheckPage IsVisible="{Binding OnSoundcheck}" />
+      <na:PluginsPage IsVisible="{Binding OnPlugins}" />
+      <na:FailsafePage IsVisible="{Binding OnFailsafe}" />
+
+
+      <!-- Meters -->
+      <Grid RowDefinitions="*,12,*" IsVisible="{Binding OnMeters}">
+        <Border Classes="card" Padding="14,12">
+          <Grid RowDefinitions="Auto,10,*">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="1">
+                <TextBlock Classes="h3" Text="From the X32" />
+                <TextBlock Classes="faint small" Text="The 32 channels arriving over USB, before anything in NEX-Audio. Names come from the X32 link." />
+              </StackPanel>
+              <Button Grid.Column="1" Classes="ghost small" Command="{Binding ClearClipsCommand}" Content="Clear clip lights" VerticalAlignment="Top" />
+            </Grid>
+            <a:MeterBank Grid.Row="2" Meters="{Binding InputMeters}" MinHeight="150" />
+          </Grid>
+        </Border>
+        <Border Grid.Row="2" Classes="card" Padding="14,12">
+          <Grid RowDefinitions="Auto,10,*">
+            <StackPanel Spacing="1">
+              <TextBlock Classes="h3" Text="Back to the X32" />
+              <TextBlock Classes="faint small" Text="What NEX-Audio sends to each card return. The X32 plays these on whichever outputs are routed from the card." />
+            </StackPanel>
+            <a:MeterBank Grid.Row="2" Meters="{Binding OutputMeters}" MinHeight="150" />
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- Latency test -->
+      <Grid ColumnDefinitions="*,12,*" IsVisible="{Binding OnLatency}">
+        <Border Classes="card" Padding="18" VerticalAlignment="Top">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="h3" Text="Measure the real round trip" />
+            <TextBlock Classes="muted" TextWrapping="Wrap"
+                       Text="NEX-Audio sends five short clicks out of one X32 output and listens for them on one input. The time between them is the full delay musicians would hear: converters, USB both ways and NEX-Audio." />
+            <Border Classes="well" Padding="12">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="eyebrow" Text="BEFORE YOU PRESS MEASURE" />
+                <TextBlock Classes="small" TextWrapping="Wrap" Text="1. Plug a short XLR cable from the X32 output below into the X32 input below." />
+                <TextBlock Classes="small" TextWrapping="Wrap" Text="2. On the X32, route that output from the card (Routing > XLR Out: Card)." />
+                <TextBlock Classes="small" TextWrapping="Wrap" Text="3. Turn that input's gain to about the middle. Nothing else should be plugged into it." />
+                <TextBlock Classes="small" TextWrapping="Wrap" Foreground="{StaticResource Warn}" Text="The clicks are loud: make sure that output does not go to a speaker." />
+              </StackPanel>
+            </Border>
+            <Grid ColumnDefinitions="Auto,10,90,24,Auto,10,90">
+              <TextBlock Classes="flabel" Text="X32 output" />
+              <ComboBox Grid.Column="2" ItemsSource="{Binding LatencyOutputs}" SelectedItem="{Binding LatencyOutput}" HorizontalAlignment="Stretch" />
+              <TextBlock Grid.Column="4" Classes="flabel" Text="into X32 input" />
+              <ComboBox Grid.Column="6" ItemsSource="{Binding LatencyInputs}" SelectedItem="{Binding LatencyInput}" HorizontalAlignment="Stretch" />
+            </Grid>
+            <StackPanel Orientation="Horizontal" Spacing="10" IsEnabled="{Binding CanControl}">
+              <Button Classes="primary" Command="{Binding RunLatencyTestCommand}" IsEnabled="{Binding IsRunning}" Content="Measure" />
+              <TextBlock Classes="muted" Text="Listening for the clicks…" IsVisible="{Binding LatencyRunning}" VerticalAlignment="Center" />
+              <TextBlock Classes="faint small" Text="Start the sound first." IsVisible="{Binding !IsRunning}" VerticalAlignment="Center" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Classes="card" Padding="18" VerticalAlignment="Top">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="eyebrow" Text="RESULT" />
+            <TextBlock Classes="display" FontSize="54" Foreground="{StaticResource Accent}" Text="{Binding LatencyResultText}" IsVisible="{Binding HasLatencyResult}" />
+            <TextBlock Classes="h2" Foreground="{StaticResource Live}" Text="No click came back" IsVisible="{Binding LatencyFailed}" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding LatencyDetailText}" />
+            <TextBlock Classes="faint" TextWrapping="Wrap" Text="No measurement yet." IsVisible="{Binding NoLatencyYet}" />
+            <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap" Text="{Binding DriverLatencyText}" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap"
+                       Text="Under 6 ms suits wedges and in-ears. Up to 10 ms suits the stream, mains and side fills. Write the figure in the test sheet." />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Driver -->
+      <Grid ColumnDefinitions="*,12,*" IsVisible="{Binding OnDriver}">
+        <Border Classes="card" Padding="18" VerticalAlignment="Top">
+          <StackPanel Spacing="12" IsEnabled="{Binding CanControl}">
+            <TextBlock Classes="h3" Text="Sound driver" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="Choose the X32's USB driver (X-USB ASIO). The test device lets you try NEX-Audio without the console." />
+            <Grid ColumnDefinitions="*,8,Auto">
+              <ComboBox ItemsSource="{Binding Drivers}" SelectedItem="{Binding SelectedDriver}" HorizontalAlignment="Stretch" PlaceholderText="Choose a driver" />
+              <Button Grid.Column="2" Classes="ghost" Command="{Binding RefreshDriversCommand}" ToolTip.Tip="Look again (after installing a driver)">
+                <c:Icon Kind="refresh" Width="14" Height="14" />
+              </Button>
+            </Grid>
+            <Border Background="{StaticResource TintWarn}" CornerRadius="8" Padding="10,8" IsVisible="{Binding NoX32Driver}">
+              <TextBlock Classes="small" Foreground="{StaticResource Warn}" TextWrapping="Wrap"
+                         Text="The X32's USB driver is not installed on this PC. Download the X-USB ASIO driver from Behringer's X32 page, install it, then press the refresh button." />
+            </Border>
+            <Grid ColumnDefinitions="Auto,10,120,*">
+              <TextBlock Classes="flabel" Text="Buffer size" />
+              <ComboBox Grid.Column="2" ItemsSource="{Binding BufferSizes}" SelectedItem="{Binding SelectedBuffer}" HorizontalAlignment="Stretch" />
+              <TextBlock Grid.Column="3" Classes="faint small" Margin="10,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"
+                         Text="samples. 64 is the target; use 128 if you hear clicks." />
+            </Grid>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Classes="primary" Command="{Binding StartSoundCommand}" Content="Start sound with these settings" />
+              <Button Command="{Binding OpenDriverPanelCommand}" IsEnabled="{Binding HasDriverPanel}" Content="Driver's own settings" />
+            </StackPanel>
+            <TextBlock Classes="faint small" TextWrapping="Wrap"
+                       Text="Some drivers only change the buffer in their own settings window. NEX-Audio reopens the driver by itself when you change it there." />
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Classes="card" Padding="18" VerticalAlignment="Top">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="h3" Text="How the engine stays up" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="The sound engine is its own program. If this screen freezes or closes, the sound carries on." />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="If the engine or the driver stops, NEX-Audio starts it again within a few seconds with the same settings, and after a PC restart it starts the sound as soon as NEXORA opens." />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="If NEX-Audio stops during a service, the failsafe hands the room to the X32 by itself (Failsafe tab)." />
+            <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+            <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding CanControl}">
+              <Button Classes="ghost" Command="{Binding ShutDownEngineCommand}" Content="Shut down the engine" IsVisible="{Binding EngineLinked}"
+                      ToolTip.Tip="Closes the sound engine program. Use before unplugging the X32." />
+              <Button Classes="ghost" Command="{Binding StartEngineCommand}" Content="Start the engine" IsVisible="{Binding !EngineLinked}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- X32 link -->
+      <Grid ColumnDefinitions="380,12,*" IsVisible="{Binding OnConsole}">
+        <Border Classes="card" Padding="18" VerticalAlignment="Top">
+          <StackPanel Spacing="12">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Border Classes="chip ok" IsVisible="{Binding X32Connected}">
+                <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="Linked" /></StackPanel>
+              </Border>
+              <Border Classes="chip" IsVisible="{Binding !X32Connected}">
+                <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="Not linked" /></StackPanel>
+              </Border>
+              <TextBlock Classes="h3" Text="{Binding X32Title}" VerticalAlignment="Center" />
+            </StackPanel>
+            <TextBlock Classes="faint small" Text="{Binding X32Detail}" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="NEX-Audio talks to the X32 over the church network: it reads the channel names, keeps the desk's own mix in step for the failsafe, and recalls the X32 scenes." />
+            <Grid ColumnDefinitions="*,8,Auto">
+              <TextBox Text="{Binding X32Address}" Watermark="X32 address, for example 192.168.1.50" />
+              <Button Grid.Column="2" Classes="primary" Command="{Binding ConnectConsoleCommand}" IsEnabled="{Binding !X32Busy}" Content="Link" />
+            </Grid>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Command="{Binding FindConsolesCommand}" IsEnabled="{Binding !X32Busy}" Content="Find X32 on the network" />
+              <Button Classes="ghost" Command="{Binding DisconnectConsoleCommand}" IsVisible="{Binding X32Connected}" Content="Unlink" />
+            </StackPanel>
+            <ItemsControl ItemsSource="{Binding FoundConsoles}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="x32:X32Info">
+                  <Button Classes="ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,0,4"
+                          Command="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).UseFoundCommand}" CommandParameter="{Binding}">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                      <TextBlock Classes="faint" Text="{Binding Model}" />
+                      <TextBlock Classes="faint mono" Text="{Binding Address}" />
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Classes="small" Foreground="{StaticResource Accent}" TextWrapping="Wrap" Text="{Binding X32Message}" />
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Classes="card" Padding="16">
+          <Grid RowDefinitions="Auto,10,*">
+            <StackPanel Spacing="1">
+              <TextBlock Classes="h3" Text="Channel names on the desk" />
+              <TextBlock Classes="faint small" Text="Rename a channel on the X32 and it changes here within a moment." />
+            </StackPanel>
+            <TextBlock Grid.Row="2" Classes="faint" Text="Link the X32 to see its channel names." IsVisible="{Binding !X32Connected}" />
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding ConsoleChannels}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate><UniformGrid Columns="4" VerticalAlignment="Top" /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ConsoleChannel">
+                    <Border Classes="row">
+                      <Grid ColumnDefinitions="Auto,8,Auto,10,*">
+                        <TextBlock Classes="mono faint" Text="{Binding Number}" FontSize="12" Width="20" VerticalAlignment="Center" />
+                        <Border Grid.Column="2" Width="4" Height="18" CornerRadius="2" Background="{Binding Colour}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="4" Text="{Binding Label}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                   Classes.faint="{Binding !Named}" />
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- PC check -->
+      <Border Classes="card" Padding="18" IsVisible="{Binding OnPcCheck}">
+        <Grid RowDefinitions="Auto,12,*">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="3">
+              <TextBlock Classes="h3" Text="Is this PC ready for the X32?" />
+              <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding CheckSummary}" />
+            </StackPanel>
+            <Button Grid.Column="1" Command="{Binding RunPcCheckCommand}" IsEnabled="{Binding !Checking}" Content="Check again" VerticalAlignment="Top" />
+          </Grid>
+          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Checks}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:CheckRow">
+                  <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="14,10" Margin="0,0,0,8">
+                    <Grid ColumnDefinitions="90,190,*">
+                      <Panel VerticalAlignment="Top">
+                        <Border Classes="chip ok" IsVisible="{Binding Pass}" HorizontalAlignment="Left">
+                          <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding LevelText}" /></StackPanel>
+                        </Border>
+                        <Border Classes="chip warn" IsVisible="{Binding Warn}" HorizontalAlignment="Left">
+                          <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding LevelText}" /></StackPanel>
+                        </Border>
+                        <Border Classes="chip bad" IsVisible="{Binding Fail}" HorizontalAlignment="Left">
+                          <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding LevelText}" /></StackPanel>
+                        </Border>
+                      </Panel>
+                      <StackPanel Grid.Column="1" Spacing="2">
+                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                        <TextBlock Classes="faint small" Text="{Binding Found}" TextWrapping="Wrap" />
+                      </StackPanel>
+                      <TextBlock Grid.Column="2" Classes="muted" Text="{Binding Advice}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Panel>
+
+    <!-- Recall preview, cue and macro editors, opening a show: over everything -->
+    <na:ShowOverlays Grid.Row="0" Grid.RowSpan="7" ZIndex="20" Margin="-16,-12,-16,-14" />
+  </Grid>
+</UserControl>

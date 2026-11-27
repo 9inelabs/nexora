@@ -9,6 +9,6 @@
   </Application.DataTemplates>
   <Application.Styles>
     <FluentTheme />
-    <StyleInclude Source="avares://Nexora/Theme/Theme.axaml" />
+    <StyleInclude Source="avares://Nexora.UI/Theme/Theme.axaml" />
   </Application.Styles>
 </Application>

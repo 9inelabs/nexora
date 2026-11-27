@@ -1,0 +1,226 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexAudio.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="NexAudio.App.Views.NexAudio.SoundcheckPage"
+             x:DataType="vm:NexAudioViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.transport">
+      <Setter Property="Width" Value="54" />
+      <Setter Property="Height" Value="46" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.rec /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource TintLive}" />
+      <Setter Property="Foreground" Value="{StaticResource Live}" />
+    </Style>
+    <Style Selector="Button.rec.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Live}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="ToggleButton.mode">
+      <Setter Property="MinHeight" Value="46" />
+      <Setter Property="Padding" Value="14,6" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="ToggleButton.mode:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource TintPreview}" />
+      <Setter Property="Foreground" Value="{StaticResource PreviewBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource PreviewBrush}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+    <Style Selector="ToggleButton.mode.play:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource TintWarn}" />
+      <Setter Property="Foreground" Value="{StaticResource Warn}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Warn}" />
+    </Style>
+    <Style Selector="Border.track">
+      <Setter Property="Width" Value="146" />
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="Padding" Value="7,5" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="BorderThickness" Value="0,0,0,3" />
+    </Style>
+    <Style Selector="ToggleButton.arm">
+      <Setter Property="Padding" Value="5,1" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="FontSize" Value="9" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="ToggleButton.arm:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Live}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="ToggleButton.keep:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource PreviewBrush}" />
+      <Setter Property="Foreground" Value="#0B1A12" />
+    </Style>
+    <Style Selector="TextBlock.flabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,12,*" ColumnDefinitions="*,12,360">
+    <!-- TRANSPORT -->
+    <Border Grid.ColumnSpan="3" Classes="card" Padding="16,14">
+      <Grid ColumnDefinitions="260,18,*,18,300">
+        <StackPanel Spacing="2" VerticalAlignment="Center">
+          <TextBlock Classes="eyebrow" Text="{Binding TapeStateText}" Foreground="{StaticResource Live}" IsVisible="{Binding IsRecording}" />
+          <TextBlock Classes="eyebrow" Text="{Binding TapeStateText}" Foreground="{StaticResource Warn}" IsVisible="{Binding IsPlayingTape}" />
+          <TextBlock Classes="eyebrow" Text="{Binding TapeStateText}" IsVisible="{Binding IsTapePaused}" />
+          <TextBlock Classes="h3" Text="{Binding TapeTitle}" TextTrimming="CharacterEllipsis" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="display" FontSize="38" Text="{Binding TapeClock}" />
+            <TextBlock Classes="faint small" Text="{Binding TapeLength}" VerticalAlignment="Bottom" Margin="0,0,0,8" />
+          </StackPanel>
+          <TextBlock Classes="small" Foreground="{StaticResource Warn}" Text="{Binding DropoutText}" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Spacing="10" VerticalAlignment="Center">
+          <Slider x:Name="PositionSlider" Minimum="0" Maximum="{Binding TapeLengthValue}" Value="{Binding TapePosition}" IsEnabled="{Binding HasTake}" Margin="0,-6" />
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+            <Button Classes="transport ghost" Command="{Binding TapeToStartCommand}" IsEnabled="{Binding HasTake}" ToolTip.Tip="Back to the start"><c:Icon Kind="restart" Width="18" Height="18" /></Button>
+            <Button Classes="transport ghost" Command="{Binding TapeBackCommand}" IsEnabled="{Binding HasTake}" ToolTip.Tip="Back 10 seconds"><TextBlock Text="−10" FontWeight="Bold" /></Button>
+            <Button Classes="transport primary" Command="{Binding PlayTapeCommand}" IsEnabled="{Binding HasTake}" IsVisible="{Binding !IsPlayingTape}" ToolTip.Tip="Play the recording into the channels"><c:Icon Kind="play" Width="20" Height="20" /></Button>
+            <Button Classes="transport primary" Command="{Binding PauseTapeCommand}" IsVisible="{Binding IsPlayingTape}" ToolTip.Tip="Pause"><c:Icon Kind="pause" Width="20" Height="20" /></Button>
+            <Button Classes="transport ghost" Command="{Binding StopTapeCommand}" ToolTip.Tip="Stop (recording is saved)"><c:Icon Kind="stop" Width="18" Height="18" /></Button>
+            <Button Classes="transport ghost" Command="{Binding TapeForwardCommand}" IsEnabled="{Binding HasTake}" ToolTip.Tip="Forward 10 seconds"><TextBlock Text="+10" FontWeight="Bold" /></Button>
+            <Border Width="1" Background="{StaticResource Line}" Margin="6,4" />
+            <Button Classes="transport rec" Classes.active="{Binding IsRecording}" Command="{Binding RecordTapeCommand}" IsEnabled="{Binding CanRecord}" Width="110"
+                    ToolTip.Tip="Record every armed channel, each to its own file">
+              <StackPanel Orientation="Horizontal" Spacing="7"><c:Icon Kind="record" Width="16" Height="16" /><TextBlock Text="Record" FontWeight="Bold" /></StackPanel>
+            </Button>
+          </StackPanel>
+          <TextBox Text="{Binding NewTakeName}" Watermark="Name the next recording (optional), for example Sunday rehearsal" MaxWidth="460" IsVisible="{Binding !IsRecording}" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="4" Spacing="8" VerticalAlignment="Center">
+          <TextBlock Classes="eyebrow" Text="THE CHANNELS HEAR" />
+          <Grid ColumnDefinitions="*,8,*">
+            <ToggleButton Classes="mode" IsChecked="{Binding LiveMode, Mode=OneWay}" Command="{Binding LiveInputsCommand}" ToolTip.Tip="Every channel hears its microphone, as in a service">
+              <TextBlock Text="Live inputs" />
+            </ToggleButton>
+            <ToggleButton Grid.Column="2" Classes="mode play" IsChecked="{Binding PlaybackMode, Mode=OneWay}" Command="{Binding PlaybackOnCommand}" IsEnabled="{Binding TapeReady}"
+                          ToolTip.Tip="Recorded channels hear the recording instead (virtual soundcheck)">
+              <TextBlock Text="The recording" />
+            </ToggleButton>
+          </Grid>
+          <TextBlock Classes="faint small" TextWrapping="Wrap"
+                     Text="Virtual soundcheck: record a rehearsal, then play it back here and mix it again with no band. Switch back to live inputs before the service." />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- CHANNELS -->
+    <Border Grid.Row="2" Classes="card" Padding="16">
+      <Grid RowDefinitions="Auto,10,*,10,Auto">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="3">
+            <TextBlock Classes="h3" Text="Channels" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap"
+                       Text="REC arms a channel to record. KEEP LIVE keeps a channel on its microphone while the others play the recording, for a talkback mic or the pastor's mic." />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+            <TextBlock Classes="faint small" Text="{Binding ArmedText}" VerticalAlignment="Center" />
+            <Button Classes="ghost small" Command="{Binding ArmAllCommand}" Content="Arm all" />
+            <Button Classes="ghost small" Command="{Binding ArmNoneCommand}" Content="None" />
+          </StackPanel>
+        </Grid>
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding TrackChips}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:TrackChip">
+                <Border Classes="track" BorderBrush="{Binding Tone}">
+                  <Grid RowDefinitions="Auto,4,Auto">
+                    <Grid ColumnDefinitions="Auto,6,*">
+                      <TextBlock Classes="mono" FontSize="11" FontWeight="Bold" Foreground="{Binding Tone}" Text="{Binding NumberText}" />
+                      <TextBlock Grid.Column="2" FontSize="12" FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                    <Grid Grid.Row="2" ColumnDefinitions="Auto,4,*" HorizontalAlignment="Left">
+                      <ToggleButton Classes="arm" IsChecked="{Binding Armed}" Content="REC" ToolTip.Tip="Record this channel" />
+                      <ToggleButton Grid.Column="2" Classes="arm keep" IsChecked="{Binding Live}" ToolTip.Tip="Keep this channel on its microphone during playback">
+                        <Panel>
+                          <TextBlock Text="KEEP LIVE" IsVisible="{Binding !Playing}" />
+                          <TextBlock Text="PLAYBACK" IsVisible="{Binding Playing}" Foreground="{StaticResource Warn}" />
+                        </Panel>
+                      </ToggleButton>
+                    </Grid>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+        <TextBlock Grid.Row="4" Classes="small" Foreground="{StaticResource Warn}" Text="{Binding TapeNote}" IsVisible="{Binding HasTapeNote}" TextWrapping="Wrap" />
+      </Grid>
+    </Border>
+
+    <!-- RECORDINGS AND SETTINGS -->
+    <Grid Grid.Row="2" Grid.Column="2" RowDefinitions="*,12,Auto">
+      <Border Classes="card" Padding="14">
+        <Grid RowDefinitions="Auto,10,*">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="h3" Text="Recordings" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="ghost small" x:Name="ImportButton" ToolTip.Tip="A folder of WAV files from another recording program, one per channel in channel order">
+              <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Kind="upload" Width="12" Height="12" /><TextBlock Text="Bring in…" /></StackPanel>
+            </Button>
+          </Grid>
+          <Panel Grid.Row="2">
+            <TextBlock Classes="faint small" TextWrapping="Wrap" IsVisible="{Binding NoTakes}" Text="No recordings yet. Start the sound, arm the channels and press Record." />
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding TakeRows}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:TakeRow">
+                    <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="10,7" Margin="0,0,0,6" BorderThickness="1"
+                            BorderBrush="{Binding IsLoaded, Converter={x:Static c:Conv.CurrentBorder}}">
+                      <Grid ColumnDefinitions="*,6,Auto">
+                        <StackPanel Spacing="1">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Classes="faint" FontSize="10.5" Text="{Binding Detail}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                          <Button Classes="primary small" Command="{Binding PlayCommand}" IsEnabled="{Binding CanPlay}" ToolTip.Tip="Play into the desk"><c:Icon Kind="play" Width="11" Height="11" /></Button>
+                          <Button Classes="ghost small" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete this recording"><c:Icon Kind="trash" Width="11" Height="11" /></Button>
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Panel>
+        </Grid>
+      </Border>
+      <Border Grid.Row="2" Classes="card" Padding="14">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow" Text="RECORDER SETTINGS" />
+          <Grid ColumnDefinitions="*,6,Auto,6,Auto">
+            <TextBox Text="{Binding TapeFolder}" Watermark="{Binding TapeFolderShown}" FontSize="12" />
+            <Button Grid.Column="2" Classes="ghost small" x:Name="FolderButton" ToolTip.Tip="Pick a folder (a second drive is best)">…</Button>
+            <Button Grid.Column="4" Classes="ghost small" Command="{Binding SaveTapeFolderCommand}" Content="Use" />
+          </Grid>
+          <Grid ColumnDefinitions="70,6,*" RowDefinitions="Auto,6,Auto">
+            <TextBlock Classes="flabel" Text="Files" />
+            <ComboBox Grid.Column="2" ItemsSource="{x:Static vm:NexAudioViewModel.FormatChoices}" SelectedItem="{Binding TapeFormat}" HorizontalAlignment="Stretch" FontSize="12" />
+            <TextBlock Grid.Row="2" Classes="flabel" Text="Taken" />
+            <ComboBox Grid.Row="2" Grid.Column="2" ItemsSource="{x:Static vm:NexAudioViewModel.TapChoices2}" SelectedItem="{Binding TapeTap}" HorizontalAlignment="Stretch" FontSize="12" />
+          </Grid>
+          <CheckBox Content="Also record the main mix (stereo)" IsChecked="{Binding RecordMain}" />
+          <CheckBox Content="Play the recording round and round" IsChecked="{Binding TapeLoop}" />
+          <TextBlock Classes="faint small" Text="{Binding DiskText}" TextWrapping="Wrap" />
+          <TextBlock Classes="small" Foreground="{StaticResource Warn}" IsVisible="{Binding LowDisk}" TextWrapping="Wrap" Text="The disk is nearly full for a whole service. Free some space or record to another drive." />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

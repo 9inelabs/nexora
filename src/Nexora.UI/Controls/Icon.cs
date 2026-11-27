@@ -84,6 +84,8 @@ public static class Icons
         ["upload"] = "M12 15 V3 M7 8 L12 3 L17 8 M21 15 V19 A2 2 0 0 1 19 21 H5 A2 2 0 0 1 3 19 V15",
         ["trash"] = "M3 6 H21 M8 6 V4 H16 V6 M6 6 L7 21 H17 L18 6",
         ["shield"] = "M12 22 C12 22 20 18 20 12 V5 L12 2 L4 5 V12 C4 18 12 22 12 22 Z",
+        ["left"] = "M15 5 L8 12 L15 19",
+        ["right"] = "M9 5 L16 12 L9 19",
         ["refresh"] = "M21 12 A9 9 0 1 1 18.4 5.6 M21 3 V9 H15",
         ["arrowup"] = "M12 19 V5 M5 12 L12 5 L19 12",
         ["arrowdown"] = "M12 5 V19 M5 12 L12 19 L19 12",
@@ -106,6 +108,7 @@ public static class Icons
         ["broadcast"] = "M12 11 A1 1 0 1 0 12 13 A1 1 0 1 0 12 11 Z M8 8 A5.5 5.5 0 0 0 8 16 M16 8 A5.5 5.5 0 0 1 16 16 M5 5 A9.5 9.5 0 0 0 5 19 M19 5 A9.5 9.5 0 0 1 19 19",
         ["logo"] = "M12 3 L21 12 L12 21 L3 12 Z",
         ["moon"] = "M21 12.8 A9 9 0 1 1 11.2 3 A7 7 0 0 0 21 12.8 Z",
+        ["faders"] = "M6 3 V21 M12 3 V21 M18 3 V21 M3.5 14 H8.5 M9.5 8 H14.5 M15.5 16 H20.5",
         ["heart"] = "M12 21 C12 21 3 15 3 8.5 A4.5 4.5 0 0 1 12 6 A4.5 4.5 0 0 1 21 8.5 C21 15 12 21 12 21 Z",
     };
 
@@ -129,6 +132,7 @@ public static class Icons
         Nexora.Core.Model.SectionKind.LowerThirds => "lowerthirds",
         Nexora.Core.Model.SectionKind.Countdown => "countdown",
         Nexora.Core.Model.SectionKind.MinisterTimer => "minister",
+        Nexora.Core.Model.SectionKind.Audio => "faders",
         _ => "square",
     };
 }

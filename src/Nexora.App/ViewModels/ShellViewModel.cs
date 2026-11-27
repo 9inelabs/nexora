@@ -18,7 +18,8 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         _main = main;
         _sections = sections;
-        foreach (var k in sections)
+        // NEX-Audio is its own app now; a day that still lists it simply leaves it out here.
+        foreach (var k in sections.Where(k => k != SectionKind.Audio))
             Pages.Add(new RailItem(Icons.ForSection(k), Sections.Get(k).Title,
                 PageFor(k)));
         if (liveOutput || (sections.Count == 0 && !settings && Live.User?.MayRunLiveOutput == true))

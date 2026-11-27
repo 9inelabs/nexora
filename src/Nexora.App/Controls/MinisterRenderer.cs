@@ -15,8 +15,8 @@ public static class MinisterRenderer
 {
     private static double W => CanvasSize.W;
     private static double H => CanvasSize.H;
-    private static readonly FontFamily Ui = new("avares://Nexora/Assets/Fonts#Manrope");
-    private static readonly FontFamily Mono = new("avares://Nexora/Assets/Fonts#JetBrains Mono");
+    private static readonly FontFamily Ui = new("avares://Nexora.UI/Assets/Fonts#Manrope");
+    private static readonly FontFamily Mono = new("avares://Nexora.UI/Assets/Fonts#JetBrains Mono");
 
     public static readonly IBrush Green = new SolidColorBrush(Color.Parse("#3DD68C"));
     public static readonly IBrush Yellow = new SolidColorBrush(Color.Parse("#F0B44C"));

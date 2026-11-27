@@ -15,6 +15,10 @@ public enum Role
     Countdown = 128,
     /// <summary>Can open sections and prepare, but nothing they do reaches a screen.</summary>
     Trainee = 256,
+    /// <summary>Sound engineers: the NEX-Audio section.</summary>
+    Audio = 512,
+    /// <summary>NEX-Audio, but only the stream and recording mix (for a volunteer on the stream desk).</summary>
+    AudioStream = 1024,
 }
 
 /// <summary>An operator section that a terminal can open.</summary>
@@ -30,6 +34,8 @@ public enum SectionKind
     Media,
     /// <summary>A big green, yellow and red timer on the Stage Monitor for a guest minister.</summary>
     MinisterTimer,
+    /// <summary>NEX-Audio: the mixing desk for the X32. Runs on this PC only and sends nothing to the screens.</summary>
+    Audio,
 }
 
 /// <summary>Live Output layers, bottom to top (plan section 11).</summary>
@@ -82,7 +88,8 @@ public sealed record SectionDefinition(
     Role Role,
     Layer Layer,
     bool IsText,
-    bool Pickable = true);
+    bool Pickable = true,
+    bool ToScreens = true);
 
 public static class Sections
 {
@@ -95,6 +102,8 @@ public static class Sections
         new(SectionKind.LowerThirds, "Lower Thirds", "Minister names and titles over cameras.", Role.LowerThirds, Layer.Overlays, false),
         new(SectionKind.Countdown, "Countdown", "Timers, sermon points and the Stage Monitor.", Role.Countdown, Layer.Overlays, false),
         new(SectionKind.MinisterTimer, "Minister Timer", "A big timer on the Stage Monitor so ministers keep to time.", Role.Countdown, Layer.Overlays, false),
+        // NEX-Audio is its own app (NexAudio.exe); kept here for its role check, but not offered in NEXORA's section picker.
+        new(SectionKind.Audio, "NEX-Audio", "Mix the live sound and the stream from the X32.", Role.Audio, Layer.Overlays, false, ToScreens: false, Pickable: false),
         new(SectionKind.Media, "Media", "Videos and pictures played on Live Output.", Role.LiveOutput, Layer.Media, false, Pickable: false),
     ];
 
@@ -103,7 +112,7 @@ public static class Sections
     public static SectionDefinition Get(SectionKind kind) => All.First(s => s.Kind == kind);
 
     public static bool UserMayOpen(Role roles, SectionKind kind) =>
-        roles.HasFlag(Role.Admin) || roles.HasFlag(Get(kind).Role);
+        roles.HasFlag(Role.Admin) || roles.HasFlag(Get(kind).Role) || kind == SectionKind.Audio && roles.HasFlag(Role.AudioStream);
 
     public static string SourceKey(string pcId, SectionKind kind) => $"{pcId}:{kind}";
 }
@@ -246,7 +255,11 @@ public sealed record EngineStatus(
     bool NdiAvailable = false,
     bool VideoAvailable = false,
     bool FfmpegAvailable = false,
-    string? CameraProblem = null);
+    string? CameraProblem = null,
+    string? NexAudioSound = null,
+    string? NexAudioFailsafe = null,
+    bool NexAudioArmed = false,
+    bool NexAudioHandedOver = false);
 
 public sealed record SourceInfo(
     string Key,

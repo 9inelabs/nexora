@@ -29,6 +29,7 @@ public sealed class AppServices
     public NexoraClient? Client { get; private set; }
     public OutputEngineHost? Output { get; private set; }
 
+
     /// <summary>UI-thread view of the link, the live picture and the signed-in user.</summary>
     public LiveModel Live { get; } = new();
 

@@ -1,0 +1,16 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexAudio.App.ViewModels"
+             xmlns:v="using:NexAudio.App.Views"
+             x:Class="NexAudio.App.App"
+             RequestedThemeVariant="Dark"
+             Name="NEX-Audio">
+  <Application.DataTemplates>
+    <DataTemplate DataType="vm:SignInViewModel"><v:SignInView /></DataTemplate>
+    <DataTemplate DataType="vm:NexAudioViewModel"><v:NexAudioView /></DataTemplate>
+  </Application.DataTemplates>
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Nexora.UI/Theme/Theme.axaml" />
+  </Application.Styles>
+</Application>
