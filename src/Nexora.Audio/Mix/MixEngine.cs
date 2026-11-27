@@ -113,6 +113,8 @@ internal sealed class StripRt
 
     // Meters (written by the audio thread, taken by the control thread).
     public float MeterIn, MeterL, MeterR, MeterGate, MeterComp, MeterRack, MeterDynEq;
+    /// <summary>The same level after the fader, for remotes and fader boxes (taken separately, so the screen's meters are not disturbed).</summary>
+    public float RemotePeak;
 }
 
 /// <summary>A feed from one strip into another: a send, a group assignment, or a strip's place in the main mix.</summary>
@@ -196,6 +198,12 @@ internal sealed class Topology
     public StripRt[] Soloed = [], Soloed2 = [];
     public bool SoloAfl, SoloAfl2;
     public float SoloGain = 1, SoloGain2 = 1;
+    /// <summary>The headphones: 0 solo bus 1, 1 solo bus 2, 2 the main mix, 3 <see cref="CueStrip"/>.</summary>
+    public int CueKind;
+    public StripRt? CueStrip;
+    public float CueGain = 1;
+    /// <summary>Anything soloed on solo bus 1 is heard instead of the source.</summary>
+    public bool CueSoloFirst;
     public bool StreamFromMain = true;
     public int StreamDelay;
     public StripRt? Analyse;
@@ -236,6 +244,7 @@ public sealed class MixEngine
         _tone = new float[maxFrames];
         _monitor = new StripRt("mon", StripKind.Mix, true, maxFrames, sampleRate);
         _monitor2 = new StripRt("mon2", StripKind.Mix, true, maxFrames, sampleRate);
+        _cue = new StripRt("cue", StripKind.Mix, true, maxFrames, sampleRate);
         Loudness = new LoudnessMeter(sampleRate);
         Analyser = new Analyser(sampleRate);
         StreamTap = new StreamTap(StreamResampler.Target);
@@ -434,6 +443,16 @@ public sealed class MixEngine
             topo.SoloAfl2 = s.Solo.Mode2 == SoloMode.Afl;
             topo.SoloGain = Db.ToGain(s.Solo.Level);
             topo.SoloGain2 = Db.ToGain(s.Solo.Level2);
+            var cue = s.Cue;
+            topo.CueGain = cue.Mute ? 0 : Db.ToGain(cue.Level);
+            topo.CueSoloFirst = cue.SoloFirst && topo.Soloed.Length > 0;
+            topo.CueStrip = null;
+            topo.CueKind = cue.Source switch { "solo" => 0, "solo2" => 1, "main" => 2, _ => 3 };
+            if (topo.CueKind == 3)
+            {
+                topo.CueStrip = _strips.GetValueOrDefault(cue.Source);
+                if (topo.CueStrip is null) topo.CueKind = 0;
+            }
             topo.Analyse = AnalyseId is { } a && _strips.TryGetValue(a, out var ar) ? ar : null;
 
             // Outputs (a channel's direct out comes from its own tap point).
@@ -623,10 +642,10 @@ public sealed class MixEngine
         {
             var parts = src.Split(':');
             var id = parts[0];
-            if (id is "mon" or "mon2")
+            if (id is "mon" or "mon2" or "cue")
             {
                 kind = parts.Length > 1 && parts[1] == "r" ? OutSource.StripRight : OutSource.StripLeft;
-                strip = id == "mon" ? _monitor : _monitor2;
+                strip = id == "mon" ? _monitor : id == "mon2" ? _monitor2 : _cue;
             }
             else if (_strips.TryGetValue(id, out var st))
             {
@@ -658,7 +677,7 @@ public sealed class MixEngine
     }
 
     // The two solo / monitor buses (not part of the saved mix).
-    private readonly StripRt _monitor, _monitor2;
+    private readonly StripRt _monitor, _monitor2, _cue;
     private Dictionary<string, SendTap> _directTaps = [];
     private Dictionary<string, PathLatency> _latency = [];
     private readonly float[] _scrL, _scrR, _tone;
@@ -762,6 +781,7 @@ public sealed class MixEngine
         // 9. Solo / monitor buses: the soloed strips, or the main mix when nothing is soloed there.
         Monitor(_monitor, t.Soloed, t.SoloAfl, t.SoloGain, t.Main, t.Centre, frames);
         Monitor(_monitor2, t.Soloed2, t.SoloAfl2, t.SoloGain2, t.Main, t.Centre, frames);
+        Cue(t, frames);
 
         // 10. Outputs.
         for (var o = 0; o < output.Length && o < _outs.Length; o++)
@@ -968,6 +988,40 @@ public sealed class MixEngine
             }
     }
 
+    /// <summary>The engineer's headphones: their own source and level.</summary>
+    private void Cue(Topology t, int frames)
+    {
+        var c = _cue;
+        if (t.CueSoloFirst || t.CueKind == 0) Copy(_monitor, c, frames);
+        else if (t.CueKind == 1) Copy(_monitor2, c, frames);
+        else if (t.CueKind == 2) Monitor(c, [], false, 1, t.Main, t.Centre, frames);
+        else if (t.CueStrip is { } s)
+        {
+            Array.Copy(s.PostL, c.PostL, frames);
+            Array.Copy(s.Stereo ? s.PostR : s.PostL, c.PostR, frames);
+        }
+        var g = t.CueGain;
+        if (g != 1f)
+            for (var n = 0; n < frames; n++)
+            {
+                c.PostL[n] *= g;
+                c.PostR[n] *= g;
+            }
+
+        static void Copy(StripRt from, StripRt to, int frames)
+        {
+            Array.Copy(from.PostL, to.PostL, frames);
+            Array.Copy(from.PostR, to.PostR, frames);
+        }
+    }
+
+    /// <summary>What the headphones are playing now (peak, left and right).</summary>
+    public (float L, float R) CueLevel()
+    {
+        var m = _cue;
+        return (Dsp.Dsp.Peak(m.PostL, Math.Min(_maxFrames, m.PostL.Length)), Dsp.Dsp.Peak(m.PostR, Math.Min(_maxFrames, m.PostR.Length)));
+    }
+
     private void RunBus(StripRt b, int frames)
     {
         Array.Copy(b.InL, b.L, frames);
@@ -1064,6 +1118,8 @@ public sealed class MixEngine
         var pr = r is not null ? Dsp.Dsp.Peak(s.PostR, frames) : pl;
         if (pl > s.MeterL) s.MeterL = pl;
         if (pr > s.MeterR) s.MeterR = pr;
+        var pm = Math.Max(pl, pr);
+        if (pm > s.RemotePeak) s.RemotePeak = pm;
     }
 
     // ---- For the recorder (audio thread, after Process) -------------------------------------
@@ -1097,6 +1153,19 @@ public sealed class MixEngine
             var s = t.All[i];
             result[i] = new StripMeters(s.MeterIn, s.MeterL, s.MeterR, s.MeterGate, s.MeterComp, s.MeterRack, s.Gate.On && !s.Gate.IsOpen, s.MeterDynEq);
             s.MeterIn = s.MeterL = s.MeterR = s.MeterGate = s.MeterComp = s.MeterRack = s.MeterDynEq = 0;
+        }
+        return result;
+    }
+
+    /// <summary>The peak of every strip after its fader since the last call, by id (for tablets and fader boxes).</summary>
+    public Dictionary<string, float> TakeRemotePeaks()
+    {
+        var t = Volatile.Read(ref _topo);
+        var result = new Dictionary<string, float>(t.All.Length);
+        foreach (var s in t.All)
+        {
+            result[s.Id] = s.RemotePeak;
+            s.RemotePeak = 0;
         }
         return result;
     }

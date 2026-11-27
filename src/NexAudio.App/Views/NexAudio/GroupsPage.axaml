@@ -149,6 +149,13 @@
         </Border>
         <Border Classes="card" Padding="14,12">
           <StackPanel Spacing="8">
+            <TextBlock Classes="h3" Text="Headphones" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Your own headphone feed, with its own level, so turning your headphones up never changes a solo bus on a wedge. Patch Headphones left and right on the Outputs tab. It is not part of scenes: a recall never changes what you hear." />
+            <ItemsControl ItemsSource="{Binding CueParams}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="card" Padding="14,12">
+          <StackPanel Spacing="8">
             <TextBlock Classes="h3" Text="Stereo pairs" />
             <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Link two channels as left and right (keys, playback). The right one takes the left one's settings, then any change to either goes to both. Pan works as a mirror. Each side keeps its own name, input and preamp." />
             <ItemsControl ItemsSource="{Binding PairRows}">

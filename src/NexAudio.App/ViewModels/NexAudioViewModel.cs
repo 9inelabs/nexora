@@ -35,6 +35,7 @@ public enum NexAudioTab
     PcCheck,
     Resources,
     Bridge,
+    Remote,
 }
 
 /// <summary>
@@ -86,7 +87,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OnMeters), nameof(OnPatch), nameof(OnLatency), nameof(OnDriver), nameof(OnConsole), nameof(OnPcCheck), nameof(OnResources),
-        nameof(OnMixer), nameof(OnChannel), nameof(OnOutputs), nameof(OnRouting), nameof(OnGroups), nameof(OnStream), nameof(OnScenes), nameof(OnShow), nameof(OnSoundcheck), nameof(OnPlugins), nameof(OnFailsafe), nameof(OnSetup), nameof(OnBridge))]
+        nameof(OnMixer), nameof(OnChannel), nameof(OnOutputs), nameof(OnRouting), nameof(OnGroups), nameof(OnStream), nameof(OnScenes), nameof(OnShow), nameof(OnSoundcheck), nameof(OnPlugins), nameof(OnFailsafe), nameof(OnSetup), nameof(OnBridge), nameof(OnRemote))]
     private NexAudioTab _tab = NexAudioTab.Mixer;
 
     public bool OnMixer => Tab == NexAudioTab.Mixer;
@@ -99,6 +100,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
     public bool OnSoundcheck => Tab == NexAudioTab.Soundcheck;
     public bool OnPlugins => Tab == NexAudioTab.Plugins;
     public bool OnFailsafe => Tab == NexAudioTab.Failsafe;
+    public bool OnRemote => Tab == NexAudioTab.Remote;
     /// <summary>The Phase 1 pages (meters, latency, driver, X32 link, PC check) sit together under Setup.</summary>
     public bool OnSetup => Tab is NexAudioTab.Meters or NexAudioTab.Patch or NexAudioTab.Latency or NexAudioTab.Driver or NexAudioTab.Console or NexAudioTab.PcCheck or NexAudioTab.Resources;
 
@@ -214,7 +216,11 @@ public sealed partial class NexAudioViewModel : ViewModelBase
         if (OnResources) RefreshHeadroom();
     }
 
-    private void Tick() => OnPropertyChanged(nameof(UptimeText));
+    private void Tick()
+    {
+        OnPropertyChanged(nameof(UptimeText));
+        WatchNexora();
+    }
 
     // ---- Meters -------------------------------------------------------------------------
 

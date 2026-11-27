@@ -323,6 +323,17 @@ public static class MixParams
                 s.Solo = u;
                 return true;
             }
+            case "cue":
+            {
+                // The engineer's headphones.
+                var u = SetIn(s.Cue, seg[1..], value);
+                if (u is null) return false;
+                u.Source = string.IsNullOrWhiteSpace(u.Source) ? "solo" : u.Source.Trim().ToLowerInvariant();
+                if (u.Source is not ("solo" or "solo2" or "main") && s.Find(u.Source) is null) return false;
+                u.Level = Math.Clamp(u.Level, -40, 10);
+                s.Cue = u;
+                return true;
+            }
         }
 
         var strip = s.Find(seg[0]);

@@ -1,0 +1,151 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexAudio.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             x:Class="NexAudio.App.Views.NexAudio.RemotePage"
+             x:DataType="vm:NexAudioViewModel">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+  <Grid ColumnDefinitions="*,12,*,12,*">
+
+    <!-- Surfaces: the X32 and a MIDI fader box -->
+    <StackPanel Spacing="12">
+      <Border Classes="card" Padding="16">
+        <StackPanel Spacing="10">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Classes="h3" Text="The X32 as a control surface" VerticalAlignment="Center" />
+            <Border Classes="chip ok" IsVisible="{Binding X32SurfaceOn}">
+              <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="On" /></StackPanel>
+            </Border>
+          </StackPanel>
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Mix NEX-Audio from the X32's own faders. Its faders, mutes, pans and sends, and its SELECT and SOLO buttons, work NEX-Audio. Its motor faders follow what you do on this screen. A fader you are holding is left alone, so it never fights your hand." />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding X32SurfaceOn}" IsEnabled="{Binding CanMix}" OnContent="" OffContent="" VerticalAlignment="Top" />
+          </Grid>
+          <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding X32SurfaceText}" TextWrapping="Wrap" />
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="On the X32, channels 1–32, mix buses 1–16 and the main fader are NEX-Audio's. Selecting a channel on either one selects it on the other." />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" Padding="16">
+        <StackPanel Spacing="10">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Classes="h3" Text="MIDI fader box" VerticalAlignment="Center" />
+            <Border Classes="chip ok" IsVisible="{Binding MidiConnected}">
+              <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="Linked" /></StackPanel>
+            </Border>
+          </StackPanel>
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="A USB fader box that speaks Mackie Control: for example Behringer X-Touch, iCON or PreSonus FaderPort. Eight motor faders and the master, MUTE, SOLO and SELECT on each, the knob for pan, the bank buttons to move along, and names on its screen. A box that only speaks HUI can usually be switched to Mackie Control in its own setup." />
+          <Grid ColumnDefinitions="120,8,*" RowDefinitions="Auto,8,Auto">
+            <TextBlock Classes="flabel" Text="It sends on" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="2" ItemsSource="{Binding MidiInChoices}" SelectedItem="{Binding MidiIn}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanMix}" />
+            <TextBlock Grid.Row="2" Classes="flabel" Text="It listens on" VerticalAlignment="Center" />
+            <ComboBox Grid.Row="2" Grid.Column="2" ItemsSource="{Binding MidiOutChoices}" SelectedItem="{Binding MidiOut}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanMix}" />
+          </Grid>
+          <Grid ColumnDefinitions="*,8,Auto">
+            <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding MidiStateText}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            <Button Grid.Column="2" Classes="small" Command="{Binding RefreshMidiCommand}" Content="Look again" />
+          </Grid>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+
+    <!-- Tablets and phones -->
+    <Border Grid.Column="2" Classes="card" Padding="16" VerticalAlignment="Top">
+      <StackPanel Spacing="10">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Classes="h3" Text="Tablets and phones" VerticalAlignment="Center" />
+          <Border Classes="chip ok" IsVisible="{Binding RemoteRunning}">
+            <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="On" /></StackPanel>
+          </Border>
+        </StackPanel>
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="A web page on the church network. Musicians open it on their phones to turn up what they need in their own wedge or in-ear mix. With the PIN, you get the whole desk while you walk the room. Nothing to install." />
+          <ToggleSwitch Grid.Column="1" IsChecked="{Binding RemoteOn}" IsEnabled="{Binding CanMix}" OnContent="" OffContent="" VerticalAlignment="Top" />
+        </Grid>
+        <TextBlock Classes="small" Text="{Binding RemoteStateText}" TextWrapping="Wrap" />
+        <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="12,8" IsVisible="{Binding RemoteRunning}">
+          <SelectableTextBlock Classes="mono" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Accent}" Text="{Binding RemoteAddressText}" TextWrapping="Wrap" />
+        </Border>
+        <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+        <TextBlock Classes="eyebrow" Text="MIXES MUSICIANS CAN CHANGE" />
+        <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Only what goes into that mix, and its overall level. Nothing a musician does reaches the room or anyone else's mix." />
+        <ItemsControl ItemsSource="{Binding RemoteMixRows}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:RemoteMixRow">
+              <Grid ColumnDefinitions="60,*,Auto" Margin="0,1">
+                <TextBlock Classes="mono small" FontWeight="SemiBold" Text="{Binding Number}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Classes="small" Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsOn}" OnContent="" OffContent="" MinWidth="0" Margin="0,-6" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="faint small" IsVisible="{Binding !RemoteHasMixes}" Text="There are no mixes yet. Add one on the Mixer (the + by the mix tags)." TextWrapping="Wrap" />
+        <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+        <TextBlock Classes="eyebrow" Text="THE WHOLE DESK, FOR THE ENGINEER" />
+        <Grid ColumnDefinitions="120,8,*,8,Auto" RowDefinitions="Auto,8,Auto">
+          <TextBlock Classes="flabel" Text="PIN (4 to 8 digits)" VerticalAlignment="Center" />
+          <TextBox Grid.Column="2" Text="{Binding RemotePin}" Watermark="Empty: musicians only" MaxLength="8" />
+          <TextBlock Grid.Row="2" Classes="flabel" Text="Network port" VerticalAlignment="Center" />
+          <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding RemotePort}" MaxLength="5" />
+          <Button Grid.Column="4" Grid.RowSpan="3" Command="{Binding SaveRemoteCommand}" IsEnabled="{Binding CanMix}" Content="Save" VerticalAlignment="Center" />
+        </Grid>
+        <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Faders, mutes, pans, solos and sends, and the GO button for the next cue. EQ and effects stay on this screen. Five wrong PINs from one phone and it has to wait a minute." />
+        <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+        <TextBlock Classes="eyebrow" Text="ON THE REMOTE NOW" />
+        <TextBlock Classes="small" Text="{Binding RemoteClientsText}" TextWrapping="Wrap" />
+        <Grid ColumnDefinitions="*,8,Auto">
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="{Binding FirewallText}" VerticalAlignment="Center" />
+          <Button Grid.Column="2" Classes="small ghost" Command="{Binding AllowRemoteFirewallCommand}" Content="Let phones in through Windows Firewall" />
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <!-- NEXORA triggers -->
+    <Border Grid.Column="4" Classes="card" Padding="16" VerticalAlignment="Top">
+      <StackPanel Spacing="10">
+        <TextBlock Classes="h3" Text="Follow the screens (NEXORA)" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="When something goes up on the main screen, NEX-Audio can change the mix for you. For example: when Amazing Grace goes up, recall the Choir snapshot. When Scripture goes up, go to the Sermon cue." />
+          <ToggleSwitch Grid.Column="1" IsChecked="{Binding FollowNexora}" IsEnabled="{Binding CanMix}" OnContent="" OffContent="" VerticalAlignment="Top" />
+        </Grid>
+        <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding TriggerNote}" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{Binding TriggerRows}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:TriggerRow">
+              <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="10,6" Margin="0,0,0,6">
+                <Grid ColumnDefinitions="*,8,Auto,4,Auto">
+                  <TextBlock Classes="small" Text="{Binding Text}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                  <ToggleSwitch Grid.Column="2" IsChecked="{Binding On}" OnContent="" OffContent="" MinWidth="0" Margin="0,-6" />
+                  <Button Grid.Column="4" Classes="ghost small" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete this trigger">
+                    <c:Icon Kind="trash" Width="13" Height="13" />
+                  </Button>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="faint small" IsVisible="{Binding !HasTriggers}" Text="No triggers yet. Add one below." />
+        <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+        <TextBlock Classes="eyebrow" Text="ADD A TRIGGER" />
+        <Grid ColumnDefinitions="90,8,*" RowDefinitions="Auto,8,Auto,8,Auto,8,Auto" DataContext="{Binding TriggerEdit}" x:DataType="vm:TriggerForm">
+          <TextBlock Classes="flabel" Text="When" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="2" ItemsSource="{Binding WhenChoices}" SelectedItem="{Binding When}" HorizontalAlignment="Stretch" />
+          <TextBlock Grid.Row="2" Classes="flabel" Text="Song title" VerticalAlignment="Center" IsVisible="{Binding IsSong}" />
+          <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding Song}" Watermark="Part of the title. Empty: any song" IsVisible="{Binding IsSong}" />
+          <TextBlock Grid.Row="2" Classes="flabel" Text="Section" VerticalAlignment="Center" IsVisible="{Binding IsSection}" />
+          <ComboBox Grid.Row="2" Grid.Column="2" ItemsSource="{Binding SectionChoices}" SelectedItem="{Binding Section}" HorizontalAlignment="Stretch" IsVisible="{Binding IsSection}" />
+          <TextBlock Grid.Row="4" Classes="flabel" Text="Then" VerticalAlignment="Center" />
+          <ComboBox Grid.Row="4" Grid.Column="2" ItemsSource="{Binding ActionChoices}" SelectedItem="{Binding Action}" HorizontalAlignment="Stretch" />
+          <TextBlock Grid.Row="6" Classes="flabel" Text="Which" VerticalAlignment="Center" IsVisible="{Binding HasTarget}" />
+          <Grid Grid.Row="6" Grid.Column="2" ColumnDefinitions="*,8,Auto">
+            <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding Target}" HorizontalAlignment="Stretch" IsVisible="{Binding HasTarget}" />
+            <Button Grid.Column="2" Classes="primary" Command="{Binding AddCommand}" Content="Add" />
+          </Grid>
+        </Grid>
+        <TextBlock Classes="faint small" TextWrapping="Wrap" Text="NEX-Audio hears about the screens through the Live Output PC, while someone is signed in here. Each trigger fires at most once every 3 seconds, and never while preparing a show offline. Triggers are saved with the show." />
+      </StackPanel>
+    </Border>
+  </Grid>
+  </ScrollViewer>
+</UserControl>

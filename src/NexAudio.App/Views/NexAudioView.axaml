@@ -181,6 +181,12 @@
           <TextBlock Text="Failsafe" />
         </StackPanel>
       </Button>
+      <Button Classes="tab" Classes.selected="{Binding OnRemote}" Command="{Binding ShowTabCommand}" CommandParameter="Remote">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" IsVisible="{Binding RemoteRunning}" VerticalAlignment="Center" />
+          <TextBlock Text="Remote" />
+        </StackPanel>
+      </Button>
       <Button Classes="tab" Classes.selected="{Binding OnSetup}" Command="{Binding ShowTabCommand}" CommandParameter="Meters" Content="Setup" />
     </StackPanel>
     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -252,6 +258,7 @@
       <na:SoundcheckPage IsVisible="{Binding OnSoundcheck}" />
       <na:PluginsPage IsVisible="{Binding OnPlugins}" />
       <na:FailsafePage IsVisible="{Binding OnFailsafe}" />
+      <na:RemotePage IsVisible="{Binding OnRemote}" />
 
 
       <!-- Meters -->

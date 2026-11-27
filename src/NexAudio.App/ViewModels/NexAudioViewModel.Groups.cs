@@ -33,6 +33,7 @@ public sealed partial class NexAudioViewModel
 
     public ObservableCollection<PairRow> PairRows { get; } = [];
     public ObservableCollection<MixParam> SoloParams { get; } = [];
+    public ObservableCollection<MixParam> CueParams { get; } = [];
 
     public static IReadOnlyList<Choice> ControlModes { get; } =
     [
@@ -66,6 +67,17 @@ public sealed partial class NexAudioViewModel
         SoloParams.Add(new ToggleParam("solo.exclusive", "One solo at a time (a new solo clears the others)", m => m.Solo.Exclusive, q));
         SoloParams.Add(new ToggleParam("solo.autoSolo", "Selecting a strip solos it", m => m.Solo.AutoSolo, q));
         foreach (var p in SoloParams) p.Refresh(_mix);
+
+        // The engineer's headphones: their own source and level.
+        CueParams.Clear();
+        var sources = new List<Choice> { new("solo", "Solo bus 1 (the main mix when nothing is soloed)"), new("solo2", "Solo bus 2"), new("main", "The main mix"), new("stream", "The stream mix") };
+        foreach (var b in _mix.BusesOf(StripKind.Mix).Concat(_mix.BusesOf(StripKind.Matrix)).Concat(_mix.BusesOf(StripKind.Group)))
+            sources.Add(new(b.Id, $"{MixState.KindLabel(b.Kind)} {b.Number} · {NameOf(b)}"));
+        CueParams.Add(new ChoiceParam("cue.source", "Headphones play", sources, m => m.Cue.Source, q));
+        CueParams.Add(new SliderParam("cue.level", "Headphone level", -40, 10, "dB", m => m.Cue.Level, q, step: 0.5, def: 0));
+        CueParams.Add(new ToggleParam("cue.soloFirst", "A solo takes over the headphones", m => m.Cue.SoloFirst, q));
+        CueParams.Add(new ToggleParam("cue.mute", "Headphones muted", m => m.Cue.Mute, q));
+        foreach (var p in CueParams) p.Refresh(_mix);
 
         OnPropertyChanged(nameof(HasControlGroups));
         OnPropertyChanged(nameof(HasMuteGroups));

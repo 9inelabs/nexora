@@ -343,6 +343,32 @@ public sealed class EngineServer : IDisposable
                 });
                 break;
             }
+            case "surface.set":
+            {
+                var n = m.Data is { } d ? d.Deserialize<DeskSettings>(MixState.Json) : null;
+                if (n is null) break;
+                desk.ConfigureSurfaces(n.X32Surface, n.MidiIn, n.MidiOut, n.Remote);
+                break;
+            }
+            case "surface.select":
+                desk.Select(m.Args?.GetValueOrDefault("strip"), fromSurface: false);
+                break;
+            case "midi.refresh":
+                desk.RefreshMidi();
+                break;
+            case "trigger.save":
+                if (m.Data?.Deserialize<ShowTrigger>(ShowState.Json) is { } trig) desk.SaveTrigger(trig);
+                break;
+            case "trigger.delete":
+                desk.DeleteTrigger(m.Args?.GetValueOrDefault("id") ?? "");
+                break;
+            case "trigger.follow":
+                desk.FollowNexora(Bool(m.Args?.GetValueOrDefault("on")));
+                break;
+            case "live":
+                if (Enum.TryParse<TriggerWhen>(m.Args?.GetValueOrDefault("when"), out var when))
+                    desk.Live(new LiveEvent(when, m.Args?.GetValueOrDefault("name") ?? ""));
+                break;
             case "failsafe.handover":
                 await desk.HandOverAsync("The engineer handed the room to the X32.");
                 break;
