@@ -1,0 +1,119 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:p="using:Nexora.Audio.Plugins"
+             x:Class="Nexora.App.Views.NexAudio.ChannelPage"
+             x:DataType="vm:NexAudioViewModel">
+  <Grid RowDefinitions="Auto,10,*">
+    <Border Classes="card" Padding="14,10">
+      <Grid ColumnDefinitions="Auto,8,Auto,14,*,12,Auto">
+        <Button Classes="ghost" Command="{Binding StepSelectionCommand}" CommandParameter="-1" ToolTip.Tip="Previous strip">
+          <c:Icon Kind="left" Width="14" Height="14" />
+        </Button>
+        <Button Grid.Column="2" Classes="ghost" Command="{Binding StepSelectionCommand}" CommandParameter="1" ToolTip.Tip="Next strip">
+          <c:Icon Kind="right" Width="14" Height="14" />
+        </Button>
+        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <StackPanel Spacing="0" VerticalAlignment="Center">
+            <TextBlock Classes="eyebrow" Text="{Binding SelectedKind}" />
+            <TextBlock Classes="h2" Text="{Binding SelectedTitle}" />
+          </StackPanel>
+          <TextBox Text="{Binding SelectedName}" Watermark="Name on this desk" Width="180" VerticalAlignment="Center" />
+          <Button Command="{Binding RenameCommand}" Content="Rename" VerticalAlignment="Center" />
+        </StackPanel>
+        <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <TextBlock Classes="flabel" Text="Copy EQ, dynamics and effects to" />
+          <ComboBox ItemsSource="{Binding CopyTargets}" SelectedItem="{Binding CopyTarget}" MinWidth="150" />
+          <Button Command="{Binding CopyProcessingCommand}" Content="Copy" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,12,380">
+      <Grid RowDefinitions="Auto,10,*">
+        <Border Classes="card" Padding="12">
+          <Grid ColumnDefinitions="*,14,170">
+            <c:EqCurve Height="200" Settings="{Binding SelectedFilters}" Spectrum="{Binding Spectrum}" />
+            <StackPanel Grid.Column="2" Spacing="8" VerticalAlignment="Center">
+              <TextBlock Classes="eyebrow" Text="INPUT LEVEL" />
+              <c:BarMeter Height="8" Minimum="-60" Maximum="0" Value="{Binding SelectedIn}" />
+              <TextBlock Classes="eyebrow" Text="GATE TURNING DOWN" />
+              <c:BarMeter Height="8" Minimum="0" Maximum="40" Value="{Binding SelectedGate}" />
+              <TextBlock Classes="eyebrow" Text="COMPRESSOR" />
+              <c:BarMeter Height="8" Minimum="0" Maximum="20" Value="{Binding SelectedComp}" />
+              <TextBlock Classes="eyebrow" Text="EFFECTS RACK" />
+              <c:BarMeter Height="8" Minimum="0" Maximum="20" Value="{Binding SelectedRack}" />
+              <TextBlock Classes="faint small" TextWrapping="Wrap" Text="The shaded shape behind the curve is what this strip is playing now." />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding ChannelSections}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" ItemWidth="350" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ParamSection">
+                <Border Classes="card" Padding="14,12" Margin="0,0,10,10">
+                  <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Classes="h3" Text="{Binding Title}" />
+                      <ToggleSwitch Grid.Column="1" IsVisible="{Binding HasSwitch}" IsChecked="{Binding Switch.Value}" OnContent="On" OffContent="Off" Margin="0,-8" />
+                    </Grid>
+                    <TextBlock Classes="faint small" Text="{Binding Note}" TextWrapping="Wrap" IsVisible="{Binding HasNote}" />
+                    <ItemsControl ItemsSource="{Binding Items}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+
+      <Border Grid.Column="2" Classes="card" Padding="14,12">
+        <Grid RowDefinitions="Auto,8,Auto,10,*">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="h3" Text="Effects rack" />
+            <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Up to 8 effects run in order, after the compressor. NEX-Audio's own effects and VST3 plugins." />
+          </StackPanel>
+          <Grid Grid.Row="2" ColumnDefinitions="*,8,Auto">
+            <ComboBox ItemsSource="{Binding AddChoices}" SelectedItem="{Binding AddChoice}" HorizontalAlignment="Stretch" />
+            <Button Grid.Column="2" Classes="primary" Command="{Binding AddEffectCommand}" Content="Add" />
+          </Grid>
+          <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Rack}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:RackItemView">
+                  <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="12,10" Margin="0,0,0,8">
+                    <StackPanel Spacing="6">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="1">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Classes="faint small" Text="{Binding Vendor}" IsVisible="{Binding IsPlugin}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                          <Button Classes="ghost small" Command="{Binding MoveUpCommand}" IsEnabled="{Binding CanMoveUp}" ToolTip.Tip="Earlier in the rack"><c:Icon Kind="arrowup" Width="11" Height="11" /></Button>
+                          <Button Classes="ghost small" Command="{Binding MoveDownCommand}" IsEnabled="{Binding CanMoveDown}" ToolTip.Tip="Later in the rack"><c:Icon Kind="arrowdown" Width="11" Height="11" /></Button>
+                          <Button Classes="ghost small" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove"><c:Icon Kind="x" Width="11" Height="11" /></Button>
+                        </StackPanel>
+                      </Grid>
+                      <TextBlock Classes="faint small" Text="{Binding Description}" TextWrapping="Wrap" />
+                      <ContentControl Content="{Binding Bypass}" />
+                      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsPlugin}">
+                        <Button Classes="small" Command="{Binding OpenEditorCommand}" Content="Open plugin window" />
+                        <Button Classes="ghost small" Command="{Binding RetryCommand}" Content="Restart" />
+                      </StackPanel>
+                      <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding Status}" TextWrapping="Wrap" IsVisible="{Binding IsPlugin}" />
+                      <ItemsControl ItemsSource="{Binding Params}" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

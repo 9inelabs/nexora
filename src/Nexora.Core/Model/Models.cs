@@ -17,6 +17,8 @@ public enum Role
     Trainee = 256,
     /// <summary>Sound engineers: the NEX-Audio section.</summary>
     Audio = 512,
+    /// <summary>NEX-Audio, but only the stream and recording mix (for a volunteer on the stream desk).</summary>
+    AudioStream = 1024,
 }
 
 /// <summary>An operator section that a terminal can open.</summary>
@@ -109,7 +111,7 @@ public static class Sections
     public static SectionDefinition Get(SectionKind kind) => All.First(s => s.Kind == kind);
 
     public static bool UserMayOpen(Role roles, SectionKind kind) =>
-        roles.HasFlag(Role.Admin) || roles.HasFlag(Get(kind).Role);
+        roles.HasFlag(Role.Admin) || roles.HasFlag(Get(kind).Role) || kind == SectionKind.Audio && roles.HasFlag(Role.AudioStream);
 
     public static string SourceKey(string pcId, SectionKind kind) => $"{pcId}:{kind}";
 }

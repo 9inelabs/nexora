@@ -365,6 +365,7 @@
                     <CheckBox Content="Lower Thirds" IsChecked="{Binding LowerThirds}" />
                     <CheckBox Content="Countdown and Minister Timer" IsChecked="{Binding Countdown}" />
                     <CheckBox Content="NEX-Audio (sound engineer)" IsChecked="{Binding Audio}" />
+                    <CheckBox Content="NEX-Audio stream mix only" IsChecked="{Binding AudioStream}" ToolTip.Tip="Can open NEX-Audio and change only the stream and recording mix." />
                     <CheckBox Content="Trainee (practice only)" IsChecked="{Binding Trainee}" />
                   </UniformGrid>
                 </StackPanel>

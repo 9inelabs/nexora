@@ -16,6 +16,13 @@ namespace Nexora.App.ViewModels;
 
 public enum NexAudioTab
 {
+    Mixer,
+    Channel,
+    Outputs,
+    Stream,
+    Scenes,
+    Plugins,
+    Failsafe,
     Meters,
     Patch,
     Latency,
@@ -56,6 +63,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
             }
         });
         _x32.Changed += () => Dispatcher.UIThread.Post(ApplyConsole);
+        HookDesk();
         _clock = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Tick());
         _clock.Start();
 
@@ -67,8 +75,19 @@ public sealed partial class NexAudioViewModel : ViewModelBase
     // ---- Tabs ------------------------------------------------------------------------------
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(OnMeters), nameof(OnPatch), nameof(OnLatency), nameof(OnDriver), nameof(OnConsole), nameof(OnPcCheck))]
-    private NexAudioTab _tab = NexAudioTab.Meters;
+    [NotifyPropertyChangedFor(nameof(OnMeters), nameof(OnPatch), nameof(OnLatency), nameof(OnDriver), nameof(OnConsole), nameof(OnPcCheck),
+        nameof(OnMixer), nameof(OnChannel), nameof(OnOutputs), nameof(OnStream), nameof(OnScenes), nameof(OnPlugins), nameof(OnFailsafe), nameof(OnSetup))]
+    private NexAudioTab _tab = NexAudioTab.Mixer;
+
+    public bool OnMixer => Tab == NexAudioTab.Mixer;
+    public bool OnChannel => Tab == NexAudioTab.Channel;
+    public bool OnOutputs => Tab == NexAudioTab.Outputs;
+    public bool OnStream => Tab == NexAudioTab.Stream;
+    public bool OnScenes => Tab == NexAudioTab.Scenes;
+    public bool OnPlugins => Tab == NexAudioTab.Plugins;
+    public bool OnFailsafe => Tab == NexAudioTab.Failsafe;
+    /// <summary>The Phase 1 pages (meters, latency, driver, X32 link, PC check) sit together under Setup.</summary>
+    public bool OnSetup => Tab is NexAudioTab.Meters or NexAudioTab.Patch or NexAudioTab.Latency or NexAudioTab.Driver or NexAudioTab.Console or NexAudioTab.PcCheck;
 
     public bool OnMeters => Tab == NexAudioTab.Meters;
     public bool OnPatch => Tab == NexAudioTab.Patch;
@@ -152,6 +171,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
             RefreshLabels();
             BuildPatch();
             BuildLatencyChoices();
+            if (_mixReceived) BuildOutputs();
         }
         else if (s.Patch.Count == PatchRows.Count) SyncPatch(s.Patch);
         else if (!_patchBuilt) BuildPatch();
@@ -458,6 +478,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
         if (info is not null)
         {
             X32Message = "Linked. Channel names come straight from the desk and update when they change there.";
+            if (CanMix) _ = Command("x32.connect", new() { ["host"] = X32Address.Trim() });
             SaveLocal(LoadLocal() with { X32Address = X32Address.Trim() });
         }
         else if (!X32Message.StartsWith("Could not"))
@@ -484,6 +505,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
         foreach (var c in channels) ConsoleChannels.Add(new ConsoleChannel(c.Number, c.Label, new SolidColorBrush(Color.Parse(c.ColourHex)), c.Name.Length > 0));
         RefreshLabels();
         if (_patchBuilt) RelabelPatch(channels);
+        QueueRebuild();
     }
 
     private void RelabelPatch(IReadOnlyList<X32Channel> channels)
@@ -542,6 +564,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
     public override void OnLeave()
     {
         _clock.Stop();
+        _flush?.Stop();
         _engine.Dispose();
         _x32.Dispose();
     }

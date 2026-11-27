@@ -670,6 +670,7 @@ public sealed partial class UserEdit : ObservableObject
         _lowerThirds = u.Roles.HasFlag(Role.LowerThirds);
         _countdown = u.Roles.HasFlag(Role.Countdown);
         _audio = u.Roles.HasFlag(Role.Audio);
+        _audioStream = u.Roles.HasFlag(Role.AudioStream);
         _trainee = u.Roles.HasFlag(Role.Trainee);
     }
 
@@ -693,6 +694,7 @@ public sealed partial class UserEdit : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(RolesText))] private bool _lowerThirds;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(RolesText))] private bool _countdown;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(RolesText))] private bool _audio;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(RolesText))] private bool _audioStream;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(RolesText))] private bool _trainee;
 
     public string Initials => UserInfo.MakeInitials(string.IsNullOrWhiteSpace(Name) ? "?" : Name);
@@ -713,6 +715,7 @@ public sealed partial class UserEdit : ObservableObject
             if (LowerThirds) parts.Add("Lower Thirds");
             if (Countdown) parts.Add("Countdown");
             if (Audio) parts.Add("NEX-Audio");
+            else if (AudioStream) parts.Add("NEX-Audio stream mix");
             var text = parts.Count == 0 ? "No roles" : string.Join(", ", parts);
             return Trainee ? "Trainee · " + text : text;
         }
@@ -732,6 +735,7 @@ public sealed partial class UserEdit : ObservableObject
         if (LowerThirds) r |= Role.LowerThirds;
         if (Countdown) r |= Role.Countdown;
         if (Audio) r |= Role.Audio;
+        if (AudioStream) r |= Role.AudioStream;
         if (Trainee) r |= Role.Trainee;
         return new UserInfo(Id, Name.Trim(), Initials, r, Title.Trim());
     }

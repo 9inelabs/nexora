@@ -84,6 +84,8 @@ public static class Icons
         ["upload"] = "M12 15 V3 M7 8 L12 3 L17 8 M21 15 V19 A2 2 0 0 1 19 21 H5 A2 2 0 0 1 3 19 V15",
         ["trash"] = "M3 6 H21 M8 6 V4 H16 V6 M6 6 L7 21 H17 L18 6",
         ["shield"] = "M12 22 C12 22 20 18 20 12 V5 L12 2 L4 5 V12 C4 18 12 22 12 22 Z",
+        ["left"] = "M15 5 L8 12 L15 19",
+        ["right"] = "M9 5 L16 12 L9 19",
         ["refresh"] = "M21 12 A9 9 0 1 1 18.4 5.6 M21 3 V9 H15",
         ["arrowup"] = "M12 19 V5 M5 12 L12 5 L19 12",
         ["arrowdown"] = "M12 5 V19 M5 12 L12 19 L19 12",

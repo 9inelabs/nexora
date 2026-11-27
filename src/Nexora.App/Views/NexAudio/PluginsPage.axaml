@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:p="using:Nexora.Audio.Plugins"
+             x:Class="Nexora.App.Views.NexAudio.PluginsPage"
+             x:DataType="vm:NexAudioViewModel">
+  <Grid ColumnDefinitions="*,12,380">
+    <Border Classes="card" Padding="16">
+      <Grid RowDefinitions="Auto,10,*">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="3">
+            <TextBlock Classes="h3" Text="{Binding PluginCountText}" />
+            <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding ScanText}" TextWrapping="Wrap" />
+          </StackPanel>
+          <Button Grid.Column="1" Classes="primary" Command="{Binding ScanPluginsCommand}" Content="Look for plugins" VerticalAlignment="Top" />
+        </Grid>
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding FoundPlugins}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="p:PluginInfo">
+                <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="12,8" Margin="0,0,0,6">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="1">
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                      <TextBlock Classes="faint small" Text="{Binding SubCategories}" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Classes="muted small" Text="{Binding Vendor}" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+    </Border>
+    <Border Grid.Column="2" Classes="card" Padding="16" VerticalAlignment="Top">
+      <StackPanel Spacing="10">
+        <TextBlock Classes="h3" Text="How plugins work in NEX-Audio" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Text="Install VST3 plugins the normal way (for Waves, with Waves Central and your licences on this PC). They land in C:\Program Files\Common Files\VST3. Then press Look for plugins." />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Text="To use one, open a strip on the Channel tab and add it to the effects rack. Its own window opens with Open plugin window." />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Text="Each plugin runs in its own small program. If one crashes, the sound carries on without it and NEX-Audio starts it again. Plugins add a few milliseconds of delay, which NEX-Audio lines up across the whole mix by itself." />
+        <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Plugin settings are saved with each scene." />
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

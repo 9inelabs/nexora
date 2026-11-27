@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:p="using:Nexora.Audio.Plugins"
+             x:Class="Nexora.App.Views.NexAudio.MixerPage"
+             x:DataType="vm:NexAudioViewModel">
+  <Grid RowDefinitions="Auto,10,*">
+    <Grid ColumnDefinitions="Auto,16,Auto,12,*,Auto">
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <Button Classes="tab small" Classes.selected="{Binding BankLow}" Command="{Binding ShowBankCommand}" CommandParameter="0" Content="Channels 1–16" />
+        <Button Classes="tab small" Classes.selected="{Binding BankHigh}" Command="{Binding ShowBankCommand}" CommandParameter="1" Content="Channels 17–32" />
+        <Button Classes="tab small" Classes.selected="{Binding BankBuses}" Command="{Binding ShowBankCommand}" CommandParameter="2" Content="Buses" />
+      </StackPanel>
+      <ComboBox Grid.Column="2" ItemsSource="{Binding Layers}" SelectedItem="{Binding Layer}" MinWidth="200" VerticalAlignment="Center"
+                ToolTip.Tip="Sends on faders: pick a monitor mix or an effect, and every fader shows its send to it." />
+      <TextBlock Grid.Column="4" Classes="faint small" Text="{Binding LayerTitle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+        <TextBlock Classes="faint small" Text="{Binding LatencyMixText}" VerticalAlignment="Center" />
+        <Button Classes="warn small" Command="{Binding ClearSoloCommand}" IsVisible="{Binding AnySolo}" Content="Clear solo" />
+      </StackPanel>
+    </Grid>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,12,Auto">
+      <Border Classes="card" Padding="10">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding VisibleStrips}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+          </ItemsControl>
+        </ScrollViewer>
+      </Border>
+      <Border Grid.Column="2" Classes="card" Padding="10">
+        <StackPanel Orientation="Horizontal">
+          <ContentControl Content="{Binding LayerStrip}" IsVisible="{Binding OnSendsLayer}" />
+          <ContentControl Content="{Binding MainStrip}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+  <UserControl.DataTemplates>
+    <DataTemplate DataType="vm:StripView">
+      <Border Classes="stripcard" Classes.selected="{Binding IsSelected}">
+        <Grid RowDefinitions="Auto,Auto,4,Auto,6,Auto,Auto,*,Auto,6,Auto,4,Auto">
+          <TextBlock Classes="eyebrow" Text="{Binding Number}" HorizontalAlignment="Center" FontSize="9.5" TextTrimming="CharacterEllipsis" />
+          <Button Grid.Row="1" Classes="ghost small" Command="{Binding SelectCommand}" Padding="2,3" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  ToolTip.Tip="Open this strip's EQ, dynamics, effects and sends">
+            <StackPanel Spacing="3">
+              <TextBlock Text="{Binding Name}" FontSize="11.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
+              <Border Height="2" CornerRadius="1" Background="{Binding Colour}" Width="40" />
+            </StackPanel>
+          </Button>
+          <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center">
+            <Border Classes="ind" Classes.on="{Binding EqOn}"><TextBlock Text="EQ" /></Border>
+            <Border Classes="ind" Classes.on="{Binding DynOn}"><TextBlock Text="DYN" /></Border>
+            <Border Classes="ind" Classes.on="{Binding RackOn}"><TextBlock Text="FX" /></Border>
+          </StackPanel>
+          <Slider Grid.Row="5" Minimum="-1" Maximum="1" Value="{Binding Pan}" Margin="2,-8" ToolTip.Tip="Pan (balance on stereo strips)" />
+          <TextBlock Grid.Row="6" Classes="faint mono" FontSize="9.5" Text="{Binding PanText}" HorizontalAlignment="Center" />
+          <c:Fader Grid.Row="7" Value="{Binding Fader}" MinHeight="180" IsEnabled="{Binding FaderEnabled}"
+                   Meters="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).StripMeters}"
+                   MeterIndex="{Binding MeterIndex}" MeterIndexR="{Binding MeterIndexR}" />
+          <StackPanel Grid.Row="8" Spacing="0">
+            <TextBlock Classes="mono small" Text="{Binding FaderText}" HorizontalAlignment="Center" />
+            <TextBlock Classes="faint" FontSize="9" Text="{Binding LayerNote}" HorizontalAlignment="Center" />
+          </StackPanel>
+          <Button Grid.Row="10" Classes="strip mute" Classes.active="{Binding Mute}" Command="{Binding ToggleMuteCommand}" Content="MUTE" />
+          <Button Grid.Row="12" Classes="strip solo" Classes.active="{Binding Solo}" Command="{Binding ToggleSoloCommand}" Content="SOLO" IsVisible="{Binding CanSolo}" />
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </UserControl.DataTemplates>
+</UserControl>

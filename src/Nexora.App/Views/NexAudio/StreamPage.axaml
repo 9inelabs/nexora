@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nexora.App.ViewModels"
+             xmlns:c="using:Nexora.App.Controls"
+             xmlns:p="using:Nexora.Audio.Plugins"
+             x:Class="Nexora.App.Views.NexAudio.StreamPage"
+             x:DataType="vm:NexAudioViewModel">
+  <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,12,*">
+    <Border Classes="card" Padding="16" VerticalAlignment="Top">
+      <StackPanel Spacing="8">
+        <TextBlock Classes="h3" Text="Stream and recording mix" />
+        <TextBlock Classes="faint small" TextWrapping="Wrap" Text="The stream gets its own copy of the mix, with its own compressor and a final limiter, so the online sound is even and never too loud. It goes over the network to the Live Output PC, which records and streams it." />
+        <ItemsControl ItemsSource="{Binding StreamParams}" Margin="0,4,0,0" />
+        <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding StreamLinkText}" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+    <Border Grid.Column="2" Classes="card" Padding="16" VerticalAlignment="Top">
+      <StackPanel Spacing="10">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="h3" Text="Loudness" />
+          <Button Grid.Column="1" Classes="ghost small" Command="{Binding ResetLoudnessCommand}" Content="Start a new measurement" />
+        </Grid>
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Classes="display" FontSize="46" Foreground="{StaticResource Accent}" Text="{Binding LufsShort}" />
+          <TextBlock Classes="muted" Text="LUFS, last 3 seconds" VerticalAlignment="Bottom" Margin="0,0,0,10" />
+        </StackPanel>
+        <c:BarMeter Height="10" Minimum="-40" Maximum="0" Value="{Binding LufsShortValue}" Target="{Binding LoudnessTarget}" />
+        <UniformGrid Columns="3" Margin="0,6,0,0">
+          <StackPanel Spacing="1">
+            <TextBlock Classes="eyebrow" Text="RIGHT NOW" />
+            <TextBlock Classes="statvalue" Text="{Binding LufsMomentary}" />
+          </StackPanel>
+          <StackPanel Spacing="1">
+            <TextBlock Classes="eyebrow" Text="WHOLE SERVICE" />
+            <TextBlock Classes="statvalue" Text="{Binding LufsIntegrated}" />
+          </StackPanel>
+          <StackPanel Spacing="1">
+            <TextBlock Classes="eyebrow" Text="HIGHEST PEAK" />
+            <TextBlock Classes="statvalue" Text="{Binding TruePeak}" Classes.error="{Binding PeakWarning}" />
+          </StackPanel>
+        </UniformGrid>
+        <TextBlock Classes="muted" Text="{Binding LoudnessAdvice}" TextWrapping="Wrap" />
+        <TextBlock Classes="faint small" TextWrapping="Wrap" Text="YouTube and Facebook play music at about -14 LUFS. A spoken service sits well a little lower, around -16." />
+      </StackPanel>
+    </Border>
+    <Border Grid.Row="2" Grid.ColumnSpan="3" Classes="card" Padding="16" IsVisible="{Binding StreamOwnMix}">
+      <Grid RowDefinitions="Auto,10,*">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="h3" Text="The stream's own balance" />
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Each strip's level in the stream, taken before its fader, so turning the room's PA down does not change the stream." />
+        </StackPanel>
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding StreamChannelParams}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><UniformGrid Columns="3" VerticalAlignment="Top" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:MixParam">
+                <ContentControl Content="{Binding}" Margin="0,0,16,0" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+    </Border>
+  </Grid>
+  <UserControl.Styles>
+    <Style Selector="TextBlock.statvalue">
+      <Setter Property="FontSize" Value="19" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontFamily" Value="{StaticResource FontDisplay}" />
+    </Style>
+  </UserControl.Styles>
+</UserControl>

@@ -3,6 +3,7 @@
              xmlns:vm="using:Nexora.App.ViewModels"
              xmlns:c="using:Nexora.App.Controls"
              xmlns:x32="using:Nexora.Audio.X32"
+             xmlns:na="using:Nexora.App.Views.NexAudio"
              x:Class="Nexora.App.Views.NexAudioView"
              x:DataType="vm:NexAudioViewModel">
   <UserControl.Styles>
@@ -29,9 +30,78 @@
       <Setter Property="Padding" Value="10,6" />
       <Setter Property="Margin" Value="0,0,8,8" />
     </Style>
+    <Style Selector="Button.strip">
+      <Setter Property="Padding" Value="0,3" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.strip.mute.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Live}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.strip.solo.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Accent}" />
+      <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
+    </Style>
+    <Style Selector="Border.ind">
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="3,0" />
+      <Setter Property="Background" Value="{StaticResource Surface3}" />
+    </Style>
+    <Style Selector="Border.ind TextBlock">
+      <Setter Property="FontSize" Value="9" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{StaticResource Text3}" />
+    </Style>
+    <Style Selector="Border.ind.on">
+      <Setter Property="Background" Value="{StaticResource TintAccent}" />
+    </Style>
+    <Style Selector="Border.ind.on TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="Border.stripcard">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="5,6" />
+      <Setter Property="Width" Value="76" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.stripcard.selected">
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="Slider.param">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,-6" />
+    </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,12,Auto,12,*" Margin="20,16,20,18">
+  <UserControl.DataTemplates>
+    <DataTemplate DataType="vm:SliderParam">
+      <Grid ColumnDefinitions="128,8,*,8,64" Margin="0,2">
+        <TextBlock Classes="flabel" Text="{Binding Label}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Label}" />
+        <Slider Grid.Column="2" Classes="param" Minimum="0" Maximum="1000" Value="{Binding Position}" />
+        <TextBlock Grid.Column="4" Classes="mono small" Text="{Binding Text}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+      </Grid>
+    </DataTemplate>
+    <DataTemplate DataType="vm:ToggleParam">
+      <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+        <TextBlock Classes="flabel" Text="{Binding Label}" TextWrapping="Wrap" />
+        <ToggleSwitch Grid.Column="1" IsChecked="{Binding Value}" OnContent="" OffContent="" MinWidth="0" Margin="0,-6" />
+      </Grid>
+    </DataTemplate>
+    <DataTemplate DataType="vm:ChoiceParam">
+      <Grid ColumnDefinitions="128,8,*" Margin="0,2">
+        <TextBlock Classes="flabel" Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+        <ComboBox Grid.Column="2" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch" FontSize="12.5" />
+      </Grid>
+    </DataTemplate>
+  </UserControl.DataTemplates>
+
+  <Grid RowDefinitions="Auto,12,Auto,Auto,12,*" Margin="20,16,20,18">
 
     <!-- Engine status -->
     <Border Classes="card" Padding="16,14">
@@ -110,20 +180,42 @@
 
     <!-- Tabs -->
     <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="4">
-      <Button Classes="tab" Classes.selected="{Binding OnMeters}" Command="{Binding ShowTabCommand}" CommandParameter="Meters" Content="Meters" />
-      <Button Classes="tab" Classes.selected="{Binding OnPatch}" Command="{Binding ShowTabCommand}" CommandParameter="Patch" Content="Outputs" />
-      <Button Classes="tab" Classes.selected="{Binding OnLatency}" Command="{Binding ShowTabCommand}" CommandParameter="Latency" Content="Latency test" />
-      <Button Classes="tab" Classes.selected="{Binding OnDriver}" Command="{Binding ShowTabCommand}" CommandParameter="Driver" Content="Driver" />
-      <Button Classes="tab" Classes.selected="{Binding OnConsole}" Command="{Binding ShowTabCommand}" CommandParameter="Console">
+      <Button Classes="tab" Classes.selected="{Binding OnMixer}" Command="{Binding ShowTabCommand}" CommandParameter="Mixer" Content="Mixer" />
+      <Button Classes="tab" Classes.selected="{Binding OnChannel}" Command="{Binding ShowTabCommand}" CommandParameter="Channel" Content="Channel" />
+      <Button Classes="tab" Classes.selected="{Binding OnOutputs}" Command="{Binding ShowTabCommand}" CommandParameter="Outputs" Content="Outputs" />
+      <Button Classes="tab" Classes.selected="{Binding OnStream}" Command="{Binding ShowTabCommand}" CommandParameter="Stream" Content="Stream" />
+      <Button Classes="tab" Classes.selected="{Binding OnScenes}" Command="{Binding ShowTabCommand}" CommandParameter="Scenes" Content="Scenes" />
+      <Button Classes="tab" Classes.selected="{Binding OnPlugins}" Command="{Binding ShowTabCommand}" CommandParameter="Plugins" Content="Plugins" />
+      <Button Classes="tab" Classes.selected="{Binding OnFailsafe}" Command="{Binding ShowTabCommand}" CommandParameter="Failsafe">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" IsVisible="{Binding Armed}" VerticalAlignment="Center" />
+          <TextBlock Text="Failsafe" />
+        </StackPanel>
+      </Button>
+      <Button Classes="tab" Classes.selected="{Binding OnSetup}" Command="{Binding ShowTabCommand}" CommandParameter="Meters" Content="Setup" />
+    </StackPanel>
+    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="4" Margin="0,8,0,0" IsVisible="{Binding OnSetup}">
+      <Button Classes="tab small" Classes.selected="{Binding OnMeters}" Command="{Binding ShowTabCommand}" CommandParameter="Meters" Content="Meters" />
+      <Button Classes="tab small" Classes.selected="{Binding OnLatency}" Command="{Binding ShowTabCommand}" CommandParameter="Latency" Content="Latency test" />
+      <Button Classes="tab small" Classes.selected="{Binding OnDriver}" Command="{Binding ShowTabCommand}" CommandParameter="Driver" Content="Driver" />
+      <Button Classes="tab small" Classes.selected="{Binding OnConsole}" Command="{Binding ShowTabCommand}" CommandParameter="Console">
         <StackPanel Orientation="Horizontal" Spacing="7">
           <Ellipse Width="7" Height="7" Fill="{StaticResource PreviewBrush}" IsVisible="{Binding X32Connected}" VerticalAlignment="Center" />
           <TextBlock Text="X32 link" />
         </StackPanel>
       </Button>
-      <Button Classes="tab" Classes.selected="{Binding OnPcCheck}" Command="{Binding ShowTabCommand}" CommandParameter="PcCheck" Content="PC check" />
+      <Button Classes="tab small" Classes.selected="{Binding OnPcCheck}" Command="{Binding ShowTabCommand}" CommandParameter="PcCheck" Content="PC check" />
     </StackPanel>
 
-    <Panel Grid.Row="4">
+    <Panel Grid.Row="5">
+      <na:MixerPage IsVisible="{Binding OnMixer}" />
+      <na:ChannelPage IsVisible="{Binding OnChannel}" />
+      <na:OutputsPage IsVisible="{Binding OnOutputs}" />
+      <na:StreamPage IsVisible="{Binding OnStream}" />
+      <na:ScenesPage IsVisible="{Binding OnScenes}" />
+      <na:PluginsPage IsVisible="{Binding OnPlugins}" />
+      <na:FailsafePage IsVisible="{Binding OnFailsafe}" />
+
 
       <!-- Meters -->
       <Grid RowDefinitions="*,12,*" IsVisible="{Binding OnMeters}">
@@ -149,51 +241,6 @@
           </Grid>
         </Border>
       </Grid>
-
-      <!-- Outputs (patch) -->
-      <Border Classes="card" Padding="16" IsVisible="{Binding OnPatch}">
-        <Grid RowDefinitions="Auto,12,*">
-          <Grid ColumnDefinitions="*,Auto">
-            <StackPanel Spacing="3">
-              <TextBlock Classes="h3" Text="What each output plays" />
-              <TextBlock Classes="faint small" TextWrapping="Wrap" Text="In Phase 1 each card return plays one input as it arrives, or a test tone. Buses and mixing come in Phase 2." />
-              <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding PatchSummary}" TextWrapping="Wrap" Margin="0,4,0,0" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top" IsEnabled="{Binding CanControl}">
-              <Button Command="{Binding PatchStraightCommand}" Content="Straight through (1 to 1)" />
-              <Button Classes="ghost" Command="{Binding PatchAllOffCommand}" Content="All off" />
-            </StackPanel>
-          </Grid>
-          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding PatchRows}">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate><UniformGrid Columns="4" VerticalAlignment="Top" /></ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:PatchRow">
-                  <Border Classes="row">
-                    <Grid ColumnDefinitions="Auto,10,*">
-                      <Border Background="{StaticResource Surface4}" CornerRadius="5" Padding="7,2" VerticalAlignment="Center" ToolTip.Tip="{Binding Name}">
-                        <TextBlock Text="{Binding Number}" Classes="mono" FontWeight="Bold" FontSize="12" />
-                      </Border>
-                      <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Center" FontSize="12.5"
-                                ItemsSource="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).PatchChoices}"
-                                SelectedItem="{Binding Selected}"
-                                IsEnabled="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).CanControl}">
-                        <ComboBox.ItemTemplate>
-                          <DataTemplate x:DataType="vm:PatchChoice">
-                            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
-                          </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                      </ComboBox>
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </ScrollViewer>
-        </Grid>
-      </Border>
 
       <!-- Latency test -->
       <Grid ColumnDefinitions="*,12,*" IsVisible="{Binding OnLatency}">
@@ -234,7 +281,7 @@
             <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
             <TextBlock Classes="faint small" TextWrapping="Wrap" Text="{Binding DriverLatencyText}" />
             <TextBlock Classes="faint small" TextWrapping="Wrap"
-                       Text="Under 6 ms suits wedges and in-ears. Up to 10 ms suits the stream, mains and side fills. Write the figure in the Phase 1 test sheet." />
+                       Text="Under 6 ms suits wedges and in-ears. Up to 10 ms suits the stream, mains and side fills. Write the figure in the test sheet." />
           </StackPanel>
         </Border>
       </Grid>
@@ -274,7 +321,7 @@
             <TextBlock Classes="h3" Text="How the engine stays up" />
             <TextBlock Classes="muted" TextWrapping="Wrap" Text="The sound engine is its own program. If this screen freezes or closes, the sound carries on." />
             <TextBlock Classes="muted" TextWrapping="Wrap" Text="If the engine or the driver stops, NEX-Audio starts it again within a few seconds with the same settings, and after a PC restart it starts the sound as soon as NEXORA opens." />
-            <TextBlock Classes="muted" TextWrapping="Wrap" Text="The full failsafe, where the X32 takes the room back on its own, arrives in Phase 2." />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="If NEX-Audio stops during a service, the failsafe hands the room to the X32 by itself (Failsafe tab)." />
             <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
             <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding CanControl}">
               <Button Classes="ghost" Command="{Binding ShutDownEngineCommand}" Content="Shut down the engine" IsVisible="{Binding EngineLinked}"
@@ -299,7 +346,7 @@
               <TextBlock Classes="h3" Text="{Binding X32Title}" VerticalAlignment="Center" />
             </StackPanel>
             <TextBlock Classes="faint small" Text="{Binding X32Detail}" />
-            <TextBlock Classes="muted" TextWrapping="Wrap" Text="NEX-Audio talks to the X32 over the church network to read its channel names. In Phase 1 it only reads; it never changes the desk." />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="NEX-Audio talks to the X32 over the church network: it reads the channel names, keeps the desk's own mix in step for the failsafe, and recalls the X32 scenes." />
             <Grid ColumnDefinitions="*,8,Auto">
               <TextBox Text="{Binding X32Address}" Watermark="X32 address, for example 192.168.1.50" />
               <Button Grid.Column="2" Classes="primary" Command="{Binding ConnectConsoleCommand}" IsEnabled="{Binding !X32Busy}" Content="Link" />
