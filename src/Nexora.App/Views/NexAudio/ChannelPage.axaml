@@ -90,6 +90,95 @@
       <Setter Property="Width" Value="64" />
       <Setter Property="Height" Value="84" />
     </Style>
+    <!-- Home dashboard -->
+    <Style Selector="Border.dash">
+      <Setter Property="Background" Value="{StaticResource Surface1}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="12,10" />
+    </Style>
+    <Style Selector="Button.head">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="2,2" />
+      <Setter Property="Foreground" Value="{StaticResource Text3}" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Button.head:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface3}" />
+    </Style>
+    <Style Selector="TextBlock.dtitle">
+      <Setter Property="FontSize" Value="10.5" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="LetterSpacing" Value="1.2" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ToggleButton.mini">
+      <Setter Property="Padding" Value="7,2" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="FontSize" Value="9.5" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="Background" Value="{StaticResource Surface3}" />
+      <Setter Property="Foreground" Value="{StaticResource Text3}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ToggleButton.mini:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Accent}" />
+      <Setter Property="Foreground" Value="#121316" />
+    </Style>
+    <Style Selector="ToggleButton.mini.input:checked /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{StaticResource InputTone}" /></Style>
+    <Style Selector="ToggleButton.mini.gate:checked /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{StaticResource GateTone}" /></Style>
+    <Style Selector="ToggleButton.mini.eq:checked /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{StaticResource EqTone}" /></Style>
+    <Style Selector="ToggleButton.mini.dyn:checked /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{StaticResource DynTone}" /></Style>
+    <Style Selector="ToggleButton.mini.red:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Live}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="c|Knob.mini">
+      <Setter Property="Width" Value="56" />
+      <Setter Property="Height" Value="74" />
+    </Style>
+    <Style Selector="Button.bandcell">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="6,4" />
+      <Setter Property="Margin" Value="0,0,4,0" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.bandcell.sel /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource EqTint}" />
+    </Style>
+    <Style Selector="Button.slotrow">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="Margin" Value="0,1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="VerticalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.slotrow.empty">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.lampx">
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="5,1" />
+      <Setter Property="Background" Value="{StaticResource Surface3}" />
+    </Style>
+    <Style Selector="Border.lampx TextBlock">
+      <Setter Property="FontSize" Value="8.5" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{StaticResource Text3}" />
+    </Style>
+    <Style Selector="Border.lampx.on"><Setter Property="Background" Value="{StaticResource FxTone}" /></Style>
+    <Style Selector="Border.lampx.on TextBlock"><Setter Property="Foreground" Value="#121316" /></Style>
+    <Style Selector="Slider.send">
+      <Setter Property="Margin" Value="0,-10" />
+    </Style>
     <Style Selector="TextBlock.sectitle">
       <Setter Property="FontFamily" Value="{StaticResource FontDisplay}" />
       <Setter Property="FontSize" Value="17" />
@@ -136,12 +225,12 @@
             <DataTemplate x:DataType="vm:ChannelRailItem">
               <Button Classes="sect" Classes.current="{Binding IsCurrent}" Command="{Binding OpenCommand}">
                 <Grid ColumnDefinitions="3,10,*,Auto" Margin="0,9,10,9">
-                  <Border CornerRadius="2" Background="{StaticResource Accent}" IsVisible="{Binding IsCurrent}" />
+                  <Border CornerRadius="2" Background="{Binding Tone}" IsVisible="{Binding IsCurrent}" />
                   <StackPanel Grid.Column="2" Spacing="1">
-                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13.5" />
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13.5" Foreground="{Binding TitleBrush}" />
                     <TextBlock Classes="faint" FontSize="11" Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
                   </StackPanel>
-                  <Ellipse Grid.Column="3" Width="7" Height="7" Fill="{StaticResource Accent}" IsVisible="{Binding IsOn}" VerticalAlignment="Center" />
+                  <Ellipse Grid.Column="3" Width="7" Height="7" Fill="{Binding Tone}" IsVisible="{Binding IsOn}" VerticalAlignment="Center" />
                 </Grid>
               </Button>
             </DataTemplate>
@@ -152,148 +241,213 @@
       <!-- The open section -->
       <Panel Grid.Column="2">
 
-        <!-- HOME: every setting at a glance -->
-        <Grid IsVisible="{Binding OnChHome}" RowDefinitions="*,*" ColumnDefinitions="*,*,*,*" Margin="0,0,-12,-12">
-          <Button Classes="tile" Command="{Binding OpenSectionCommand}" CommandParameter="Input">
-            <Grid RowDefinitions="Auto,8,*,8,Auto">
+        <!-- HOME: the whole strip on one screen. Knobs work here too; each card's title opens its full page. -->
+        <Grid IsVisible="{Binding OnChHome}" RowDefinitions="1.05*,8,*" ColumnDefinitions="*,8,*,8,*,8,*">
+
+          <!-- INPUT -->
+          <Border Classes="dash" c:Paint.Tint="{StaticResource InputTone}">
+            <Grid RowDefinitions="Auto,6,*,6,Auto">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="eyebrow" Text="INPUT" />
+                <Button Classes="head" Command="{Binding OpenSectionCommand}" CommandParameter="Input">
+                  <StackPanel Orientation="Horizontal" Spacing="6"><Ellipse Width="8" Height="8" Fill="{StaticResource InputTone}" /><TextBlock Classes="dtitle" Foreground="{StaticResource InputTone}" Text="INPUT" /><c:Icon Kind="right" Width="10" Height="10" /></StackPanel>
+                </Button>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                  <Border Classes="ind" Classes.on="{Binding Ch.Phantom.Value}"><TextBlock Text="48V" /></Border>
-                  <Border Classes="ind" Classes.on="{Binding Ch.Invert.Value}"><TextBlock Text="Ø" /></Border>
-                  <Border Classes="ind" Classes.on="{Binding Ch.HpfOn.Value}"><TextBlock Text="LOW CUT" /></Border>
+                  <ToggleButton Classes="mini red" IsChecked="{Binding Ch.Phantom.Value}" Content="48V" IsVisible="{Binding Ch.IsChannel}" />
+                  <ToggleButton Classes="mini input" IsChecked="{Binding Ch.Invert.Value}" Content="Ø" />
+                  <ToggleButton Classes="mini input" IsChecked="{Binding Ch.HpfOn.Value}" Content="LOW CUT" />
+                  <ToggleButton Classes="mini input" IsChecked="{Binding Ch.LpfOn.Value}" Content="HI CUT" />
                 </StackPanel>
               </Grid>
-              <Grid Grid.Row="2" ColumnDefinitions="*,10,14">
+              <Grid Grid.Row="2" ColumnDefinitions="*,8,12">
                 <c:HistoryGraph History="{Binding GateHistory}" ShowReduction="False" IsHitTestVisible="False" />
                 <c:BarMeter Grid.Column="2" Vertical="True" Minimum="-60" Maximum="0" Value="{Binding SelectedIn}" Fill="{StaticResource PreviewBrush}" IsHitTestVisible="False" />
               </Grid>
-              <StackPanel Grid.Row="4" Spacing="2">
-                <TextBlock Classes="big" Text="{Binding Ch.Preamp.Text}" />
-                <TextBlock Classes="faint small" Text="{Binding HomeInputText}" TextTrimming="CharacterEllipsis" />
-              </StackPanel>
+              <UniformGrid Grid.Row="4" Rows="1">
+                <c:Knob Classes="mini" Bipolar="True" Source="{Binding Ch.Preamp}" IsVisible="{Binding Ch.IsChannel}" />
+                <c:Knob Classes="mini" Bipolar="True" Source="{Binding Ch.Trim}" />
+                <c:Knob Classes="mini" Source="{Binding Ch.Delay}" />
+                <c:Knob Classes="mini" Source="{Binding Ch.HpfFreq}" IsActive="{Binding Ch.HpfOn.Value}" />
+                <c:Knob Classes="mini" Source="{Binding Ch.LpfFreq}" IsActive="{Binding Ch.LpfOn.Value}" />
+              </UniformGrid>
             </Grid>
-          </Button>
+          </Border>
 
-          <Button Grid.Column="1" Classes="tile" Command="{Binding OpenSectionCommand}" CommandParameter="Gate" IsEnabled="{Binding Ch.IsChannel}">
-            <Grid RowDefinitions="Auto,8,*,8,Auto">
+          <!-- GATE -->
+          <Border Grid.Column="2" Classes="dash" c:Paint.Tint="{StaticResource GateTone}" IsEnabled="{Binding Ch.IsChannel}">
+            <Grid RowDefinitions="Auto,6,*,6,Auto">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="eyebrow" Text="GATE" />
-                <Border Grid.Column="1" Classes="ind" Classes.on="{Binding Ch.GateOn.Value}"><TextBlock Text="ON" /></Border>
-              </Grid>
-              <c:DynamicsGraph Grid.Row="2" IsGate="True" ShowScale="False" IsHitTestVisible="False" IsOn="{Binding Ch.GateOn.Value}"
-                               Threshold="{Binding Ch.GateThreshold.Value}" Range="{Binding Ch.GateRange.Value}" InputDb="{Binding SelectedIn}" />
-              <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
-                <StackPanel Spacing="2">
-                  <TextBlock Classes="big" Text="{Binding Ch.GateThreshold.Text}" />
-                  <TextBlock Classes="faint small" Text="opens above this" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right">
-                  <TextBlock Classes="mono" Foreground="{StaticResource Accent}" HorizontalAlignment="Right" Text="{Binding SelectedGate, StringFormat='-{0:0.0} dB'}" />
-                  <TextBlock Classes="faint small" Text="turning down" />
+                <Button Classes="head" Command="{Binding OpenSectionCommand}" CommandParameter="Gate">
+                  <StackPanel Orientation="Horizontal" Spacing="6"><Ellipse Width="8" Height="8" Fill="{StaticResource GateTone}" /><TextBlock Classes="dtitle" Foreground="{StaticResource GateTone}" Text="GATE" /><c:Icon Kind="right" Width="10" Height="10" /></StackPanel>
+                </Button>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                  <TextBlock Classes="mono" FontSize="11" Foreground="{StaticResource GateTone}" VerticalAlignment="Center" Text="{Binding SelectedGate, StringFormat='GR -{0:0.0}'}" />
+                  <ToggleButton Classes="mini gate" IsChecked="{Binding Ch.GateOn.Value}" Content="ON" />
                 </StackPanel>
               </Grid>
-            </Grid>
-          </Button>
-
-          <Button Grid.Column="2" Grid.ColumnSpan="2" Classes="tile" Command="{Binding OpenSectionCommand}" CommandParameter="Eq">
-            <Grid RowDefinitions="Auto,8,*,8,Auto">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="eyebrow" Text="EQ" />
-                <Border Grid.Column="1" Classes="ind" Classes.on="{Binding Ch.EqOn.Value}"><TextBlock Text="ON" /></Border>
+              <Grid Grid.Row="2" ColumnDefinitions="*,8,*">
+                <c:DynamicsGraph IsGate="True" ShowScale="False" IsHitTestVisible="False" IsOn="{Binding Ch.GateOn.Value}"
+                                 Threshold="{Binding Ch.GateThreshold.Value}" Range="{Binding Ch.GateRange.Value}" InputDb="{Binding SelectedIn}" />
+                <c:HistoryGraph Grid.Column="2" History="{Binding GateHistory}" IsHitTestVisible="False" />
               </Grid>
-              <c:EqCurve Grid.Row="2" Settings="{Binding SelectedFilters}" Spectrum="{Binding Spectrum}" Compact="True" IsHitTestVisible="False" />
+              <UniformGrid Grid.Row="4" Rows="1">
+                <c:Knob Classes="mini" Source="{Binding Ch.GateThreshold}" IsActive="{Binding Ch.GateOn.Value}" />
+                <c:Knob Classes="mini" Source="{Binding Ch.GateRange}" IsActive="{Binding Ch.GateOn.Value}" />
+                <c:Knob Classes="mini" Source="{Binding Ch.GateAttack}" IsActive="{Binding Ch.GateOn.Value}" />
+                <c:Knob Classes="mini" Source="{Binding Ch.GateHold}" IsActive="{Binding Ch.GateOn.Value}" />
+                <c:Knob Classes="mini" Source="{Binding Ch.GateRelease}" IsActive="{Binding Ch.GateOn.Value}" />
+              </UniformGrid>
+            </Grid>
+          </Border>
+
+          <!-- EQ: the curve can be dragged right here -->
+          <Border Grid.Column="4" Grid.ColumnSpan="3" Classes="dash" c:Paint.Tint="{StaticResource EqTone}">
+            <Grid RowDefinitions="Auto,6,*,6,Auto">
+              <Grid ColumnDefinitions="*,Auto">
+                <Button Classes="head" Command="{Binding OpenSectionCommand}" CommandParameter="Eq">
+                  <StackPanel Orientation="Horizontal" Spacing="6"><Ellipse Width="8" Height="8" Fill="{StaticResource EqTone}" /><TextBlock Classes="dtitle" Foreground="{StaticResource EqTone}" Text="PARAMETRIC EQ" /><c:Icon Kind="right" Width="10" Height="10" /></StackPanel>
+                </Button>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                  <TextBlock Classes="faint small" VerticalAlignment="Center" Text="Drag a point · wheel for width" />
+                  <Button Classes="ghost small" Command="{Binding FlattenEqCommand}" Content="Flat" />
+                  <ToggleButton Classes="mini eq" IsChecked="{Binding Ch.EqOn.Value}" Content="ON" />
+                </StackPanel>
+              </Grid>
+              <c:EqCurve Grid.Row="2" Settings="{Binding SelectedFilters}" Spectrum="{Binding Spectrum}" Editor="{Binding}" SelectedBand="{Binding SelectedBand}" />
               <ItemsControl Grid.Row="4" ItemsSource="{Binding Ch.Bands}">
                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:EqBandView">
-                    <StackPanel Spacing="1">
-                      <TextBlock Classes="faint" FontSize="10" Text="{Binding Number, StringFormat='BAND {0}'}" />
-                      <TextBlock Classes="mono small" Text="{Binding Freq.Text}" />
-                      <TextBlock Classes="mono small" Foreground="{StaticResource Accent}" Text="{Binding Gain.Text}" IsVisible="{Binding HasGain}" />
-                    </StackPanel>
+                    <Button Classes="bandcell" Classes.sel="{Binding IsSelected}" Command="{Binding SelectCommand}">
+                      <Grid ColumnDefinitions="Auto,6,*" RowDefinitions="Auto,Auto,Auto">
+                        <Border Grid.RowSpan="3" Width="18" Height="18" CornerRadius="9" Background="{StaticResource EqTint}" VerticalAlignment="Top">
+                          <TextBlock Text="{Binding Number}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EqTone}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <Grid Grid.Column="2" ColumnDefinitions="*,Auto">
+                          <TextBlock Classes="faint" FontSize="9" FontWeight="Bold" Text="{Binding ShapeText}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Grid.Column="1" Classes="mono faint" FontSize="9.5" Text="{Binding Q.Text, StringFormat='Q {0}'}" />
+                        </Grid>
+                        <TextBlock Grid.Column="2" Grid.Row="1" Classes="mono" FontSize="11.5" Text="{Binding Freq.Text}" />
+                        <TextBlock Grid.Column="2" Grid.Row="2" Classes="mono" FontSize="11" Foreground="{StaticResource EqTone}" Text="{Binding Gain.Text}" IsVisible="{Binding HasGain}" />
+                      </Grid>
+                    </Button>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
             </Grid>
-          </Button>
+          </Border>
 
-          <Button Grid.Row="1" Classes="tile" Command="{Binding OpenSectionCommand}" CommandParameter="Dynamics">
-            <Grid RowDefinitions="Auto,8,*,8,Auto">
+          <!-- COMPRESSOR -->
+          <Border Grid.Row="2" Classes="dash" c:Paint.Tint="{StaticResource DynTone}">
+            <Grid RowDefinitions="Auto,6,*,6,Auto">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="eyebrow" Text="COMPRESSOR" />
-                <Border Grid.Column="1" Classes="ind" Classes.on="{Binding Ch.CompOn.Value}"><TextBlock Text="{Binding Ch.CompStyle.Selected.Label, FallbackValue=ON}" /></Border>
-              </Grid>
-              <c:DynamicsGraph Grid.Row="2" ShowScale="False" IsHitTestVisible="False" IsOn="{Binding Ch.CompOn.Value}"
-                               Threshold="{Binding Ch.CompThreshold.Value}" Ratio="{Binding Ch.CompRatio.Value}" Knee="{Binding Ch.CompKnee.Value}"
-                               Makeup="{Binding CompMakeupNow}" InputDb="{Binding SelectedIn}" />
-              <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
-                <StackPanel Spacing="2">
-                  <TextBlock Classes="big" Text="{Binding Ch.CompRatio.Text}" />
-                  <TextBlock Classes="faint small" Text="{Binding Ch.CompThreshold.Text, StringFormat='from {0}'}" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right">
-                  <TextBlock Classes="mono" Foreground="{StaticResource Accent}" HorizontalAlignment="Right" Text="{Binding SelectedComp, StringFormat='-{0:0.0} dB'}" />
-                  <TextBlock Classes="faint small" Text="turning down" />
+                <Button Classes="head" Command="{Binding OpenSectionCommand}" CommandParameter="Dynamics">
+                  <StackPanel Orientation="Horizontal" Spacing="6"><Ellipse Width="8" Height="8" Fill="{StaticResource DynTone}" /><TextBlock Classes="dtitle" Foreground="{StaticResource DynTone}" Text="COMPRESSOR" /><c:Icon Kind="right" Width="10" Height="10" /></StackPanel>
+                </Button>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                  <TextBlock Classes="mono" FontSize="11" Foreground="{StaticResource DynTone}" VerticalAlignment="Center" Text="{Binding SelectedComp, StringFormat='GR -{0:0.0}'}" />
+                  <ToggleButton Classes="mini dyn" IsChecked="{Binding Ch.CompOn.Value}" Content="{Binding Ch.CompStyle.Selected.Label, FallbackValue=ON}" />
                 </StackPanel>
               </Grid>
-            </Grid>
-          </Button>
-
-          <Button Grid.Row="1" Grid.Column="1" Classes="tile" Command="{Binding OpenSectionCommand}" CommandParameter="Geq">
-            <Grid RowDefinitions="Auto,8,*,8,Auto">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="eyebrow" Text="GRAPHIC EQ" />
-                <Border Grid.Column="1" Classes="ind" Classes.on="{Binding GeqOn}"><TextBlock Text="31 BAND" /></Border>
+              <Grid Grid.Row="2" ColumnDefinitions="*,8,*">
+                <c:DynamicsGraph ShowScale="False" IsHitTestVisible="False" IsOn="{Binding Ch.CompOn.Value}"
+                                 Threshold="{Binding Ch.CompThreshold.Value}" Ratio="{Binding Ch.CompRatio.Value}" Knee="{Binding Ch.CompKnee.Value}"
+                                 Makeup="{Binding CompMakeupNow}" InputDb="{Binding SelectedIn}" />
+                <c:HistoryGraph Grid.Column="2" History="{Binding CompHistory}" IsHitTestVisible="False" />
               </Grid>
-              <c:GraphicEqControl Grid.Row="2" Compact="True" IsHitTestVisible="False" Values="{Binding GeqValues}" IsOn="{Binding GeqOn}" />
-              <StackPanel Grid.Row="4" Spacing="2">
-                <TextBlock Classes="big" Text="{Binding HasGeq, Converter={x:Static c:Conv.YesNo}, ConverterParameter='In use|Not added'}" />
-                <TextBlock Classes="faint small" Text="for wedges, side fills and speakers" />
-              </StackPanel>
+              <UniformGrid Grid.Row="4" Rows="1">
+                <c:Knob Classes="mini" Source="{Binding Ch.CompThreshold}" IsActive="{Binding Ch.CompOn.Value}" />
+                <c:Knob Classes="mini" Source="{Binding Ch.CompRatio}" IsActive="{Binding Ch.CompOn.Value}" />
+                <c:Knob Classes="mini" Source="{Binding Ch.CompAttack}" IsActive="{Binding Ch.CompOn.Value}" />
+                <c:Knob Classes="mini" Source="{Binding Ch.CompRelease}" IsActive="{Binding Ch.CompOn.Value}" />
+                <c:Knob Classes="mini" Bipolar="True" Source="{Binding Ch.CompMakeup}" IsActive="{Binding Ch.CompOn.Value}" />
+              </UniformGrid>
             </Grid>
-          </Button>
+          </Border>
 
-          <Button Grid.Row="1" Grid.Column="2" Classes="tile" Command="{Binding OpenSectionCommand}" CommandParameter="Effects">
-            <Grid RowDefinitions="Auto,8,*">
-              <TextBlock Classes="eyebrow" Text="EFFECTS RACK" />
+          <!-- EFFECTS RACK -->
+          <Border Grid.Row="2" Grid.Column="2" Classes="dash" c:Paint.Tint="{StaticResource FxTone}">
+            <Grid RowDefinitions="Auto,6,*">
+              <Grid ColumnDefinitions="*,Auto">
+                <Button Classes="head" Command="{Binding OpenSectionCommand}" CommandParameter="Effects">
+                  <StackPanel Orientation="Horizontal" Spacing="6"><Ellipse Width="8" Height="8" Fill="{StaticResource FxTone}" /><TextBlock Classes="dtitle" Foreground="{StaticResource FxTone}" Text="EFFECTS AND INSERTS" /><c:Icon Kind="right" Width="10" Height="10" /></StackPanel>
+                </Button>
+                <TextBlock Grid.Column="1" Classes="mono faint" FontSize="10.5" VerticalAlignment="Center" Text="{Binding SelectedRack, StringFormat='GR -{0:0.0}'}" />
+              </Grid>
               <ItemsControl Grid.Row="2" ItemsSource="{Binding Slots}">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:RackSlotView">
-                    <Grid ColumnDefinitions="18,*,Auto" Margin="0,2">
-                      <TextBlock Classes="mono faint small" Text="{Binding Number}" />
-                      <TextBlock Grid.Column="1" FontSize="12.5" Text="{Binding Name}" Classes.faint="{Binding IsEmpty}" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="2" Classes="faint" FontSize="10.5" Text="{Binding Detail}" />
-                    </Grid>
+                    <Button Classes="slotrow" Classes.empty="{Binding IsEmpty}" Command="{Binding OpenCommand}">
+                      <Grid ColumnDefinitions="20,*,Auto,6,Auto">
+                        <TextBlock Classes="mono" FontSize="10.5" Foreground="{StaticResource FxTone}" Text="{Binding Number}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" FontSize="12" FontWeight="SemiBold" Text="{Binding Name}" Classes.faint="{Binding IsEmpty}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Classes="faint" FontSize="10" Text="{Binding Detail}" VerticalAlignment="Center" />
+                        <Border Grid.Column="4" Classes="lampx" Classes.on="{Binding IsActive}" IsVisible="{Binding !IsEmpty}">
+                          <TextBlock Text="{Binding IsBypassed, Converter={x:Static c:Conv.YesNo}, ConverterParameter='BYP|ON'}" />
+                        </Border>
+                      </Grid>
+                    </Button>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
             </Grid>
-          </Button>
+          </Border>
 
-          <Button Grid.Row="1" Grid.Column="3" Classes="tile" Command="{Binding OpenSectionCommand}" CommandParameter="Sends">
-            <Grid RowDefinitions="Auto,8,*,6,Auto">
-              <TextBlock Classes="eyebrow" Text="SENDS AND ROUTING" />
-              <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Hidden">
+          <!-- SENDS -->
+          <Border Grid.Row="2" Grid.Column="4" Classes="dash" c:Paint.Tint="{StaticResource SendTone}">
+            <Grid RowDefinitions="Auto,6,*">
+              <Button Classes="head" Command="{Binding OpenSectionCommand}" CommandParameter="Sends">
+                <StackPanel Orientation="Horizontal" Spacing="6"><Ellipse Width="8" Height="8" Fill="{StaticResource SendTone}" /><TextBlock Classes="dtitle" Foreground="{StaticResource SendTone}" Text="BUS SENDS" /><c:Icon Kind="right" Width="10" Height="10" /></StackPanel>
+              </Button>
+              <TextBlock Grid.Row="2" Classes="faint small" Text="This strip feeds no buses." IsVisible="{Binding !Ch.HasSends}" TextWrapping="Wrap" />
+              <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding Ch.Sends}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:SendView">
-                      <Grid ColumnDefinitions="72,8,*,8,52" Margin="0,2">
-                        <TextBlock FontSize="11.5" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                        <c:BarMeter Grid.Column="2" Height="6" Minimum="-60" Maximum="10" Value="{Binding Level.Value}" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="4" Classes="mono faint" FontSize="10.5" HorizontalAlignment="Right" Text="{Binding Level.Text}" />
+                      <Grid ColumnDefinitions="4,6,70,6,*,6,46,4,Auto,2,Auto" Margin="0,2">
+                        <Border CornerRadius="2" Background="{Binding Tone}" />
+                        <StackPanel Grid.Column="2" Spacing="0" VerticalAlignment="Center">
+                          <TextBlock FontSize="11.5" FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Classes="faint" FontSize="8.5" FontWeight="Bold" Text="{Binding Kind}" />
+                        </StackPanel>
+                        <Slider Grid.Column="4" Classes="send" Minimum="0" Maximum="1000" Value="{Binding Level.Position}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="6" Classes="mono" FontSize="10.5" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding Level.Text}" />
+                        <ToggleButton Grid.Column="8" Classes="mini" IsChecked="{Binding On.Value}" Content="ON" />
+                        <ToggleButton Grid.Column="10" Classes="mini input" IsChecked="{Binding Pre}" Content="PRE" />
                       </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
               </ScrollViewer>
-              <TextBlock Grid.Row="4" Classes="faint small" Text="{Binding HomeRoutingText}" TextTrimming="CharacterEllipsis" />
             </Grid>
-          </Button>
+          </Border>
+
+          <!-- GRAPHIC EQ and ROUTING -->
+          <Grid Grid.Row="2" Grid.Column="6" RowDefinitions="*,8,Auto">
+            <Border Classes="dash" c:Paint.Tint="{StaticResource EqTone}">
+              <Grid RowDefinitions="Auto,6,*">
+                <Grid ColumnDefinitions="*,Auto">
+                  <Button Classes="head" Command="{Binding OpenSectionCommand}" CommandParameter="Geq">
+                    <StackPanel Orientation="Horizontal" Spacing="6"><Ellipse Width="8" Height="8" Fill="{StaticResource EqTone}" /><TextBlock Classes="dtitle" Foreground="{StaticResource EqTone}" Text="GRAPHIC EQ" /><c:Icon Kind="right" Width="10" Height="10" /></StackPanel>
+                  </Button>
+                  <Button Grid.Column="1" Classes="ghost small" Command="{Binding AddGeqCommand}" IsVisible="{Binding !HasGeq}" Content="Add" />
+                  <TextBlock Grid.Column="1" Classes="faint" FontSize="10" VerticalAlignment="Center" IsVisible="{Binding HasGeq}" Text="31 bands" />
+                </Grid>
+                <c:GraphicEqControl Grid.Row="2" Compact="True" IsHitTestVisible="False" Values="{Binding GeqValues}" IsOn="{Binding GeqOn}" />
+              </Grid>
+            </Border>
+            <Border Grid.Row="2" Classes="dash">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="dtitle" Foreground="{StaticResource Text2}" Text="ROUTING" />
+                <TextBlock FontSize="12" Text="{Binding HomeRoutingText}" TextWrapping="Wrap" />
+                <TextBlock Classes="faint small" Text="{Binding HomeInputText}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </Grid>
         </Grid>
 
         <!-- INPUT -->
-        <ScrollViewer IsVisible="{Binding OnChInput}" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer IsVisible="{Binding OnChInput}" c:Paint.Tint="{StaticResource InputTone}" VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="12">
             <Border Classes="card" Padding="18,14">
               <Grid ColumnDefinitions="Auto,24,*">
@@ -346,7 +500,7 @@
         </ScrollViewer>
 
         <!-- GATE -->
-        <ScrollViewer IsVisible="{Binding OnChGate}" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer IsVisible="{Binding OnChGate}" c:Paint.Tint="{StaticResource GateTone}" VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="12">
             <Border Classes="card" Padding="18,14">
               <Grid RowDefinitions="Auto,12,Auto">
@@ -386,7 +540,7 @@
         </ScrollViewer>
 
         <!-- EQ -->
-        <ScrollViewer IsVisible="{Binding OnChEq}" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer IsVisible="{Binding OnChEq}" c:Paint.Tint="{StaticResource EqTone}" VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="12">
             <Border Classes="card" Padding="18,14">
               <Grid RowDefinitions="Auto,10,Auto">
@@ -436,7 +590,7 @@
         </ScrollViewer>
 
         <!-- COMPRESSOR -->
-        <ScrollViewer IsVisible="{Binding OnChDynamics}" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer IsVisible="{Binding OnChDynamics}" c:Paint.Tint="{StaticResource DynTone}" VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="12">
             <Border Classes="card" Padding="18,14">
               <Grid RowDefinitions="Auto,12,Auto">
@@ -482,7 +636,7 @@
         </ScrollViewer>
 
         <!-- GRAPHIC EQ -->
-        <Panel IsVisible="{Binding OnChGeq}">
+        <Panel IsVisible="{Binding OnChGeq}" c:Paint.Tint="{StaticResource EqTone}">
           <Border Classes="card" Padding="18,14" IsVisible="{Binding HasGeq}">
             <Grid RowDefinitions="Auto,12,*">
               <Grid ColumnDefinitions="*,Auto">
@@ -509,7 +663,7 @@
         </Panel>
 
         <!-- EFFECTS -->
-        <Grid IsVisible="{Binding OnChEffects}" ColumnDefinitions="260,12,*">
+        <Grid IsVisible="{Binding OnChEffects}" c:Paint.Tint="{StaticResource FxTone}" ColumnDefinitions="260,12,*">
           <Border Classes="card" Padding="10">
             <Grid RowDefinitions="Auto,8,*,8,Auto">
               <TextBlock Classes="eyebrow" Margin="6,2" Text="EFFECTS RACK" />
@@ -596,7 +750,7 @@
         </Grid>
 
         <!-- SENDS AND ROUTING -->
-        <ScrollViewer IsVisible="{Binding OnChSends}" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer IsVisible="{Binding OnChSends}" c:Paint.Tint="{StaticResource SendTone}" VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="12">
             <Border Classes="card" Padding="18,14" IsVisible="{Binding Ch.HasSends}">
               <StackPanel Spacing="12">

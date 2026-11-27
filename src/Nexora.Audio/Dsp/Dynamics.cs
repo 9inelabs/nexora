@@ -106,6 +106,11 @@ public sealed class Compressor : Processor
 
     public bool On => _on;
 
+    /// <summary>
+    /// Another channel's sound for the compressor to listen to, set by the mixer before each buffer (null listens to itself).
+    /// </summary>
+    public float[]? KeyInput { get; set; }
+
     public static double AutoMakeup(CompSettings c) => Math.Max(0, -(c.Threshold * (1 - 1 / Math.Max(1, c.Ratio))) * 0.5);
 
     protected override void Apply(object settings)
@@ -162,7 +167,12 @@ public sealed class Compressor : Processor
             var l = left[n];
             var r = right is null ? l : right[n];
             float k;
-            if (keyed)
+            if (KeyInput is { } ext)
+            {
+                var x = ext[n];
+                k = Math.Abs(keyed ? _keyL.Tick(_key, x) : x);
+            }
+            else if (keyed)
             {
                 var kl = _keyL.Tick(_key, l);
                 var kr = right is null ? kl : _keyR.Tick(_key, r);
@@ -210,7 +220,7 @@ public sealed class Gate : Processor
     private float _att, _rel;
     private int _hold, _holdLeft;
     private float _gain = 1, _env;
-    private bool _isOpen = true, _on;
+    private bool _isOpen = true, _on, _duck;
     private Biquad _key = Biquad.Identity;
     private BiquadState _ks;
     private float _envRel;
@@ -221,12 +231,18 @@ public sealed class Gate : Processor
     }
 
     public bool On => _on;
-    public bool IsOpen => _isOpen;
+    /// <summary>The sound is passing at full level (a gate that is open, a ducker that is not ducking).</summary>
+    public bool IsOpen => _duck ? !_isOpen : _isOpen;
+    public bool IsDucker => _duck;
+
+    /// <summary>Another channel's sound to listen to, set by the mixer before each buffer (null listens to itself).</summary>
+    public float[]? KeyInput { get; set; }
 
     protected override void Apply(object settings)
     {
         if (settings is not GateSettings g) return;
         _on = g.On;
+        _duck = g.Mode == GateMode.Ducker;
         _open = Db.ToGain(g.Threshold);
         _close = Db.ToGain(g.Threshold - 3); // 3 dB of hysteresis so it does not chatter
         _floor = Db.ToGain(-Math.Abs(g.Range));
@@ -254,7 +270,9 @@ public sealed class Gate : Processor
         {
             var l = left[n];
             var r = right is null ? l : right[n];
-            var k = keyed ? Math.Abs(_ks.Tick(_key, Math.Abs(l) > Math.Abs(r) ? l : r)) : Math.Max(Math.Abs(l), Math.Abs(r));
+            float k;
+            if (KeyInput is { } ext) k = Math.Abs(keyed ? _ks.Tick(_key, ext[n]) : ext[n]);
+            else k = keyed ? Math.Abs(_ks.Tick(_key, Math.Abs(l) > Math.Abs(r) ? l : r)) : Math.Max(Math.Abs(l), Math.Abs(r));
             _env = k > _env ? k : _envRel * _env + (1 - _envRel) * k;
             if (_env >= _open)
             {
@@ -266,8 +284,9 @@ public sealed class Gate : Processor
                 if (_holdLeft > 0) _holdLeft--;
                 else _isOpen = false;
             }
-            var target = _isOpen ? 1f : _floor;
-            var c = target > _gain ? _att : _rel;
+            // A gate opens while the key is loud; a ducker dips while the key is loud. Attack is always the move away from rest.
+            var target = _duck ? _isOpen ? _floor : 1f : _isOpen ? 1f : _floor;
+            var c = _duck ? target < _gain ? _att : _rel : target > _gain ? _att : _rel;
             _gain = c * _gain + (1 - c) * target;
             if (_gain < minGain) minGain = _gain;
             left[n] = l * _gain;

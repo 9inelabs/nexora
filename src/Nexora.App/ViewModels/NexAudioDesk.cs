@@ -84,6 +84,7 @@ public sealed partial class SliderParam : MixParam
         "Hz" => Value >= 1000 ? $"{Value / 1000:0.##} kHz" : $"{Value:0} Hz",
         "ms" => $"{Value:0.#} ms",
         "%" => $"{Value:0}%",
+        "dB down" => $"{Value:0} dB",
         ":1" => $"{Value:0.#}:1",
         "" => $"{Value:0.##}",
         _ => $"{Value:0.##} {Unit}",
@@ -213,6 +214,20 @@ public sealed partial class StripView : ObservableObject
     [ObservableProperty] private bool _isSelected;
     [ObservableProperty] private bool _eqOn;
     [ObservableProperty] private bool _dynOn;
+    [ObservableProperty] private bool _gateOn;
+    [ObservableProperty] private bool _compOn;
+    [ObservableProperty] private bool _hpfOn;
+    [ObservableProperty] private string _gainText = "";
+    [ObservableProperty] private string _fxText = "";
+    /// <summary>The scribble strip: the strip's colour with its name on it.</summary>
+    [ObservableProperty] private IBrush _scribble = Brushes.Gray;
+    [ObservableProperty] private IBrush _scribbleText = Brushes.White;
+    /// <summary>The colour of the bus the faders show, for the send label.</summary>
+    [ObservableProperty] private IBrush? _layerTone;
+    [ObservableProperty] private bool _onLayer;
+    /// <summary>The strip's background: tinted in the bus colour while the faders show sends.</summary>
+    [ObservableProperty] private IBrush _card = DefaultCard;
+    private static readonly IBrush DefaultCard = new SolidColorBrush(Color.Parse("#1F2125"));
     [ObservableProperty] private bool _rackOn;
     [ObservableProperty] private bool _faderEnabled = true;
     [ObservableProperty] private string _layerNote = "";
@@ -246,6 +261,16 @@ public sealed partial class StripView : ObservableObject
             _ => $"{MixState.KindLabel(s.Kind).ToUpperInvariant()} {s.Number}",
         };
         Colour = s.Colour is { Length: > 0 } c && Color.TryParse(c, out var col) ? new SolidColorBrush(col) : null;
+        var sc = _owner.StripColour(s);
+        Scribble = new SolidColorBrush(sc);
+        // Dark writing on light colours, white on dark ones, so the name always reads.
+        ScribbleText = 0.299 * sc.R + 0.587 * sc.G + 0.114 * sc.B > 140 ? new SolidColorBrush(Color.Parse("#121316")) : Brushes.White;
+        GateOn = s.Kind == StripKind.Channel && s.Gate.On;
+        CompOn = s.Comp.On;
+        HpfOn = s.Hpf.On;
+        GainText = s.Preamp is { } pre ? $"{pre:+0;-0;0} dB" : Math.Abs(s.Trim) > 0.05 ? $"trim {s.Trim:+0.#;-0.#}" : s.Kind == StripKind.Channel ? "desk" : "";
+        var fx = s.Rack.Count(r => !r.Bypass);
+        FxText = fx <= 1 ? "FX" : $"FX{fx}";
         Mute = s.Mute;
         Solo = s.Solo;
         Pan = s.Pan;
@@ -256,6 +281,16 @@ public sealed partial class StripView : ObservableObject
         var f = FilterSettings.From(s);
         if (Filters is null || !SameFilters(Filters, f)) Filters = f;
         var layer = _owner.LayerBus;
+        // The main mix, mono and stream never feed a mix or effect, so they keep their own faders.
+        if (s.Kind is StripKind.Main or StripKind.Mono or StripKind.Stream) layer = null;
+        OnLayer = layer is not null && s.Id != layer.Id;
+        LayerTone = layer is null ? null : new SolidColorBrush(NexAudioViewModel.ColourOf(layer));
+        if (layer is not null && OnLayer)
+        {
+            var lc = NexAudioViewModel.ColourOf(layer);
+            Card = new SolidColorBrush(Color.FromArgb(0x24, lc.R, lc.G, lc.B));
+        }
+        else Card = DefaultCard;
         if (layer is null || s.Id == layer.Id)
         {
             Fader = s.Fader;
@@ -268,7 +303,7 @@ public sealed partial class StripView : ObservableObject
             var send = s.SendTo(layer.Id);
             Fader = can && send is { On: true } ? send.Level : Db.Floor;
             FaderEnabled = can;
-            LayerNote = can ? send?.Tap == SendTap.Pre ? "send · pre" : "send · post" : "";
+            LayerNote = can ? (send?.Tap ?? (layer.Kind == StripKind.Mix ? SendTap.Pre : SendTap.Post)).ToString().ToUpperInvariant() : "—";
         }
         OnPropertyChanged(nameof(PanText));
         OnPropertyChanged(nameof(PanPosition));

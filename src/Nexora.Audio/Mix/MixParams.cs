@@ -109,6 +109,9 @@ public static class MixParams
                 case "bypass":
                     item.Bypass = value?.GetValue<bool>() ?? false;
                     return true;
+                case "pre":
+                    item.Pre = value?.GetValue<bool>() ?? false;
+                    return true;
                 case "p" when seg.Length == 5:
                     var v = value!.GetValue<double>();
                     if (Effects.Get(item.Type)?.Params.FirstOrDefault(p => p.Key == seg[4]) is { } info) v = Math.Clamp(v, info.Min, info.Max);
@@ -224,6 +227,23 @@ public static class MixParams
         s.Comp.Makeup = Math.Clamp(s.Comp.Makeup, -12, 24);
         s.Comp.Mix = Math.Clamp(s.Comp.Mix, 0, 100);
         s.Comp.KeyFilter = Math.Clamp(s.Comp.KeyFilter, 0, 2000);
+        s.Drive.Drive = Math.Clamp(s.Drive.Drive, 0, 24);
+        s.Drive.Mix = Math.Clamp(s.Drive.Mix, 0, 100);
+        s.Drive.Output = Math.Clamp(s.Drive.Output, -12, 12);
+        foreach (var b in s.DynEq.Bands)
+        {
+            b.Freq = Math.Clamp(b.Freq, 20, 20000);
+            b.Q = Math.Clamp(b.Q, 0.3, 10);
+            b.Threshold = Math.Clamp(b.Threshold, -60, 0);
+            b.Range = Math.Clamp(b.Range, -18, 12);
+            b.Ratio = Math.Clamp(b.Ratio, 1, 20);
+            b.Attack = Math.Clamp(b.Attack, 0.1, 200);
+            b.Release = Math.Clamp(b.Release, 10, 2000);
+        }
+        s.Gate.Key ??= "";
+        s.Comp.Key ??= "";
+        if (s.Gate.Key == s.Id) s.Gate.Key = "";
+        if (s.Comp.Key == s.Id) s.Comp.Key = "";
         s.Name = (s.Name ?? "").Trim();
         if (s.Name.Length > 24) s.Name = s.Name[..24];
     }
@@ -309,17 +329,53 @@ public static class MixParams
     public static bool CopyProcessing(MixState s, string fromId, string toId)
     {
         if (s.Find(fromId) is not { } a || s.Find(toId) is not { } b || a == b) return false;
-        b.Hpf = a.Hpf.Clone();
-        b.Lpf = a.Lpf.Clone();
-        b.Eq = a.Eq.Clone();
-        b.Gate = a.Gate.Clone();
-        b.Comp = a.Comp.Clone();
-        b.Rack = a.Rack.Select(r =>
+        b.TakeProcessing(a, newIds: true, input: false);
+        return true;
+    }
+
+    /// <summary>
+    /// Puts copied settings onto a strip. <paramref name="parts"/> is any of "input", "eq", "dyn", "fx" (comma-separated), or "all".
+    /// Faders, mutes, sends and routing are never pasted.
+    /// </summary>
+    public static bool Paste(MixState s, string toId, Strip from, string parts)
+    {
+        if (s.Find(toId) is not { } b) return false;
+        var all = parts is "" or "all";
+        bool Has(string p) => all || parts.Split(',').Contains(p);
+        if (Has("input"))
         {
-            var c = r.Clone();
-            c.Id = Guid.NewGuid().ToString("n")[..8];
-            return c;
-        }).ToList();
+            b.Trim = from.Trim;
+            b.Invert = from.Invert;
+            b.DelayMs = from.DelayMs;
+            b.Hpf = from.Hpf.Clone();
+            b.Lpf = from.Lpf.Clone();
+            b.Drive = from.Drive.Clone();
+        }
+        if (Has("eq"))
+        {
+            b.Eq = from.Eq.Clone();
+            b.DynEq = from.DynEq.Clone();
+        }
+        if (Has("dyn"))
+        {
+            // The gate only exists on channels; a bus keeps its own.
+            if (b.Kind == StripKind.Channel)
+            {
+                b.Gate = from.Gate.Clone();
+                if (b.Gate.Key == b.Id) b.Gate.Key = "";
+            }
+            b.Comp = from.Comp.Clone();
+            if (b.Comp.Key == b.Id) b.Comp.Key = "";
+            b.Order = from.Order;
+        }
+        if (Has("fx"))
+            b.Rack = from.Rack.Where(r => r.Type != "plugin" || r.Plugin is not null).Select(r =>
+            {
+                var c = r.Clone();
+                c.Id = Guid.NewGuid().ToString("n")[..8];
+                return c;
+            }).Take(8).ToList();
+        Clamp(b);
         return true;
     }
 }

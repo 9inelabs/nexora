@@ -60,6 +60,84 @@ public enum SoloMode
     Afl,
 }
 
+/// <summary>How a strip's saturation colours the sound.</summary>
+public enum DriveStyle
+{
+    /// <summary>Rounded and thick: mostly even harmonics, like a warm valve stage.</summary>
+    Warm,
+    /// <summary>Brighter and firmer: mostly odd harmonics, for presence and bite.</summary>
+    Edge,
+}
+
+/// <summary>What the strip's gate does with its key.</summary>
+public enum GateMode
+{
+    /// <summary>Turns the sound down while the key is quiet (spill and noise between words or hits).</summary>
+    Gate,
+    /// <summary>Turns the sound down while the key is loud (music dips under the pastor's mic).</summary>
+    Ducker,
+}
+
+/// <summary>Where the EQ sits against the gate and compressor.</summary>
+public enum ProcessOrder
+{
+    /// <summary>EQ, then gate and compressor (the compressor hears the EQ'd sound).</summary>
+    EqFirst,
+    /// <summary>Gate and compressor, then EQ (EQ changes never push the compressor harder).</summary>
+    DynamicsFirst,
+}
+
+/// <summary>A strip's saturation stage, after the low and high cut.</summary>
+public sealed class DriveSettings
+{
+    public bool On { get; set; }
+    public DriveStyle Style { get; set; } = DriveStyle.Warm;
+    /// <summary>How hard the stage is pushed, 0 to 24 dB. The level is matched afterwards, so only the colour changes.</summary>
+    public double Drive { get; set; } = 6;
+    /// <summary>Dry and driven blended, 0 to 100.</summary>
+    public double Mix { get; set; } = 100;
+    /// <summary>Level after the stage, in dB.</summary>
+    public double Output { get; set; }
+
+    public DriveSettings Clone() => (DriveSettings)MemberwiseClone();
+}
+
+/// <summary>
+/// One dynamic EQ band: a bell that only moves when its own frequency range gets loud,
+/// so harshness or boom is tamed only at the moments it happens.
+/// </summary>
+public sealed class DynEqBand
+{
+    public bool On { get; set; }
+    public double Freq { get; set; } = 3000;
+    public double Q { get; set; } = 2;
+    /// <summary>The band starts acting when its frequency range rises above this, in dB.</summary>
+    public double Threshold { get; set; } = -30;
+    /// <summary>The most it moves: negative cuts (the usual), positive lifts. -18 to +12 dB.</summary>
+    public double Range { get; set; } = -6;
+    public double Ratio { get; set; } = 3;
+    public double Attack { get; set; } = 5;
+    public double Release { get; set; } = 120;
+
+    public DynEqBand Clone() => (DynEqBand)MemberwiseClone();
+}
+
+public sealed class DynEqSettings
+{
+    public bool On { get; set; } = true;
+    public List<DynEqBand> Bands { get; set; } = DefaultBands();
+
+    public static List<DynEqBand> DefaultBands() =>
+    [
+        new() { Freq = 300, Q = 1.4, Threshold = -28, Range = -5 },
+        new() { Freq = 3500, Q = 2, Threshold = -30, Range = -6 },
+    ];
+
+    public bool Active => On && Bands.Any(b => b.On && Math.Abs(b.Range) > 0.05);
+
+    public DynEqSettings Clone() => new() { On = On, Bands = Bands.Select(b => b.Clone()).ToList() };
+}
+
 public sealed class EqBand
 {
     public bool On { get; set; } = true;
@@ -112,6 +190,9 @@ public sealed class GateSettings
     public double Release { get; set; } = 150;
     /// <summary>The gate listens through a high-pass at this frequency, so bass spill does not open it. 0 is off.</summary>
     public double KeyFilter { get; set; }
+    public GateMode Mode { get; set; } = GateMode.Gate;
+    /// <summary>The channel it listens to ("ch5"), or empty to listen to itself.</summary>
+    public string Key { get; set; } = "";
 
     public GateSettings Clone() => (GateSettings)MemberwiseClone();
 }
@@ -131,6 +212,8 @@ public sealed class CompSettings
     public double Mix { get; set; } = 100;
     /// <summary>The compressor listens through a high-pass at this frequency. 0 is off.</summary>
     public double KeyFilter { get; set; }
+    /// <summary>The channel it listens to ("ch5"), or empty to listen to itself.</summary>
+    public string Key { get; set; } = "";
 
     public CompSettings Clone() => (CompSettings)MemberwiseClone();
 }
@@ -155,6 +238,8 @@ public sealed class RackItem
     /// <summary>The effect's type, for example "reverb" or "plugin" (see <see cref="Effects"/>).</summary>
     public string Type { get; set; } = "";
     public bool Bypass { get; set; }
+    /// <summary>Runs before the EQ and dynamics (an insert at the top of the strip) instead of after them.</summary>
+    public bool Pre { get; set; }
     public Dictionary<string, double> Params { get; set; } = [];
     /// <summary>Text choices, for example the pitch correction key ("C") or a reverb style.</summary>
     public Dictionary<string, string> Text { get; set; } = [];
@@ -166,7 +251,7 @@ public sealed class RackItem
 
     public RackItem Clone() => new()
     {
-        Id = Id, Type = Type, Bypass = Bypass, Params = new(Params), Text = new(Text),
+        Id = Id, Type = Type, Bypass = Bypass, Pre = Pre, Params = new(Params), Text = new(Text),
         Plugin = Plugin is null ? null : Plugin with { },
     };
 }
@@ -195,9 +280,12 @@ public sealed class Strip
 
     public PassFilter Hpf { get; set; } = new();
     public PassFilter Lpf { get; set; } = new() { Freq = 18000 };
+    public DriveSettings Drive { get; set; } = new();
     public EqSettings Eq { get; set; } = new();
+    public DynEqSettings DynEq { get; set; } = new();
     public GateSettings Gate { get; set; } = new();
     public CompSettings Comp { get; set; } = new();
+    public ProcessOrder Order { get; set; } = ProcessOrder.EqFirst;
     public List<RackItem> Rack { get; set; } = [];
 
     /// <summary>-1 left to 1 right (balance for stereo strips).</summary>
@@ -230,11 +318,37 @@ public sealed class Strip
 
     public Send? SendTo(string bus) => Sends.FirstOrDefault(s => s.Bus == bus);
 
+    /// <summary>Takes another strip's sound: input trim and delay, filters, drive, EQ, dynamic EQ, gate, compressor, order and effects.</summary>
+    /// <param name="newIds">Give the effects new ids (copying onto a different strip, so both can run at once).</param>
+    public void TakeProcessing(Strip src, bool newIds, bool input = true)
+    {
+        if (input)
+        {
+            Trim = src.Trim;
+            Invert = src.Invert;
+            DelayMs = src.DelayMs;
+        }
+        Hpf = src.Hpf.Clone();
+        Lpf = src.Lpf.Clone();
+        Drive = src.Drive.Clone();
+        Eq = src.Eq.Clone();
+        DynEq = src.DynEq.Clone();
+        Gate = src.Gate.Clone();
+        Comp = src.Comp.Clone();
+        Order = src.Order;
+        Rack = src.Rack.Select(r =>
+        {
+            var c = r.Clone();
+            if (newIds) c.Id = Guid.NewGuid().ToString("n")[..8];
+            return c;
+        }).ToList();
+    }
+
     public Strip Clone() => new()
     {
         Id = Id, Kind = Kind, Name = Name, Colour = Colour, Stereo = Stereo, Trim = Trim, Invert = Invert, DelayMs = DelayMs,
-        Hpf = Hpf.Clone(), Lpf = Lpf.Clone(), Eq = Eq.Clone(), Gate = Gate.Clone(), Comp = Comp.Clone(),
-        Rack = Rack.Select(r => r.Clone()).ToList(), Pan = Pan, Fader = Fader, Mute = Mute, Solo = Solo, ToMain = ToMain,
+        Hpf = Hpf.Clone(), Lpf = Lpf.Clone(), Drive = Drive.Clone(), Eq = Eq.Clone(), DynEq = DynEq.Clone(), Gate = Gate.Clone(), Comp = Comp.Clone(),
+        Order = Order, Rack = Rack.Select(r => r.Clone()).ToList(), Pan = Pan, Fader = Fader, Mute = Mute, Solo = Solo, ToMain = ToMain,
         Groups = [.. Groups], Sends = Sends.Select(s => s.Clone()).ToList(), StreamLevel = StreamLevel, StreamOn = StreamOn,
         Preamp = Preamp, Phantom = Phantom, RecallSafe = RecallSafe,
     };
@@ -350,6 +464,9 @@ public sealed class MixState
         return s;
     }
 
+    private string ValidKey(Strip s, string? key) =>
+        key is { Length: > 0 } k && k != s.Id && Channels.Any(c => c.Id == k) ? k : "";
+
     public static Strip NewBus(StripKind kind, int number, string? name = null, RackItem? effect = null)
     {
         var prefix = kind switch
@@ -450,8 +567,17 @@ public sealed class MixState
             s.Lpf ??= new PassFilter { Freq = 18000 };
             s.Eq ??= new EqSettings();
             s.Eq.Bands ??= EqSettings.DefaultBands();
+            s.Drive ??= new DriveSettings();
+            s.DynEq ??= new DynEqSettings();
+            s.DynEq.Bands ??= DynEqSettings.DefaultBands();
+            s.DynEq.Bands.RemoveAll(b => b is null);
+            while (s.DynEq.Bands.Count < 2) s.DynEq.Bands.Add(DynEqSettings.DefaultBands()[s.DynEq.Bands.Count]);
+            if (s.DynEq.Bands.Count > 4) s.DynEq.Bands.RemoveRange(4, s.DynEq.Bands.Count - 4);
             s.Gate ??= new GateSettings();
             s.Comp ??= new CompSettings();
+            // A sidechain listens to another channel; anything else (itself, a bus, a channel that is gone) means "itself".
+            s.Gate.Key = ValidKey(s, s.Gate.Key);
+            s.Comp.Key = ValidKey(s, s.Comp.Key);
             s.Rack ??= [];
             s.Groups ??= [];
             s.Sends ??= [];

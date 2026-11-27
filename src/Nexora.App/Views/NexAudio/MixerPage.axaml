@@ -2,36 +2,267 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Nexora.App.ViewModels"
              xmlns:c="using:Nexora.App.Controls"
-             xmlns:p="using:Nexora.Audio.Plugins"
              x:Class="Nexora.App.Views.NexAudio.MixerPage"
              x:DataType="vm:NexAudioViewModel">
-  <Grid RowDefinitions="Auto,10,*">
-    <Grid ColumnDefinitions="Auto,16,Auto,12,*,Auto">
-      <StackPanel Orientation="Horizontal" Spacing="4">
-        <Button Classes="tab small" Classes.selected="{Binding BankLow}" Command="{Binding ShowBankCommand}" CommandParameter="0" Content="Channels 1–16" />
-        <Button Classes="tab small" Classes.selected="{Binding BankHigh}" Command="{Binding ShowBankCommand}" CommandParameter="1" Content="Channels 17–32" />
-        <Button Classes="tab small" Classes.selected="{Binding BankBuses}" Command="{Binding ShowBankCommand}" CommandParameter="2" Content="Buses" />
-      </StackPanel>
-      <ComboBox Grid.Column="2" ItemsSource="{Binding Layers}" SelectedItem="{Binding Layer}" MinWidth="200" VerticalAlignment="Center"
-                ToolTip.Tip="Sends on faders: pick a monitor mix or an effect, and every fader shows its send to it." />
-      <TextBlock Grid.Column="4" Classes="faint small" Text="{Binding LayerTitle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-      <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-        <TextBlock Classes="faint small" Text="{Binding LatencyMixText}" VerticalAlignment="Center" />
-        <Button Classes="warn small" Command="{Binding ClearSoloCommand}" IsVisible="{Binding AnySolo}" Content="Clear solo" />
+  <UserControl.Styles>
+    <!-- Bus tags -->
+    <Style Selector="Button.bustag">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="Width" Value="148" />
+      <Setter Property="Height" Value="62" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.bustag:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{StaticResource Line2}" />
+    </Style>
+    <Style Selector="Button.bustag.current">
+      <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+    <!-- Selected channel bands -->
+    <Style Selector="Button.band">
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="VerticalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="TextBlock.bandtitle">
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="LetterSpacing" Value="1.2" />
+    </Style>
+    <Style Selector="TextBlock.val">
+      <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.cap">
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="Foreground" Value="{StaticResource Text3}" />
+    </Style>
+    <!-- Little coloured section lights on each strip -->
+    <Style Selector="Border.lamp">
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Height" Value="15" />
+      <Setter Property="Background" Value="{StaticResource Surface3}" />
+    </Style>
+    <Style Selector="Border.lamp TextBlock">
+      <Setter Property="FontSize" Value="8.5" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+    </Style>
+    <Style Selector="Border.lamp.on TextBlock">
+      <Setter Property="Foreground" Value="#121316" />
+    </Style>
+    <Style Selector="Border.lamp.gate.on"><Setter Property="Background" Value="{StaticResource GateTone}" /></Style>
+    <Style Selector="Border.lamp.eq.on"><Setter Property="Background" Value="{StaticResource EqTone}" /></Style>
+    <Style Selector="Border.lamp.dyn.on"><Setter Property="Background" Value="{StaticResource DynTone}" /></Style>
+    <Style Selector="Border.lamp.p48.on"><Setter Property="Background" Value="{StaticResource Live}" /></Style>
+    <Style Selector="Border.lamp.inv.on"><Setter Property="Background" Value="{StaticResource InputTone}" /></Style>
+    <Style Selector="Border.lamp.fx.on"><Setter Property="Background" Value="{StaticResource FxTone}" /></Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,8,Auto,8,*">
+
+    <!-- BUSES: every bus as a tag. Tap to put it on the faders, pencil to edit it. -->
+    <Grid ColumnDefinitions="Auto,10,*,8,Auto">
+      <Border Classes="card" Padding="4" VerticalAlignment="Stretch">
+        <StackPanel Spacing="3" VerticalAlignment="Center">
+          <Button Classes="tab small" Classes.selected="{Binding BankLow}" Command="{Binding ShowBankCommand}" CommandParameter="0" Content="Ch 1–16" Padding="10,3" />
+          <Button Classes="tab small" Classes.selected="{Binding BankHigh}" Command="{Binding ShowBankCommand}" CommandParameter="1" Content="Ch 17–32" Padding="10,3" />
+          <Button Classes="tab small" Classes.selected="{Binding BankBuses}" Command="{Binding ShowBankCommand}" CommandParameter="2" Content="Buses" Padding="10,3" />
+        </StackPanel>
+      </Border>
+      <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <ItemsControl ItemsSource="{Binding BusTags}" Margin="0,0,0,10">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:BusTagView">
+              <Button Classes="bustag" Classes.current="{Binding IsCurrent}" Background="{Binding ToneTint}" Command="{Binding ShowCommand}"
+                      BorderBrush="{Binding Edge}"
+                      ToolTip.Tip="Tap to show this bus on the faders. The pencil opens it: EQ, compressor, graphic EQ and effects.">
+                <Grid ColumnDefinitions="4,8,*,Auto" RowDefinitions="*" Margin="0,0,4,0">
+                  <Border CornerRadius="8,0,0,8" Background="{Binding Tone}" />
+                  <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*,Auto" Margin="0,6,0,6">
+                    <TextBlock Classes="bandtitle" Foreground="{Binding Tone}" Text="{Binding KindText}" />
+                    <TextBlock Grid.Row="1" FontSize="12.5" FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <Grid Grid.Row="3" ColumnDefinitions="*,6,Auto">
+                      <c:BarMeter Height="4" Minimum="-60" Maximum="0" Value="{Binding Level}" Fill="{Binding Tone}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Classes="mono" FontSize="10" Text="{Binding LevelText}" Classes.faint="{Binding Mute}" />
+                    </Grid>
+                  </Grid>
+                  <StackPanel Grid.Column="3" Spacing="2" VerticalAlignment="Center" Margin="4,0,0,0">
+                    <Button Classes="ghost" Padding="4" Command="{Binding EditCommand}" ToolTip.Tip="Edit this bus: EQ, compressor, graphic EQ, effects">
+                      <c:Icon Kind="edit" Width="12" Height="12" />
+                    </Button>
+                    <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center">
+                      <Ellipse Width="5" Height="5" Fill="{StaticResource EqTone}" IsVisible="{Binding HasEq}" />
+                      <Ellipse Width="5" Height="5" Fill="{StaticResource DynTone}" IsVisible="{Binding HasComp}" />
+                      <Ellipse Width="5" Height="5" Fill="{StaticResource FxTone}" IsVisible="{Binding HasFx}" />
+                    </StackPanel>
+                  </StackPanel>
+                </Grid>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+      <StackPanel Grid.Column="4" Spacing="4" VerticalAlignment="Center">
+        <Button Classes="ghost small" Command="{Binding AddMixBusCommand}" ToolTip.Tip="Add a monitor mix (wedge, in-ear, side fill)">
+          <StackPanel Orientation="Horizontal" Spacing="5"><c:Icon Kind="plus" Width="11" Height="11" /><TextBlock Text="Mix" /></StackPanel>
+        </Button>
+        <Button Classes="ghost small" Command="{Binding AddFxBusCommand}" ToolTip.Tip="Add an effect bus (reverb, delay)">
+          <StackPanel Orientation="Horizontal" Spacing="5"><c:Icon Kind="plus" Width="11" Height="11" /><TextBlock Text="Effect" /></StackPanel>
+        </Button>
       </StackPanel>
     </Grid>
 
-    <Grid Grid.Row="2" ColumnDefinitions="*,12,Auto">
-      <Border Classes="card" Padding="10">
-        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-          <ItemsControl ItemsSource="{Binding VisibleStrips}">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-          </ItemsControl>
-        </ScrollViewer>
+    <!-- SELECTED STRIP: every part of it at a glance; each block opens its page. -->
+    <Border Grid.Row="2" Classes="card" Padding="8" Height="138">
+      <Grid ColumnDefinitions="170,8,150,8,190,8,*,8,190,8,170,8,220">
+        <!-- Who -->
+        <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="4,2">
+          <Border Height="5" CornerRadius="3" Background="{Binding SelectedStripView.Scribble, FallbackValue={StaticResource Surface3}}" />
+          <StackPanel Grid.Row="1" Spacing="0" Margin="0,6,0,0">
+            <TextBlock Classes="eyebrow" Text="{Binding SelectedKind}" />
+            <TextBlock Classes="h2" Text="{Binding SelectedTitle}" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+          <TextBlock Grid.Row="2" Classes="faint small" Text="{Binding HomeRoutingText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+          <Button Grid.Row="3" Classes="small" Command="{Binding OpenSectionCommand}" CommandParameter="Home" HorizontalAlignment="Left">
+            <StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="Open strip" /><c:Icon Kind="right" Width="11" Height="11" /></StackPanel>
+          </Button>
+        </Grid>
+
+        <!-- Input -->
+        <Button Grid.Column="2" Classes="band" Background="{StaticResource InputTint}" Command="{Binding OpenSectionCommand}" CommandParameter="Input">
+          <Grid RowDefinitions="Auto,6,*" ColumnDefinitions="*,8,8">
+            <TextBlock Classes="bandtitle" Foreground="{StaticResource InputTone}" Text="INPUT" />
+            <StackPanel Grid.Row="2" Spacing="3">
+              <TextBlock Classes="val" Text="{Binding Ch.Preamp.Text}" IsVisible="{Binding Ch.IsChannel}" />
+              <TextBlock Classes="cap" Text="{Binding Ch.Trim.Text, StringFormat='trim {0}'}" />
+              <TextBlock Classes="cap" Text="{Binding Ch.HpfFreq.Text, StringFormat='low cut {0}'}" IsVisible="{Binding Ch.HpfOn.Value}" />
+              <StackPanel Orientation="Horizontal" Spacing="4">
+                <Border Classes="lamp p48" Classes.on="{Binding Ch.Phantom.Value}" Padding="5,0"><TextBlock Text="48V" /></Border>
+                <Border Classes="lamp inv" Classes.on="{Binding Ch.Invert.Value}" Padding="5,0"><TextBlock Text="Ø" /></Border>
+              </StackPanel>
+            </StackPanel>
+            <c:BarMeter Grid.Column="2" Grid.RowSpan="3" Vertical="True" Minimum="-60" Maximum="0" Value="{Binding SelectedIn}" Fill="{StaticResource PreviewBrush}" />
+          </Grid>
+        </Button>
+
+        <!-- Gate -->
+        <Button Grid.Column="4" Classes="band" Background="{StaticResource GateTint}" c:Paint.Tint="{StaticResource GateTone}"
+                Command="{Binding OpenSectionCommand}" CommandParameter="Gate" IsEnabled="{Binding Ch.IsChannel}">
+          <Grid RowDefinitions="Auto,6,*" ColumnDefinitions="80,8,*">
+            <TextBlock Grid.ColumnSpan="3" Classes="bandtitle" Foreground="{StaticResource GateTone}" Text="GATE" />
+            <c:DynamicsGraph Grid.Row="2" IsGate="True" ShowScale="False" IsHitTestVisible="False" IsOn="{Binding Ch.GateOn.Value}"
+                             Threshold="{Binding Ch.GateThreshold.Value}" Range="{Binding Ch.GateRange.Value}" InputDb="{Binding SelectedIn}" />
+            <StackPanel Grid.Row="2" Grid.Column="2" Spacing="3">
+              <TextBlock Classes="val" FontSize="13" Text="{Binding Ch.GateThreshold.Text}" />
+              <TextBlock Classes="cap" Text="{Binding Ch.GateRange.Text, StringFormat='down {0}'}" />
+              <TextBlock Classes="mono" FontSize="11" Foreground="{StaticResource GateTone}" Text="{Binding SelectedGate, StringFormat='-{0:0.0} dB'}" />
+              <TextBlock Classes="cap" Text="{Binding Ch.GateOn.Value, Converter={x:Static c:Conv.YesNo}, ConverterParameter='On|Off'}" />
+            </StackPanel>
+          </Grid>
+        </Button>
+
+        <!-- EQ -->
+        <Button Grid.Column="6" Classes="band" Background="{StaticResource EqTint}" c:Paint.Tint="{StaticResource EqTone}" Command="{Binding OpenSectionCommand}" CommandParameter="Eq">
+          <Grid RowDefinitions="Auto,6,*">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="bandtitle" Foreground="{StaticResource EqTone}" Text="EQ" />
+              <TextBlock Grid.Column="1" Classes="cap" Text="{Binding Ch.EqOn.Value, Converter={x:Static c:Conv.YesNo}, ConverterParameter='On|Off'}" />
+            </Grid>
+            <c:EqCurve Grid.Row="2" Settings="{Binding SelectedFilters}" Spectrum="{Binding Spectrum}" Compact="True" IsHitTestVisible="False" />
+          </Grid>
+        </Button>
+
+        <!-- Compressor -->
+        <Button Grid.Column="8" Classes="band" Background="{StaticResource DynTint}" c:Paint.Tint="{StaticResource DynTone}" Command="{Binding OpenSectionCommand}" CommandParameter="Dynamics">
+          <Grid RowDefinitions="Auto,6,*" ColumnDefinitions="80,8,*">
+            <TextBlock Grid.ColumnSpan="3" Classes="bandtitle" Foreground="{StaticResource DynTone}" Text="COMPRESSOR" />
+            <c:DynamicsGraph Grid.Row="2" ShowScale="False" IsHitTestVisible="False" IsOn="{Binding Ch.CompOn.Value}"
+                             Threshold="{Binding Ch.CompThreshold.Value}" Ratio="{Binding Ch.CompRatio.Value}" Knee="{Binding Ch.CompKnee.Value}"
+                             Makeup="{Binding CompMakeupNow}" InputDb="{Binding SelectedIn}" />
+            <StackPanel Grid.Row="2" Grid.Column="2" Spacing="3">
+              <TextBlock Classes="val" FontSize="13" Text="{Binding Ch.CompRatio.Text}" />
+              <TextBlock Classes="cap" Text="{Binding Ch.CompThreshold.Text, StringFormat='from {0}'}" />
+              <TextBlock Classes="mono" FontSize="11" Foreground="{StaticResource DynTone}" Text="{Binding SelectedComp, StringFormat='-{0:0.0} dB'}" />
+              <TextBlock Classes="cap" Text="{Binding Ch.CompStyle.Selected.Label}" />
+            </StackPanel>
+          </Grid>
+        </Button>
+
+        <!-- Effects -->
+        <Button Grid.Column="10" Classes="band" Background="{StaticResource FxTint}" Command="{Binding OpenSectionCommand}" CommandParameter="Effects">
+          <Grid RowDefinitions="Auto,4,*">
+            <TextBlock Classes="bandtitle" Foreground="{StaticResource FxTone}" Text="EFFECTS" />
+            <ItemsControl Grid.Row="2" ItemsSource="{Binding Slots}" ClipToBounds="True">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:RackSlotView">
+                  <Grid ColumnDefinitions="14,*" IsVisible="{Binding !IsEmpty}" Margin="0,1">
+                    <TextBlock Classes="mono" FontSize="10" Foreground="{StaticResource FxTone}" Text="{Binding Number}" />
+                    <TextBlock Grid.Column="1" FontSize="11.5" Text="{Binding Name}" Classes.faint="{Binding IsBypassed}" TextTrimming="CharacterEllipsis" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Grid>
+        </Button>
+
+        <!-- Sends -->
+        <Button Grid.Column="12" Classes="band" Background="{StaticResource SendTint}" Command="{Binding OpenSectionCommand}" CommandParameter="Sends">
+          <Grid RowDefinitions="Auto,4,*">
+            <TextBlock Classes="bandtitle" Foreground="{StaticResource SendTone}" Text="SENDS" />
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Hidden">
+              <ItemsControl ItemsSource="{Binding Ch.Sends}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:SendView">
+                    <Grid ColumnDefinitions="64,6,*,6,40" Margin="0,1">
+                      <TextBlock FontSize="10.5" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      <c:BarMeter Grid.Column="2" Height="5" Minimum="-60" Maximum="10" Value="{Binding Level.Value}" Fill="{StaticResource SendTone}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="4" Classes="mono faint" FontSize="9.5" HorizontalAlignment="Right" Text="{Binding Level.Text}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+        </Button>
+      </Grid>
+    </Border>
+
+    <!-- FADERS -->
+    <Grid Grid.Row="4" ColumnDefinitions="*,8,Auto">
+      <Border Classes="card" Padding="8">
+        <Grid RowDefinitions="Auto,6,*">
+          <Grid ColumnDefinitions="Auto,8,*,Auto">
+            <Border Width="10" Height="10" CornerRadius="5" Background="{Binding LayerTone}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="2" FontWeight="SemiBold" FontSize="12.5" Text="{Binding LayerTitle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+              <TextBlock Classes="faint small" Text="{Binding LatencyMixText}" VerticalAlignment="Center" />
+              <Button Classes="warn small" Command="{Binding ClearSoloCommand}" IsVisible="{Binding AnySolo}" Content="Clear solo" />
+            </StackPanel>
+          </Grid>
+          <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding VisibleStrips}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
       </Border>
-      <Border Grid.Column="2" Classes="card" Padding="10">
+      <Border Grid.Column="2" Classes="card" Padding="8">
         <StackPanel Orientation="Horizontal">
           <ContentControl Content="{Binding LayerStrip}" IsVisible="{Binding OnSendsLayer}" />
           <ContentControl Content="{Binding MainStrip}" />
@@ -39,44 +270,60 @@
       </Border>
     </Grid>
   </Grid>
+
   <UserControl.DataTemplates>
     <DataTemplate DataType="vm:StripView">
-      <Border Classes="stripcard" Classes.selected="{Binding IsSelected}">
-        <Grid RowDefinitions="Auto,4,Auto,6,Auto,4,Auto,4,Auto,*,Auto,6,Auto,4,Auto">
-          <Border Height="4" CornerRadius="2" Background="{Binding Colour, FallbackValue={StaticResource Surface3}}" />
-          <Button Grid.Row="2" Classes="ghost small" Command="{Binding SelectCommand}" Padding="2,2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                  ToolTip.Tip="Open this strip: input, gate, EQ, compressor, effects and sends">
-            <StackPanel Spacing="0">
-              <TextBlock Classes="eyebrow" Text="{Binding Number}" HorizontalAlignment="Center" FontSize="9.5" TextTrimming="CharacterEllipsis" />
-              <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
-            </StackPanel>
+      <Border Classes="stripcard" Classes.selected="{Binding IsSelected}" Background="{Binding Card}">
+        <Grid RowDefinitions="Auto,4,Auto,4,Auto,4,Auto,4,Auto,*,Auto,4,Auto,4,Auto">
+          <!-- Scribble strip: the strip's colour with its number and name -->
+          <Button Classes="ghost" Command="{Binding SelectCommand}" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                  ToolTip.Tip="Select this strip (shown above). Double-tap the name above to open it.">
+            <Border CornerRadius="5" Background="{Binding Scribble}" Padding="3,3">
+              <StackPanel Spacing="0">
+                <TextBlock Text="{Binding Number}" FontSize="9.5" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{Binding ScribbleText}" Opacity="0.75" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="Bold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" Foreground="{Binding ScribbleText}" />
+              </StackPanel>
+            </Border>
           </Button>
+          <!-- Gain -->
+          <Grid Grid.Row="2" ColumnDefinitions="Auto,*">
+            <TextBlock Classes="mono" FontSize="9.5" Foreground="{StaticResource InputTone}" Text="{Binding GainText}" TextTrimming="CharacterEllipsis" />
+            <Border Grid.Column="1" Classes="lamp" Height="13" Width="20" HorizontalAlignment="Right" IsVisible="{Binding HpfOn}" Background="{StaticResource InputTint}">
+              <TextBlock Text="HP" Foreground="{StaticResource InputTone}" />
+            </Border>
+          </Grid>
+          <!-- EQ curve -->
           <Button Grid.Row="4" Classes="ghost" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                  Command="{Binding OpenSectionCommand}" CommandParameter="Eq" ToolTip.Tip="Open the EQ">
+                  Command="{Binding OpenSectionCommand}" CommandParameter="Eq" ToolTip.Tip="Open the EQ" c:Paint.Tint="{StaticResource EqTone}">
             <c:EqCurve Height="30" Compact="True" Settings="{Binding Filters}" IsHitTestVisible="False" />
           </Button>
-          <Grid Grid.Row="6" ColumnDefinitions="*,3,*,3,*">
-            <Button Classes="ghost" Padding="0" HorizontalAlignment="Stretch" Command="{Binding OpenSectionCommand}" CommandParameter="Eq">
-              <Border Classes="ind" Padding="0" Classes.on="{Binding EqOn}" HorizontalAlignment="Stretch"><TextBlock Text="EQ" HorizontalAlignment="Center" /></Border>
+          <!-- Section lights -->
+          <Grid Grid.Row="6" ColumnDefinitions="*,2,*,2,*,2,*">
+            <Button Classes="ghost" Padding="0" HorizontalAlignment="Stretch" Command="{Binding OpenSectionCommand}" CommandParameter="Gate" IsVisible="{Binding IsChannel}">
+              <Border Classes="lamp gate" Classes.on="{Binding GateOn}" HorizontalAlignment="Stretch"><TextBlock Text="G" /></Border>
             </Button>
-            <Button Grid.Column="2" Classes="ghost" Padding="0" HorizontalAlignment="Stretch" Command="{Binding OpenSectionCommand}" CommandParameter="Dynamics">
-              <Border Classes="ind" Padding="0" Classes.on="{Binding DynOn}" HorizontalAlignment="Stretch"><TextBlock Text="DYN" HorizontalAlignment="Center" /></Border>
+            <Button Grid.Column="2" Classes="ghost" Padding="0" HorizontalAlignment="Stretch" Command="{Binding OpenSectionCommand}" CommandParameter="Eq">
+              <Border Classes="lamp eq" Classes.on="{Binding EqOn}" HorizontalAlignment="Stretch"><TextBlock Text="EQ" /></Border>
             </Button>
-            <Button Grid.Column="4" Classes="ghost" Padding="0" HorizontalAlignment="Stretch" Command="{Binding OpenSectionCommand}" CommandParameter="Effects">
-              <Border Classes="ind" Padding="0" Classes.on="{Binding RackOn}" HorizontalAlignment="Stretch"><TextBlock Text="FX" HorizontalAlignment="Center" /></Border>
+            <Button Grid.Column="4" Classes="ghost" Padding="0" HorizontalAlignment="Stretch" Command="{Binding OpenSectionCommand}" CommandParameter="Dynamics">
+              <Border Classes="lamp dyn" Classes.on="{Binding CompOn}" HorizontalAlignment="Stretch"><TextBlock Text="C" /></Border>
+            </Button>
+            <Button Grid.Column="6" Classes="ghost" Padding="0" HorizontalAlignment="Stretch" Command="{Binding OpenSectionCommand}" CommandParameter="Effects">
+              <Border Classes="lamp fx" Classes.on="{Binding RackOn}" HorizontalAlignment="Stretch"><TextBlock Text="{Binding FxText}" /></Border>
             </Button>
           </Grid>
+          <!-- How hard the gate and compressor are working -->
           <StackPanel Grid.Row="8" Spacing="2" ToolTip.Tip="How far the gate (G) and compressor (C) are turning this strip down">
-            <Grid ColumnDefinitions="10,*"><TextBlock Classes="faint mono" FontSize="8.5" Text="G" /><c:BarMeter Grid.Column="1" Height="4" Minimum="0" Maximum="30" Value="{Binding GateGr}" VerticalAlignment="Center" /></Grid>
-            <Grid ColumnDefinitions="10,*"><TextBlock Classes="faint mono" FontSize="8.5" Text="C" /><c:BarMeter Grid.Column="1" Height="4" Minimum="0" Maximum="20" Value="{Binding CompGr}" VerticalAlignment="Center" /></Grid>
+            <Grid ColumnDefinitions="10,*"><TextBlock Classes="mono" Foreground="{StaticResource GateTone}" FontSize="8.5" Text="G" /><c:BarMeter Grid.Column="1" Height="4" Minimum="0" Maximum="30" Value="{Binding GateGr}" Fill="{StaticResource GateTone}" VerticalAlignment="Center" /></Grid>
+            <Grid ColumnDefinitions="10,*"><TextBlock Classes="mono" Foreground="{StaticResource DynTone}" FontSize="8.5" Text="C" /><c:BarMeter Grid.Column="1" Height="4" Minimum="0" Maximum="20" Value="{Binding CompGr}" Fill="{StaticResource DynTone}" VerticalAlignment="Center" /></Grid>
           </StackPanel>
-          <c:Fader Grid.Row="9" Value="{Binding Fader}" MinHeight="200" IsEnabled="{Binding FaderEnabled}" Margin="0,4,0,0"
+          <c:Fader Grid.Row="9" Value="{Binding Fader}" MinHeight="180" IsEnabled="{Binding FaderEnabled}" Margin="0,4,0,0"
                    Meters="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).StripMeters}"
                    MeterIndex="{Binding MeterIndex}" MeterIndexR="{Binding MeterIndexR}" />
           <Grid Grid.Row="10" ColumnDefinitions="*,Auto">
             <StackPanel Spacing="0" VerticalAlignment="Center">
               <TextBlock Classes="mono" FontSize="12.5" Text="{Binding FaderText}" />
-              <TextBlock Classes="faint" FontSize="8.5" Text="{Binding LayerNote}" />
+              <TextBlock FontSize="8.5" FontWeight="Bold" Foreground="{Binding LayerTone}" Text="{Binding LayerNote}" TextTrimming="CharacterEllipsis" IsVisible="{Binding OnLayer}" />
             </StackPanel>
             <c:Knob Grid.Column="1" Width="34" Height="44" Bipolar="True" Label="" Text="{Binding PanText}"
                     Position="{Binding PanPosition}" ResetCommand="{Binding CentrePanCommand}" ToolTip.Tip="Pan (balance on stereo strips). Double-click to centre." />

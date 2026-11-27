@@ -160,6 +160,21 @@ public sealed class StripFilters : Processor
         for (var i = 0; i < 2; i++) _lp[i].Process(left, right, frames);
     }
 
+    /// <summary>Only the low and high cut (the strip runs its EQ separately, so it can sit after the dynamics).</summary>
+    public void RunCuts(float[] left, float[]? right, int frames)
+    {
+        Update();
+        for (var i = 0; i < 2; i++) _hp[i].Process(left, right, frames);
+        for (var i = 0; i < 2; i++) _lp[i].Process(left, right, frames);
+    }
+
+    /// <summary>Only the parametric bands.</summary>
+    public void RunEq(float[] left, float[]? right, int frames)
+    {
+        Update();
+        for (var i = 0; i < _bands.Length; i++) _bands[i].Process(left, right, frames);
+    }
+
     public override void Reset()
     {
         foreach (var b in _hp) b.Reset();

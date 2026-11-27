@@ -24,7 +24,7 @@ internal static class GraphKit
     public static readonly IBrush Fallback = new SolidColorBrush(Color.Parse("#E2BE76"));
     public static readonly Typeface Mono = new(new FontFamily("avares://Nexora/Assets/Fonts#JetBrains Mono"));
 
-    public static IBrush Accent(Control c) => c.TryFindResource("Accent", c.ActualThemeVariant, out var a) && a is IBrush b ? b : Fallback;
+    public static IBrush Accent(Control c) => Paint.Of(c);
 
     public static IBrush Tint(IBrush accent, byte alpha) =>
         accent is ISolidColorBrush s ? new SolidColorBrush(Color.FromArgb(alpha, s.Color.R, s.Color.G, s.Color.B)) : accent;

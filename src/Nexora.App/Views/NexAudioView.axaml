@@ -9,12 +9,11 @@
   <UserControl.Styles>
     <Style Selector="Border.stat">
       <Setter Property="Background" Value="{StaticResource Surface2}" />
-      <Setter Property="CornerRadius" Value="10" />
-      <Setter Property="Padding" Value="14,10" />
-      <Setter Property="MinWidth" Value="118" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,5" />
     </Style>
     <Style Selector="TextBlock.statvalue">
-      <Setter Property="FontSize" Value="19" />
+      <Setter Property="FontSize" Value="13.5" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="FontFamily" Value="{StaticResource FontDisplay}" />
     </Style>
@@ -101,79 +100,71 @@
     </DataTemplate>
   </UserControl.DataTemplates>
 
-  <Grid RowDefinitions="Auto,12,Auto,Auto,12,*" Margin="20,16,20,18">
+  <Grid RowDefinitions="Auto,8,Auto,Auto,8,*" Margin="16,12,16,14">
 
-    <!-- Engine status -->
-    <Border Classes="card" Padding="16,14">
-      <Grid ColumnDefinitions="*,16,Auto">
-        <StackPanel Spacing="6" VerticalAlignment="Center">
-          <StackPanel Orientation="Horizontal" Spacing="10">
-            <Border Classes="chip ok" IsVisible="{Binding IsRunning}">
-              <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
-            </Border>
-            <Border Classes="chip warn" IsVisible="{Binding IsStarting}">
-              <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
-            </Border>
-            <Border Classes="chip bad" IsVisible="{Binding HasProblem}">
-              <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
-            </Border>
-            <Border Classes="chip" IsVisible="{Binding IsStopped}">
-              <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
-            </Border>
-            <TextBlock Classes="h3" Text="Sound engine" VerticalAlignment="Center" />
-            <TextBlock Classes="faint small" Text="{Binding UptimeText}" VerticalAlignment="Center" />
-          </StackPanel>
-          <TextBlock Classes="muted" Text="{Binding MessageText}" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" />
-          <TextBlock Classes="small" Foreground="{StaticResource Live}" Text="{Binding Notice}" TextWrapping="Wrap" IsVisible="{Binding Notice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+    <!-- Engine status, on one line so the desk gets the room -->
+    <Border Classes="card" Padding="12,8">
+      <Grid ColumnDefinitions="Auto,10,Auto,10,*,12,Auto,10,Auto">
+        <Panel VerticalAlignment="Center">
+          <Border Classes="chip ok" IsVisible="{Binding IsRunning}">
+            <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
+          </Border>
+          <Border Classes="chip warn" IsVisible="{Binding IsStarting}">
+            <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
+          </Border>
+          <Border Classes="chip bad" IsVisible="{Binding HasProblem}">
+            <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
+          </Border>
+          <Border Classes="chip" IsVisible="{Binding IsStopped}">
+            <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
+          </Border>
+        </Panel>
+        <TextBlock Grid.Column="2" Classes="h3" Text="NEX-Audio" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="4" Spacing="0" VerticalAlignment="Center">
+          <TextBlock Classes="muted small" Text="{Binding MessageText}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Classes="small" Foreground="{StaticResource Live}" Text="{Binding Notice}" TextTrimming="CharacterEllipsis" IsVisible="{Binding Notice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         </StackPanel>
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <Border Classes="stat">
-            <StackPanel Spacing="1">
-              <TextBlock Classes="eyebrow" Text="SAMPLE RATE" />
-              <TextBlock Classes="statvalue" Text="{Binding RateText}" />
-              <TextBlock Classes="faint small" Text="{Binding ChannelsText}" />
+        <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Border Classes="stat" ToolTip.Tip="{Binding ChannelsText}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="eyebrow" Text="RATE" VerticalAlignment="Center" />
+              <TextBlock Classes="statvalue" Text="{Binding RateText}" Foreground="{StaticResource InputTone}" />
             </StackPanel>
           </Border>
           <Border Classes="stat">
-            <StackPanel Spacing="1">
-              <TextBlock Classes="eyebrow" Text="BUFFER" />
-              <TextBlock Classes="statvalue" Text="{Binding BufferText}" FontSize="15" Margin="0,3,0,2" />
-              <TextBlock Classes="faint small" Text="per block" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="eyebrow" Text="BUFFER" VerticalAlignment="Center" />
+              <TextBlock Classes="statvalue" Text="{Binding BufferText}" />
             </StackPanel>
           </Border>
-          <Border Classes="stat">
-            <StackPanel Spacing="1">
-              <TextBlock Classes="eyebrow" Text="ROUND TRIP" />
-              <TextBlock Classes="statvalue" Text="{Binding RoundTripText}" Foreground="{StaticResource Accent}" />
-              <TextBlock Classes="faint small" Text="{Binding RoundTripNote}" />
+          <Border Classes="stat" ToolTip.Tip="{Binding RoundTripNote}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="eyebrow" Text="ROUND TRIP" VerticalAlignment="Center" />
+              <TextBlock Classes="statvalue" Text="{Binding RoundTripText}" Foreground="{StaticResource GateTone}" />
             </StackPanel>
           </Border>
-          <Border Classes="stat">
-            <StackPanel Spacing="1">
-              <TextBlock Classes="eyebrow" Text="ENGINE LOAD" />
-              <TextBlock Classes="statvalue" Text="{Binding LoadText}" Classes.error="{Binding LoadHigh}" />
-              <TextBlock Classes="faint small" Text="{Binding LoadNote}" />
+          <Border Classes="stat" ToolTip.Tip="{Binding LoadNote}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="eyebrow" Text="LOAD" VerticalAlignment="Center" />
+              <TextBlock Classes="statvalue" Text="{Binding LoadText}" Classes.error="{Binding LoadHigh}" Foreground="{StaticResource EqTone}" />
             </StackPanel>
           </Border>
-          <Border Classes="stat">
-            <StackPanel Spacing="1">
-              <TextBlock Classes="eyebrow" Text="CLICKS" />
+          <Border Classes="stat" ToolTip.Tip="{Binding ClicksNote}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="eyebrow" Text="CLICKS" VerticalAlignment="Center" />
               <TextBlock Classes="statvalue" Text="{Binding ClicksText}" Classes.error="{Binding ClicksBad}" />
-              <TextBlock Classes="faint small" Text="{Binding ClicksNote}" />
             </StackPanel>
           </Border>
-          <StackPanel Spacing="8" VerticalAlignment="Center" Margin="6,0,0,0" IsEnabled="{Binding CanControl}">
-            <Button Classes="primary" Command="{Binding StartSoundCommand}" IsVisible="{Binding !SoundOn}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <c:Icon Kind="play" Width="13" Height="13" />
-                <TextBlock Text="Start sound" />
-              </StackPanel>
-            </Button>
-            <Button Classes="warn" Command="{Binding StopSoundCommand}" IsVisible="{Binding SoundOn}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                    ToolTip.Tip="Stops NEX-Audio. Any X32 output fed from NEX-Audio goes silent.">
-              <TextBlock Text="Stop sound" />
-            </Button>
-          </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Column="8" VerticalAlignment="Center" IsEnabled="{Binding CanControl}">
+          <Button Classes="primary small" Command="{Binding StartSoundCommand}" IsVisible="{Binding !SoundOn}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <c:Icon Kind="play" Width="11" Height="11" />
+              <TextBlock Text="Start sound" />
+            </StackPanel>
+          </Button>
+          <Button Classes="warn small" Command="{Binding StopSoundCommand}" IsVisible="{Binding SoundOn}"
+                  ToolTip.Tip="Stops NEX-Audio. Any X32 output fed from NEX-Audio goes silent." Content="Stop sound" />
         </StackPanel>
       </Grid>
     </Border>

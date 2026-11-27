@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
+using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -122,6 +123,7 @@ public sealed partial class NexAudioViewModel
     private void RefreshValues()
     {
         foreach (var v in AllStripViews()) if (_mix.Find(v.Id) is { } st) v.Update(st);
+        UpdateBusTags();
         RefreshChannel();
         foreach (var r in OutputRows) r.Refresh(_mix);
         foreach (var p in StreamParams) p.Refresh(_mix);
@@ -170,6 +172,7 @@ public sealed partial class NexAudioViewModel
         if (_mix.Find(id) is { } s)
         {
             foreach (var v in AllStripViews().Where(v => v.Id == id)) v.Update(s);
+            if (BusTags.FirstOrDefault(t => t.Id == id) is { } tag) tag.Update(s, tag.IsCurrent, NameOf(s));
             if (path.Contains(".send.", StringComparison.Ordinal) || path.EndsWith(".solo", StringComparison.Ordinal)) foreach (var v in AllStripViews()) v.Update(_mix.Find(v.Id)!);
             if (SelectedId == id) RefreshChannel();
             if (id == "stream" || path.EndsWith(".streamLevel", StringComparison.Ordinal) || path.EndsWith(".streamOn", StringComparison.Ordinal))
@@ -182,6 +185,7 @@ public sealed partial class NexAudioViewModel
     {
         BuildStrips();
         BuildLayers();
+        BuildBusTags();
         BuildChannel();
         BuildOutputs();
         BuildStream();
@@ -273,6 +277,7 @@ public sealed partial class NexAudioViewModel
         Array.Copy(m.L, levels, n);
         Array.Copy(m.R, 0, levels, n, n);
         StripMeters.Push(levels, new bool[n * 2]);
+        UpdateBusMeters(m.L, m.R);
         foreach (var v in VisibleStrips.Append(MainStrip))
         {
             if (v is null || v.MeterIndex < 0 || v.MeterIndex >= n) continue;
@@ -332,9 +337,14 @@ public sealed partial class NexAudioViewModel
     {
         if (_buildingLayers) return;
         BuildStrips();
+        UpdateBusTags();
         OnPropertyChanged(nameof(OnSendsLayer));
         OnPropertyChanged(nameof(LayerTitle));
+        OnPropertyChanged(nameof(LayerTone));
     }
+
+    /// <summary>The colour of the bus on the faders (gold for the main mix).</summary>
+    public IBrush LayerTone => new SolidColorBrush(ColourOf(LayerBus ?? _mix.Main));
 
     public string LatencyMixText => DeskStatus.MixLatencyMs > 0.05 ? $"{DeskStatus.MixLatencyMs:0.0} ms added by effects and plugins (lined up automatically)" : "";
 

@@ -113,7 +113,7 @@ public sealed class EqCurve : Control
         ctx.DrawLine(Zero, new Point(0, YOf(0)), new Point(w, YOf(0)));
 
         if (Settings is not { } s) return;
-        var accent = this.TryFindResource("Accent", ActualThemeVariant, out var a) && a is IBrush ab ? ab : Dot;
+        var accent = Paint.Of(this);
         var tint = accent is ISolidColorBrush sc ? new SolidColorBrush(Color.FromArgb(40, sc.Color.R, sc.Color.G, sc.Color.B)) : accent;
 
         // The chosen band on its own, shaded, so it is clear what that band is doing.
@@ -268,7 +268,7 @@ public sealed class BarMeter : Control
         var span = Maximum - Minimum;
         if (span <= 0) return;
         var v = double.IsFinite(Value) ? Math.Clamp((Value - Minimum) / span, 0, 1) : 0;
-        var fill = Fill ?? (this.TryFindResource("Accent", ActualThemeVariant, out var a) && a is IBrush ab ? ab : TargetBrush);
+        var fill = Fill ?? Paint.Of(this);
         if (Vertical)
         {
             var hgt = b.Height * v;

@@ -30,9 +30,15 @@ public abstract class Processor
     /// <summary>Processes one buffer in place. <paramref name="right"/> is null for mono strips.</summary>
     public void Run(float[] left, float[]? right, int frames)
     {
+        Update();
+        Process(left, right, frames);
+    }
+
+    /// <summary>Takes any settings waiting from the control thread (on the audio thread).</summary>
+    protected void Update()
+    {
         var p = Interlocked.Exchange(ref _pending, null);
         if (p is not null) Apply(p);
-        Process(left, right, frames);
     }
 
     /// <summary>Takes new settings, on the audio thread.</summary>

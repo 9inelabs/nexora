@@ -157,7 +157,7 @@ public sealed class Knob : Control
         var angle = Start + Sweep * t;
         var thin = d < 40;
         Arc(ctx, thin ? TrackThin : Track, c, ring, Start, Start + Sweep);
-        var accent = this.TryFindResource("Accent", ActualThemeVariant, out var a) && a is IBrush ab ? ab : Fallback;
+        var accent = Paint.Of(this);
         var pen = new Pen(IsActive ? accent : Dim, thin ? 2.5 : 3.5, lineCap: PenLineCap.Round);
         Arc(ctx, pen, c, ring, Bipolar ? Start + Sweep / 2 : Start, angle);
 

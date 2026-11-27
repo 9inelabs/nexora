@@ -47,6 +47,19 @@
       <SolidColorBrush x:Key="TintPinned" Color="#1F5AA9F0" />
       <SolidColorBrush x:Key="TintPreview" Color="#1F3DD68C" />
       <SolidColorBrush x:Key="TintWarn" Color="#1FF0B44C" />
+      <!-- NEX-Audio section colours: each part of a strip keeps its colour everywhere it appears. -->
+      <SolidColorBrush x:Key="InputTone" Color="#6CB4F5" />
+      <SolidColorBrush x:Key="GateTone" Color="#4FD1C5" />
+      <SolidColorBrush x:Key="EqTone" Color="#A78BFA" />
+      <SolidColorBrush x:Key="DynTone" Color="#F59E5B" />
+      <SolidColorBrush x:Key="FxTone" Color="#F472B6" />
+      <SolidColorBrush x:Key="SendTone" Color="#E2BE76" />
+      <SolidColorBrush x:Key="InputTint" Color="#1A6CB4F5" />
+      <SolidColorBrush x:Key="GateTint" Color="#1A4FD1C5" />
+      <SolidColorBrush x:Key="EqTint" Color="#1AA78BFA" />
+      <SolidColorBrush x:Key="DynTint" Color="#1AF59E5B" />
+      <SolidColorBrush x:Key="FxTint" Color="#1AF472B6" />
+      <SolidColorBrush x:Key="SendTint" Color="#1AE2BE76" />
 
       <FontFamily x:Key="FontUi">avares://Nexora/Assets/Fonts#Manrope</FontFamily>
       <FontFamily x:Key="FontDisplay">avares://Nexora/Assets/Fonts#Sora</FontFamily>

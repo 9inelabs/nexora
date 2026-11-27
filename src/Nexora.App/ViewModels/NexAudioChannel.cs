@@ -25,6 +25,22 @@ public sealed partial class ChannelRailItem(ChannelSection section, string title
 {
     public ChannelSection Section { get; } = section;
     public string Title { get; } = title;
+
+    /// <summary>The section's own colour (input blue, gate teal, EQ violet, compressor orange, effects pink, sends gold).</summary>
+    public Avalonia.Media.IBrush Tone { get; } = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(section switch
+    {
+        ChannelSection.Input => "#6CB4F5",
+        ChannelSection.Gate => "#4FD1C5",
+        ChannelSection.Eq or ChannelSection.Geq => "#A78BFA",
+        ChannelSection.Dynamics => "#F59E5B",
+        ChannelSection.Effects => "#F472B6",
+        ChannelSection.Sends => "#E2BE76",
+        _ => "#F2F2F0",
+    }));
+
+    public Avalonia.Media.IBrush TitleBrush => IsCurrent ? Tone : Avalonia.Media.Brushes.WhiteSmoke;
+
+    partial void OnIsCurrentChanged(bool value) => OnPropertyChanged(nameof(TitleBrush));
     [ObservableProperty] private string _status = "";
     [ObservableProperty] private bool _isOn;
     [ObservableProperty] private bool _isCurrent;
@@ -99,12 +115,14 @@ public sealed partial class SendView : ObservableObject
         _default = bus.Kind == StripKind.Mix ? SendTap.Pre : SendTap.Post;
         Name = name;
         Kind = MixState.KindLabel(bus.Kind).ToUpperInvariant() + (bus.Number > 0 ? $" {bus.Number}" : "");
+        Tone = new Avalonia.Media.SolidColorBrush(NexAudioViewModel.ColourOf(bus));
         Level = new SliderParam($"{_path}.level", name, Db.Floor, 10, "dB", m => _get(m) is { } s ? s.Level : Db.Floor, q, step: 0.5, def: 0);
         On = new ToggleParam($"{_path}.on", "On", m => _get(m)?.On ?? false, q);
     }
 
     public string Name { get; }
     public string Kind { get; }
+    public Avalonia.Media.IBrush Tone { get; }
     public SliderParam Level { get; }
     public ToggleParam On { get; }
     [ObservableProperty] private bool _pre;
@@ -132,11 +150,22 @@ public sealed partial class RackSlotView(int index, NexAudioViewModel owner) : O
     [ObservableProperty] private string _name = "Empty";
     [ObservableProperty] private string _detail = "";
     [ObservableProperty] private bool _isEmpty = true;
-    [ObservableProperty] private bool _isBypassed;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsActive))] private bool _isBypassed;
     [ObservableProperty] private bool _isSelected;
     public string? ItemId { get; set; }
+    public bool IsActive => !IsEmpty && !IsBypassed;
+
+    partial void OnIsEmptyChanged(bool value) => OnPropertyChanged(nameof(IsActive));
 
     [RelayCommand] private void Select() => owner.SelectRackSlot(Index);
+
+    /// <summary>From the home page: opens the Effects page on this place.</summary>
+    [RelayCommand]
+    private void Open()
+    {
+        owner.SelectRackSlot(Index);
+        owner.ChannelPage = ChannelSection.Effects;
+    }
 }
 
 /// <summary>Every setting of the open strip, as knobs and switches for the channel workspace.</summary>

@@ -234,15 +234,7 @@ public static class SceneRecall
             }
             if (isFx ? scope.HasFlag(RecallScope.Effects) : scope.HasFlag(RecallScope.Processing))
             {
-                dst.Trim = src.Trim;
-                dst.Invert = src.Invert;
-                dst.DelayMs = src.DelayMs;
-                dst.Hpf = src.Hpf.Clone();
-                dst.Lpf = src.Lpf.Clone();
-                dst.Eq = src.Eq.Clone();
-                dst.Gate = src.Gate.Clone();
-                dst.Comp = src.Comp.Clone();
-                dst.Rack = src.Rack.Select(r => r.Clone()).ToList();
+                dst.TakeProcessing(src, newIds: false);
                 dst.Preamp = src.Preamp;
                 dst.Phantom = src.Phantom;
             }
