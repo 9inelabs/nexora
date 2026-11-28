@@ -289,6 +289,15 @@ public static class MixParams
                 s.StreamSettings = u;
                 return true;
             }
+            case "speech":
+            {
+                var u = SetIn(s.Speech, seg[1..], value);
+                if (u is null) return false;
+                u.Channel = (u.Channel ?? "").Trim().ToLowerInvariant();
+                if (u.Channel.Length > 0 && s.Channels.All(c => c.Id != u.Channel)) return false;
+                s.Speech = u;
+                return true;
+            }
             case "tone":
             {
                 var u = SetIn(s.Tone, seg[1..], value);

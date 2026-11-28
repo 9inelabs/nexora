@@ -13,6 +13,11 @@
         <TextBlock Classes="faint small" TextWrapping="Wrap" Text="The stream gets its own copy of the mix, with its own compressor and a final limiter, so the online sound is even and never too loud. It goes over the network to the Live Output PC, which records and streams it." />
         <ItemsControl ItemsSource="{Binding StreamParams}" Margin="0,4,0,0" />
         <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding StreamLinkText}" TextWrapping="Wrap" />
+        <Border Height="1" Background="{StaticResource Line}" Margin="0,8,0,4" />
+        <TextBlock Classes="h3" Text="Speech feed for Scripture" />
+        <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Sends the pastor's mic to NEXORA's Scripture PC, which listens for Bible references and puts them up for the operator. Only this one channel is sent, at speech quality, on the church network. Nothing goes online." />
+        <ItemsControl ItemsSource="{Binding SpeechParams}" Margin="0,4,0,0" />
+        <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding SpeechFeedText}" TextWrapping="Wrap" />
       </StackPanel>
     </Border>
     <Border Grid.Column="2" Classes="card" Padding="16" VerticalAlignment="Top">

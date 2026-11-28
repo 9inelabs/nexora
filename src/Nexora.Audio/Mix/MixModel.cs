@@ -565,6 +565,17 @@ public sealed class StreamSettings
     public double DelayMs { get; set; }
 }
 
+/// <summary>
+/// The speech feed: one channel (the pastor's mic) sent to NEXORA's Scripture PC, which listens for Bible references.
+/// </summary>
+public sealed class SpeechFeedSettings
+{
+    /// <summary>The channel heard ("ch3"), or empty for off.</summary>
+    public string Channel { get; set; } = "";
+    /// <summary>After the fader: the Scripture PC only hears the pastor while the mic is up (and not muted).</summary>
+    public bool AfterFader { get; set; } = true;
+}
+
 /// <summary>What the test signal plays.</summary>
 public enum ToneKind
 {
@@ -748,6 +759,8 @@ public sealed class MixState
     public MainSettings MainSettings { get; set; } = new();
     public bool IsLcr => MainSettings.Layout == MainLayout.Lcr;
     public StreamSettings StreamSettings { get; set; } = new();
+    /// <summary>The pastor's mic for NEXORA's Scripture listening.</summary>
+    public SpeechFeedSettings Speech { get; set; } = new();
     public SoloSettings Solo { get; set; } = new();
     public CueSettings Cue { get; set; } = new();
     public ToneSettings Tone { get; set; } = new();
@@ -949,6 +962,9 @@ public sealed class MixState
         Centre.Id = "centre"; Centre.Kind = StripKind.Centre; Centre.Stereo = false; Centre.ToMain = false; Centre.Pan = 0;
         MainSettings ??= new MainSettings();
         StreamSettings ??= new StreamSettings();
+        Speech ??= new SpeechFeedSettings();
+        Speech.Channel = (Speech.Channel ?? "").Trim().ToLowerInvariant();
+        if (Speech.Channel.Length > 0 && Channels.All(c => c.Id != Speech.Channel)) Speech.Channel = "";
         Solo ??= new SoloSettings();
         Cue ??= new CueSettings();
         Cue.Source = string.IsNullOrWhiteSpace(Cue.Source) ? "solo" : Cue.Source.Trim().ToLowerInvariant();

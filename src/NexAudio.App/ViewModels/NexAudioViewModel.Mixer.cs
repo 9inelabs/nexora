@@ -133,7 +133,20 @@ public sealed partial class NexAudioViewModel
         RefreshGroups();
         OnPropertyChanged(nameof(AnySolo));
         OnPropertyChanged(nameof(StreamOwnMix));
+
+        foreach (var p in SpeechParams) p.Refresh(_mix);
+        OnPropertyChanged(nameof(SpeechFeedText));
     }
+
+    public ObservableCollection<MixParam> SpeechParams { get; } = [];
+
+    public string SpeechFeedText => _mix.Speech.Channel is not { Length: > 0 } id
+        ? "Off. Pick the pastor's channel to let NEXORA's Scripture PC listen for Bible references."
+        : DeskStatus.Settings.Offline
+            ? "Offline preparation: nothing is sent."
+            : DeskStatus.SpeechPackets > 0
+                ? $"Sending {(_mix.Find(id) is { } st ? NameOf(st) : id)} to every Scripture PC on the network · {DeskStatus.SpeechPackets:N0} packets"
+                : $"Will send {(_mix.Find(id) is { } st2 ? NameOf(st2) : id)} once the sound is running.";
 
     private bool _rebuildQueued;
 
@@ -773,6 +786,15 @@ public sealed partial class NexAudioViewModel
             StreamChannelParams.Add(p);
         }
         OnPropertyChanged(nameof(StreamOwnMix));
+
+        // The speech feed for NEXORA's Scripture listening.
+        SpeechParams.Clear();
+        var mics = new List<Choice> { new("", "Off") };
+        mics.AddRange(_mix.Channels.Select(c => new Choice(c.Id, NameOf(c))));
+        SpeechParams.Add(new ChoiceParam("speech.channel", "Pastor's mic", mics, m => m.Speech.Channel, q));
+        SpeechParams.Add(new ToggleParam("speech.afterFader", "Only while the mic is up (after the fader)", m => m.Speech.AfterFader, q));
+        foreach (var p in SpeechParams) p.Refresh(_mix);
+        OnPropertyChanged(nameof(SpeechFeedText));
     }
 
     [ObservableProperty] private string _lufsMomentary = "—";
@@ -868,7 +890,7 @@ public sealed partial class NexAudioViewModel
         foreach (var p in new[]
                  {
                      nameof(CurrentSceneText), nameof(FailsafeStateText), nameof(FailsafeDetail), nameof(HandedOver), nameof(NotHandedOver),
-                     nameof(DeskX32Text), nameof(LatencyMixText), nameof(ScanText), nameof(PluginCountText), nameof(StreamLinkText), nameof(FadeRunning),
+                     nameof(DeskX32Text), nameof(LatencyMixText), nameof(ScanText), nameof(PluginCountText), nameof(StreamLinkText), nameof(SpeechFeedText), nameof(FadeRunning),
                  })
             OnPropertyChanged(p);
     }

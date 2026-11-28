@@ -227,6 +227,11 @@ public sealed class BibleTranslation : IDisposable
 
     public string? Verse(int book, int chapter, int verse) => _verses.GetValueOrDefault(BibleFile.Id(book, chapter, verse));
 
+    /// <summary>Every verse with its id (book × 1,000,000 + chapter × 1,000 + verse), for building search indexes.</summary>
+    public IEnumerable<(long Id, string Text)> AllVerses() => _verses.Select(kv => (kv.Key, kv.Value));
+
+    public string? Verse(long id) => _verses.GetValueOrDefault(id);
+
     /// <summary>Verses in a chapter in this translation (may differ slightly from the KJV count).</summary>
     public int VersesIn(int book, int chapter) => _lastVerse.GetValueOrDefault((book, chapter));
 

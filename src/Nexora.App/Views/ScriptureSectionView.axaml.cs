@@ -19,6 +19,9 @@ public partial class ScriptureSectionView : UserControl
         StylePanel.PickImageRequested += async () => await PickBackgroundAsync();
         ExportTheme.Click += async (_, _) => await ExportAsync();
         ImportTheme.Click += async (_, _) => await ImportAsync();
+        ImportModel.Click += async (_, _) => await PickAsync("Import a speech model", "Whisper model", ["ggml-*.bin"], p => Vm?.ImportModel(p));
+        ReplayRecording.Click += async (_, _) => await PickAsync("Replay a recorded sermon", "Recordings", Recordings, p => _ = Vm?.ReplayAsync(p));
+        ScanRecording.Click += async (_, _) => await PickAsync("Scan a recorded sermon", "Recordings", Recordings, p => _ = Vm?.ScanAsync(p));
         DataContextChanged += (_, _) =>
         {
             if (_hooked is not null) _hooked.ScrollToRow -= OnScrollToRow;
@@ -49,6 +52,21 @@ public partial class ScriptureSectionView : UserControl
     }
 
     private IStorageProvider? Storage => TopLevel.GetTopLevel(this)?.StorageProvider;
+
+    private static readonly string[] Recordings = ["*.mp3", "*.wav", "*.m4a", "*.aac", "*.flac", "*.ogg", "*.wma", "*.mp4", "*.mkv", "*.mov", "*.ts"];
+
+    private async Task PickAsync(string title, string kind, string[] patterns, Action<string> use)
+    {
+        if (Storage is not { } sp) return;
+        var files = await sp.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+            FileTypeFilter = [new FilePickerFileType(kind) { Patterns = patterns }, FilePickerFileTypes.All],
+        });
+        if (files.Count == 0 || files[0].TryGetLocalPath() is not { } path) return;
+        use(path);
+    }
 
     private async Task PickBackgroundAsync()
     {

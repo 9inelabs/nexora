@@ -392,6 +392,23 @@ public sealed partial class LiveServer
             });
             return true;
         }
+        if (path == "/speech/index.json" && HttpMethods.IsGet(ctx.Request.Method))
+        {
+            var files = _options.SpeechDir is { } sd && Directory.Exists(sd)
+                ? Directory.GetFiles(sd, "ggml-*.bin").Select(f => new FileInfo(f)).Select(f => new { name = f.Name, size = f.Length }).ToList()
+                : [];
+            ctx.Response.ContentType = "application/json";
+            await ctx.Response.WriteAsync(JsonSerializer.Serialize(files));
+            return true;
+        }
+        if (path.StartsWith("/speech/") && HttpMethods.IsGet(ctx.Request.Method) && _options.SpeechDir is { } speech)
+        {
+            var name = path["/speech/".Length..];
+            if (!SafeName(name) || !name.StartsWith("ggml-") || !name.EndsWith(".bin") || !File.Exists(Path.Combine(speech, name))) { ctx.Response.StatusCode = 404; return true; }
+            ctx.Response.ContentType = "application/octet-stream";
+            await ctx.Response.SendFileAsync(Path.Combine(speech, name));
+            return true;
+        }
         if (path.StartsWith("/updates/") && HttpMethods.IsGet(ctx.Request.Method) && _options.UpdatesDir is { } updates)
         {
             var name = path["/updates/".Length..];

@@ -50,6 +50,8 @@ public static class AppPaths
     public static string BackupsDir => Ensure(Path.Combine(Root, "backups"));
     /// <summary>Update packages the Live Output PC offers to the other PCs.</summary>
     public static string UpdatesDir => Ensure(Path.Combine(Root, "updates"));
+    /// <summary>Speech models for Scripture listening (Whisper), and the meaning vectors worked out on this PC.</summary>
+    public static string SpeechDir => Ensure(Path.Combine(Root, "speech"));
     /// <summary>A recent copy of the Live Output PC's library, so this PC can take over if that PC fails.</summary>
     public static string StandbyDir => Ensure(Path.Combine(Root, "standby"));
     /// <summary>Where recordings go when no folder is chosen.</summary>

@@ -98,6 +98,8 @@ public sealed record DeskStatus(
     public IReadOnlyList<string> Addresses { get; init; } = [];
     /// <summary>The last thing a NEXORA trigger did.</summary>
     public string? TriggerNote { get; init; }
+    /// <summary>Speech feed packets sent to NEXORA's Scripture PCs so far.</summary>
+    public long SpeechPackets { get; init; }
     /// <summary>The newest events on the desk, newest first (the Diagnostics page).</summary>
     public IReadOnlyList<DeskEvent> Events { get; init; } = [];
     /// <summary>How many times the X32 link was lost since the desk started, and when the X32 last answered.</summary>
@@ -129,6 +131,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
     private readonly X32Client _x32;
     private readonly HeartbeatSender? _heartbeat;
     private readonly StreamSender? _stream;
+    private readonly SpeechSender? _speech;
     private readonly Timer _timer;
     private readonly IPluginHostLauncher _launcher;
     private readonly List<PluginProcessor> _plugins = [];
@@ -200,6 +203,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
         {
             _heartbeat = new HeartbeatSender(MakeHeartbeat) { Host = _settings.LiveOutputHost };
             _stream = new StreamSender(() => _engine?.StreamTap) { Host = StreamHost() };
+            _speech = new SpeechSender(() => _engine is { SpeechOn: true } e ? e.SpeechTap : null);
         }
         _timer = new Timer(_ => Tick(), null, 100, 100);
         if (_settings.X32Host is { Length: > 0 } h && !_settings.Offline) _ = ConnectX32Async(h);
@@ -706,6 +710,24 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
         return send && !s.Offline ? s.LiveOutputHost : null;
     }
 
+    /// <summary>What NEXORA's Scripture PC sees for the speech feed ("SOUND-PC · Pastor"), or null when it is off.</summary>
+    private string? SpeechLabel()
+    {
+        if (Settings.Offline) return null;
+        string id;
+        string name;
+        lock (_gate)
+        {
+            id = _mix.Speech.Channel;
+            if (id.Length == 0) return null;
+            name = _mix.Find(id)?.Name ?? "";
+        }
+        if (string.IsNullOrWhiteSpace(name)) name = "Ch " + id[2..];
+        return $"{Environment.MachineName} · {name.Trim()}";
+    }
+
+    private long SpeechPackets => _speech?.PacketsSent ?? 0;
+
     /// <summary>Hands the room to the X32 now (the "Console only" scene).</summary>
     public async Task HandOverAsync(string reason)
     {
@@ -760,6 +782,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
             _tick++;
             FadeStep();
             DrumTick();
+            if (_speech is not null && _tick % 5 == 0) _speech.Label = SpeechLabel();
 
             if (_reloadPdc)
             {
@@ -852,7 +875,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
                 SurfaceSelected = _selected, SurfaceSelectSeq = Interlocked.Read(ref _selectSeq),
                 MidiInputs = _midiInputs, MidiOutputs = _midiOutputs, MidiText = MidiText(), MidiConnected = _midiInPort is not null,
                 RemoteRunning = _remote?.Running ?? false, RemoteError = _remoteError, RemoteClients = _remote?.Clients ?? [],
-                Addresses = LanAddresses(), TriggerNote = _triggerNote,
+                Addresses = LanAddresses(), TriggerNote = _triggerNote, SpeechPackets = SpeechPackets,
                 Events = Events.Latest(80), X32Drops = _x32.Drops, DrumSamples = DrumSamples,
                 X32LastHeardUtc = _x32.LastHeard == DateTime.MinValue ? null : _x32.LastHeard,
             };
@@ -954,6 +977,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
         SaveMix();
         _heartbeat?.Dispose();
         _stream?.Dispose();
+        _speech?.Dispose();
         _x32.Dispose();
         DisposeSurfaces();
         DisposePlugins();
