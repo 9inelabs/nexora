@@ -1080,6 +1080,18 @@ public static class Routing
 
     public static bool CanSend(Strip from, Strip to) => from.Id != to.Id && KindsCanSend(from.Kind, to.Kind);
 
+    /// <summary>
+    /// For the meters on sends on faders: the level a strip puts into a bus. Nothing with no send, a send that is off
+    /// or a mute; otherwise its level at the send's tap point (after the fader, or before it for every earlier tap) times the send.
+    /// </summary>
+    public static float SendMeterLevel(Strip from, Strip bus, float postL, float postR, float pre)
+    {
+        if (!CanSend(from, bus) || from.SendTo(bus.Id) is not { On: true } send || send.Level <= Db.Floor) return 0;
+        if (from.Mute || from.HardMute) return 0;
+        var at = send.Tap == SendTap.Post ? Math.Max(postL, postR) : pre;
+        return at * Db.ToGain(send.Level);
+    }
+
     /// <summary>Channels, effect returns and groups can go through a group (a group into a group makes a sub-group).</summary>
     public static bool CanGroup(Strip from, Strip to) =>
         from.Id != to.Id && to.Kind == StripKind.Group && from.Kind is StripKind.Channel or StripKind.Fx or StripKind.Group;

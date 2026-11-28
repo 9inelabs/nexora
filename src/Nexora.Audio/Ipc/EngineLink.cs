@@ -572,7 +572,7 @@ public sealed class EngineServer : IDisposable
             ml, mr, tick % 3 == 0 ? _engine.Desk.Loudness() : null, tick % 2 == 0 ? mix.Analyser.Bands() : null, m.Select(x => x.DynEq).ToArray(),
             tick % 10 == 0 ? mix.TakeCosts() : null,
             [mix.MainPhase.Value, mix.StreamPhase.Value],
-            m.Select(x => x.Trigger).ToArray(), _engine.Desk.TriggerLive(mix.AnalyseId));
+            m.Select(x => x.Trigger).ToArray(), _engine.Desk.TriggerLive(mix.AnalyseId), m.Select(x => x.Pre).ToArray());
         foreach (var c in conns) _ = c.SendAsync(mm);
     }
 

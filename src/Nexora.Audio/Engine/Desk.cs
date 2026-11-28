@@ -622,7 +622,10 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
         }
         await _x32.RequestScenesAsync();
         // Ask for the desk's current values, so the shadow mix only sends what differs.
+        // (Those answers are only remembered: they never move NEX-Audio's own mix, even with Follow the desk on.)
         foreach (var addr in ShadowMix.Desired(Mix).Keys) await _x32.SendAsync(new OscMessage(addr));
+        // Every preamp too, so the first turn of a gain knob on the X32 is heard as a change.
+        for (var h = 0; h < 32; h++) await _x32.SendAsync(new OscMessage($"/headamp/{h:000}/gain"));
         Changed?.Invoke();
         return true;
     }
