@@ -361,6 +361,7 @@ public sealed partial class NexAudioViewModel
         var levels = new float[n * 2];
         Array.Copy(m.L, levels, n);
         Array.Copy(m.R, 0, levels, n, n);
+        if (LayerBus is { } layer) SendMeters(layer, m, levels);
         StripMeters.Push(levels, new bool[n * 2]);
         if (m.Phase is { Length: >= 2 } ph)
         {
@@ -395,6 +396,27 @@ public sealed partial class NexAudioViewModel
         MonitorLevel = Math.Max(m.MonitorL, m.MonitorR);
         if (m.Loudness is { } l) ApplyLoudness(l);
         if (m.Spectrum is { } sp) Spectrum = sp;
+    }
+
+    /// <summary>
+    /// Sends on faders: each strip's meter shows what it puts into that bus (its level at the send's tap point,
+    /// times the send level), not its main-mix level. A strip that does not send to the bus shows nothing.
+    /// </summary>
+    private void SendMeters(Strip layer, MixMetersMsg m, float[] levels)
+    {
+        var n = m.L.Length;
+        var i = 0;
+        foreach (var s in _mix.AllStrips())
+        {
+            if (i >= n) break;
+            if (s.Id != layer.Id && s.Kind is not (StripKind.Main or StripKind.Mono or StripKind.Stream or StripKind.Centre))
+            {
+                var level = Routing.SendMeterLevel(s, layer, m.L[i], m.R[i], m.Pre is { } pre && i < pre.Length ? pre[i] : m.In[i]);
+                levels[i] = level;
+                levels[i + n] = level;
+            }
+            i++;
+        }
     }
 
     [ObservableProperty] private float _monitorLevel;

@@ -120,6 +120,8 @@ internal sealed class StripRt
 
     // Meters (written by the audio thread, taken by the control thread).
     public float MeterIn, MeterL, MeterR, MeterGate, MeterComp, MeterRack, MeterDynEq, MeterTrigger;
+    /// <summary>The level before the fader (after the processing): what a send taken before the fader hears.</summary>
+    public float MeterPre;
     /// <summary>The same level after the fader, for remotes and fader boxes (taken separately, so the screen's meters are not disturbed).</summary>
     public float RemotePeak;
 }
@@ -1168,6 +1170,8 @@ public sealed class MixEngine
         // Before the fader.
         Array.Copy(s.L, s.PreL, frames);
         if (r is not null) Array.Copy(r, s.PreR, frames);
+        var pre = Math.Max(Dsp.Dsp.Peak(s.PreL, frames), r is not null ? Dsp.Dsp.Peak(s.PreR, frames) : 0f);
+        if (pre > s.MeterPre) s.MeterPre = pre;
 
         // After the fader (with the pan for the main mix).
         Array.Copy(s.L, s.PostL, frames);
@@ -1219,7 +1223,8 @@ public sealed class MixEngine
         for (var i = 0; i < t.All.Length; i++)
         {
             var s = t.All[i];
-            result[i] = new StripMeters(s.MeterIn, s.MeterL, s.MeterR, s.MeterGate, s.MeterComp, s.MeterRack, s.Gate.On && !s.Gate.IsOpen, s.MeterDynEq, s.MeterTrigger);
+            result[i] = new StripMeters(s.MeterIn, s.MeterL, s.MeterR, s.MeterGate, s.MeterComp, s.MeterRack, s.Gate.On && !s.Gate.IsOpen, s.MeterDynEq, s.MeterTrigger, s.MeterPre);
+            s.MeterPre = 0;
             s.MeterIn = s.MeterL = s.MeterR = s.MeterGate = s.MeterComp = s.MeterRack = s.MeterDynEq = s.MeterTrigger = 0;
         }
         return result;
@@ -1279,4 +1284,4 @@ public sealed class MixEngine
 public readonly record struct PathLatency(string Id, int Own, int Arrives, int Leaves);
 
 /// <param name="Trigger">A drum trigger fired since the last reading: 0 none, else 0.1 (softest) to 1 (hardest).</param>
-public readonly record struct StripMeters(float In, float L, float R, float Gate, float Comp, float Rack, bool GateClosed, float DynEq = 0, float Trigger = 0);
+public readonly record struct StripMeters(float In, float L, float R, float Gate, float Comp, float Rack, bool GateClosed, float DynEq = 0, float Trigger = 0, float Pre = 0);

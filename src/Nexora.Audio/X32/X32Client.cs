@@ -308,7 +308,12 @@ public sealed class X32Client : IDisposable
                 bool changed;
                 lock (_gate)
                 {
-                    changed = !_values.TryGetValue(msg.Address, out var old) || Math.Abs(old - value) > 0.0005f;
+                    // The first value heard for a fader, mute, send or preamp is the X32 answering "what is this now?"
+                    // (asked on connecting, and again after the link comes back), not someone moving it: it is only
+                    // remembered. Raising it would copy the X32's own old mix over NEX-Audio's. Button presses
+                    // (/-stat/) always count, as each one is a press.
+                    var had = _values.TryGetValue(msg.Address, out var old);
+                    changed = had ? Math.Abs(old - value) > 0.0005f : msg.Address.StartsWith("/-stat/", StringComparison.Ordinal);
                     _values[msg.Address] = value;
                 }
                 if (changed) ValueChanged?.Invoke(msg.Address, value);

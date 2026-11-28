@@ -369,6 +369,32 @@ public class X32Tests
     }
 
     [Fact]
+    public async Task The_X32_answering_what_a_send_is_now_is_not_taken_as_a_move()
+    {
+        using var fake = new FakeX32();
+        using var x = new X32Client(fake.Port);
+        Assert.NotNull(await x.ConnectAsync("127.0.0.1"));
+        var moves = new System.Collections.Concurrent.ConcurrentQueue<(string, float)>();
+        x.ValueChanged += (a, v) => moves.Enqueue((a, v));
+
+        // The X32's own old send (its answer on connecting): remembered, never raised, so it cannot overwrite NEX-Audio's mix.
+        fake.Push(new OscMessage("/ch/03/mix/05/level", 0.1f));
+        var until = DateTime.UtcNow.AddSeconds(3);
+        while (x.Value("/ch/03/mix/05/level") is null && DateTime.UtcNow < until) await Task.Delay(20);
+        Assert.Equal(0.1f, x.Value("/ch/03/mix/05/level")!.Value, 3);
+        Assert.Empty(moves);
+
+        // Someone then moves it on the desk: that is a change.
+        fake.Push(new OscMessage("/ch/03/mix/05/level", 0.75f));
+        // A SELECT or SOLO press counts the first time.
+        fake.Push(new OscMessage("/-stat/solosw/03", 1));
+        until = DateTime.UtcNow.AddSeconds(3);
+        while (moves.Count < 2 && DateTime.UtcNow < until) await Task.Delay(20);
+        Assert.Contains(moves, m => m.Item1 == "/ch/03/mix/05/level" && Math.Abs(m.Item2 - 0.75f) < 0.001f);
+        Assert.Contains(moves, m => m.Item1 == "/-stat/solosw/03");
+    }
+
+    [Fact]
     public async Task No_console_answering_means_not_connected()
     {
         using var x = new X32Client(FakeX32.FreePort());
