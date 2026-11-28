@@ -37,6 +37,21 @@ public sealed partial class Desk
     private string? _remoteError;
     private bool _remoteBusy;
 
+    // The admin remote (laptops). The engine's link to the screens runs it; the desk only shows who is on it.
+    private IReadOnlyList<LaptopClient> _laptops = [];
+    private bool _laptopsRunning;
+    private string? _laptopsError;
+
+    /// <summary>The engine's link reports the laptops on the admin remote, and whether it is listening.</summary>
+    public void SetLaptops(IReadOnlyList<LaptopClient> laptops, bool running, string? error)
+    {
+        var changed = running != _laptopsRunning || error != _laptopsError || !laptops.SequenceEqual(_laptops);
+        _laptops = laptops;
+        _laptopsRunning = running;
+        _laptopsError = error;
+        if (changed) Changed?.Invoke();
+    }
+
     /// <summary>Where MIDI ports come from (the system's own on Windows; tests use their own).</summary>
     public IMidiPorts MidiPorts { get; set; } = new WinMidi();
 

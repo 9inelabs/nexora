@@ -24,10 +24,27 @@ public sealed record RemoteSettings
     /// <summary>The mixes musicians may change from their phones ("mix1", "mix4").</summary>
     public List<string> Mixes { get; init; } = [];
 
+    /// <summary>The admin remote: NEX-Audio on another laptop runs the whole desk (off unless switched on, and only with its own PIN).</summary>
+    public bool Laptops { get; init; }
+    public int LaptopPort { get; init; } = LaptopLink.DefaultPort;
+    /// <summary>4 to 8 digits a laptop must know. Empty: no laptop can connect.</summary>
+    public string LaptopPin { get; init; } = "";
+
+    private static string CleanPin(string? pin) => new string((pin ?? "").Where(char.IsDigit).Take(8).ToArray()) is { Length: >= 4 } p ? p : "";
+
+    /// <summary>The laptop port, never the same as the phones' port.</summary>
+    private static int CleanLaptopPort(int laptop, int phones)
+    {
+        var p = laptop is >= 1024 and <= 65535 ? laptop : LaptopLink.DefaultPort;
+        return p != phones ? p : phones == LaptopLink.DefaultPort ? LaptopLink.DefaultPort + 1 : LaptopLink.DefaultPort;
+    }
+
     public RemoteSettings Clean() => this with
     {
         Port = Port is >= 1024 and <= 65535 ? Port : DefaultPort,
-        Pin = new string((Pin ?? "").Where(char.IsDigit).Take(8).ToArray()) is { Length: >= 4 } p ? p : "",
+        LaptopPort = CleanLaptopPort(LaptopPort, Port is >= 1024 and <= 65535 ? Port : DefaultPort),
+        LaptopPin = CleanPin(LaptopPin),
+        Pin = CleanPin(Pin),
         Mixes = (Mixes ?? []).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct().Take(MixState.MaxMix).ToList(),
     };
 }

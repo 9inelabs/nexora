@@ -232,6 +232,7 @@ public sealed partial class NexAudioViewModel
     public Task ImportDrums(IReadOnlyList<string> files)
     {
         if (files.Count == 0) return Task.CompletedTask;
+        if (IsRemoteDesk) return ImportDrumsFromLaptop(files);
         Notice = $"Adding {files.Count} sample{(files.Count == 1 ? "" : "s")} to \"{DrumLibrary.Clean(ImportKit)}\"…";
         return Command("drums.import", new() { ["files"] = string.Join('|', files), ["kit"] = ImportKit });
     }

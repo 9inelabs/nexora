@@ -50,7 +50,17 @@
             <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="{Binding StateText}" /></StackPanel>
           </Border>
         </Panel>
-        <TextBlock Grid.Column="2" Classes="h3" Text="NEX-Audio" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <TextBlock Classes="h3" Text="NEX-Audio" VerticalAlignment="Center" />
+          <!-- The admin remote: this laptop is running another PC's desk -->
+          <Button Classes="ghost small" Padding="8,3" IsVisible="{Binding IsRemoteDesk}" Command="{Binding ShowTabCommand}" CommandParameter="Remote"
+                  BorderBrush="{StaticResource Accent}" BorderThickness="1" ToolTip.Tip="This laptop is running the sound PC's desk. Open the Remote page to disconnect.">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <c:Icon Kind="monitor" Width="12" Height="12" Foreground="{StaticResource Accent}" />
+              <TextBlock Text="{Binding RemoteDeskChip}" Foreground="{StaticResource Accent}" FontSize="11" FontWeight="SemiBold" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
         <StackPanel Grid.Column="4" Spacing="0" VerticalAlignment="Center">
           <TextBlock Classes="muted small" Text="{Binding MessageText}" TextTrimming="CharacterEllipsis" />
           <TextBlock Classes="small" Foreground="{StaticResource Live}" Text="{Binding Notice}" TextTrimming="CharacterEllipsis" IsVisible="{Binding Notice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -393,7 +403,9 @@
             <TextBlock Classes="muted" TextWrapping="Wrap" Text="If the engine or the driver stops, NEX-Audio starts it again within a few seconds with the same settings, and after a PC restart it starts the sound as soon as NEXORA opens." />
             <TextBlock Classes="muted" TextWrapping="Wrap" Text="If NEX-Audio stops during a service, the failsafe hands the room to the X32 by itself (Failsafe tab)." />
             <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
-            <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding CanControl}">
+            <TextBlock Classes="small" Foreground="{StaticResource Accent}" TextWrapping="Wrap" IsVisible="{Binding IsRemoteDesk}"
+                       Text="This laptop is on the admin remote: the engine runs on the sound PC, and only the sound PC can shut it down." />
+            <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding CanControl}" IsVisible="{Binding IsLocalDesk}">
               <Button Classes="ghost" Command="{Binding ShutDownEngineCommand}" Content="Shut down the engine" IsVisible="{Binding EngineLinked}"
                       ToolTip.Tip="Closes the sound engine program. Use before unplugging the X32." />
               <Button Classes="ghost" Command="{Binding StartEngineCommand}" Content="Start the engine" IsVisible="{Binding !EngineLinked}" />
@@ -567,7 +579,7 @@
             <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
               <Button Command="{Binding PretendUnplugCommand}" Content="{Binding UnplugText}" IsVisible="{Binding OnTestDevice}"
                       ToolTip.Tip="Try the recovery without an X32: the test device stops sending sound, as if its USB cable came out." />
-              <Button Command="{Binding OpenEventsFolderCommand}" Content="Open the log folder" />
+              <Button Command="{Binding OpenEventsFolderCommand}" Content="Open the log folder" IsVisible="{Binding IsLocalDesk}" />
               <Button Classes="accent" Command="{Binding SaveReportCommand}" Content="Save a report" />
             </StackPanel>
           </Grid>
@@ -636,6 +648,7 @@
             <StackPanel Spacing="3">
               <TextBlock Classes="h3" Text="Is this PC ready for the X32?" />
               <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding CheckSummary}" />
+              <TextBlock Classes="small" Foreground="{StaticResource Warn}" Text="{Binding CheckNote}" TextWrapping="Wrap" IsVisible="{Binding IsRemoteDesk}" />
             </StackPanel>
             <Button Grid.Column="1" Command="{Binding RunPcCheckCommand}" IsEnabled="{Binding !Checking}" Content="Check again" VerticalAlignment="Top" />
           </Grid>

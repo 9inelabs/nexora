@@ -105,6 +105,12 @@ public sealed record DeskStatus(
     public DateTime? X32LastHeardUtc { get; init; }
     /// <summary>The drum library: every trigger sample, kit by kit.</summary>
     public IReadOnlyList<Drums.DrumSampleInfo> DrumSamples { get; init; } = [];
+    /// <summary>The admin remote: laptops running the whole desk now, and whether the sound PC is listening for them.</summary>
+    public IReadOnlyList<Remote.LaptopClient> Laptops { get; init; } = [];
+    public bool LaptopsRunning { get; init; }
+    public string? LaptopsError { get; init; }
+    /// <summary>This sound PC's name on the network.</summary>
+    public string PcName { get; init; } = "";
 
     public static DeskStatus Empty { get; } = new(0, new DeskSettings(), false, null, [], null, 0, 0, null, [], [], [], 0, false, null, [], 0, 0);
 }
@@ -854,6 +860,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
                 RemoteRunning = _remote?.Running ?? false, RemoteError = _remoteError, RemoteClients = _remote?.Clients ?? [],
                 Addresses = LanAddresses(), TriggerNote = _triggerNote,
                 Events = Events.Latest(80), X32Drops = _x32.Drops, DrumSamples = DrumSamples,
+                Laptops = _laptops, LaptopsRunning = _laptopsRunning, LaptopsError = _laptopsError, PcName = Environment.MachineName,
                 X32LastHeardUtc = _x32.LastHeard == DateTime.MinValue ? null : _x32.LastHeard,
             };
         }

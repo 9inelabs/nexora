@@ -2,9 +2,120 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NexAudio.App.ViewModels"
              xmlns:c="using:Nexora.App.Controls"
+             xmlns:ra="using:Nexora.Audio.Remote"
              x:Class="NexAudio.App.Views.NexAudio.RemotePage"
              x:DataType="vm:NexAudioViewModel">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
+  <StackPanel Spacing="12">
+
+  <!-- The admin remote: the whole desk from a laptop -->
+  <Border Classes="card" Padding="16">
+    <Grid ColumnDefinitions="*,20,1,20,*">
+
+      <!-- This PC is the sound PC: let laptops in -->
+      <StackPanel Spacing="10">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Classes="h3" Text="Laptops can run the whole desk" VerticalAlignment="Center" />
+          <Border Classes="chip ok" IsVisible="{Binding LaptopsRunning}">
+            <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="On" /></StackPanel>
+          </Border>
+        </StackPanel>
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="The admin remote. NEX-Audio on another laptop on the church network gets every page, exactly as at this PC: mixer, channel strips, routing, groups, scenes, show and cues, recorder, failsafe and setup. The sound itself stays on this PC. It has its own PIN, and the musicians' phone remote is not changed." />
+          <ToggleSwitch Grid.Column="1" IsChecked="{Binding LaptopsOn}" IsEnabled="{Binding CanMix}" OnContent="" OffContent="" VerticalAlignment="Top" />
+        </Grid>
+        <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding LaptopsStateText}" TextWrapping="Wrap" />
+        <TextBlock Classes="faint small" IsVisible="{Binding IsRemoteDesk}" TextWrapping="Wrap"
+                   Text="You are on the admin remote, so these are the sound PC's own settings. Switching them off or changing the PIN sends this laptop away too." />
+        <Grid ColumnDefinitions="140,8,*,8,Auto" RowDefinitions="Auto,8,Auto">
+          <TextBlock Classes="flabel" Text="Laptop PIN" VerticalAlignment="Center" />
+          <TextBox Grid.Column="2" Text="{Binding LaptopPin}" Watermark="4 to 8 digits, not the phones' PIN" MaxLength="8" />
+          <TextBlock Grid.Row="2" Classes="flabel" Text="Network port" VerticalAlignment="Center" />
+          <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding LaptopPort}" MaxLength="5" />
+          <Button Grid.Column="4" Grid.RowSpan="3" Command="{Binding SaveLaptopsCommand}" IsEnabled="{Binding CanMix}" Content="Save" VerticalAlignment="Center" />
+        </Grid>
+        <TextBlock Classes="eyebrow" Text="LAPTOPS ON THE DESK NOW" Margin="0,4,0,0" />
+        <TextBlock Classes="small" Text="{Binding LaptopsListText}" IsVisible="{Binding !HasLaptops}" />
+        <ItemsControl ItemsSource="{Binding LaptopRows}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:LaptopRow">
+              <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="10,6" Margin="0,0,0,6">
+                <Grid ColumnDefinitions="Auto,10,*,8,Auto">
+                  <c:Icon Kind="monitor" Width="16" Height="16" Foreground="{StaticResource Accent}" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="2" Spacing="1">
+                    <TextBlock Classes="small" FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="faint small" Text="{Binding Detail}" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <Button Grid.Column="4" Classes="ghost small" Command="{Binding KickCommand}" Content="Send away" VerticalAlignment="Center"
+                          ToolTip.Tip="Closes this laptop's link. It has to connect again with the PIN." />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Grid ColumnDefinitions="*,8,Auto">
+          <TextBlock Classes="faint small" TextWrapping="Wrap" Text="{Binding LaptopFirewallText}" VerticalAlignment="Center" />
+          <Button Grid.Column="2" Classes="small ghost" Command="{Binding AllowLaptopFirewallCommand}" IsVisible="{Binding IsLocalDesk}" Content="Let laptops in through Windows Firewall" />
+        </Grid>
+      </StackPanel>
+
+      <Border Grid.Column="2" Background="{StaticResource Line}" />
+
+      <!-- This PC is a laptop: run a sound PC from here -->
+      <StackPanel Grid.Column="4" Spacing="10">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Classes="h3" Text="Run a sound PC from this laptop" VerticalAlignment="Center" />
+          <Border Classes="chip ok" IsVisible="{Binding RemoteDeskLinked}">
+            <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="Linked" /></StackPanel>
+          </Border>
+          <Border Classes="chip bad" IsVisible="{Binding RemoteDeskProblem}">
+            <StackPanel Orientation="Horizontal"><Ellipse /><TextBlock Text="Not linked" /></StackPanel>
+          </Border>
+        </StackPanel>
+        <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Walk the room, or sit at the back, with the whole desk on this laptop. Everything you change happens on the sound PC straight away, and the sound PC's own screen follows. If the Wi-Fi drops, the sound carries on at the sound PC and this laptop links again by itself." />
+        <Border Background="{StaticResource Surface2}" CornerRadius="8" Padding="12,10" IsVisible="{Binding IsRemoteDesk}">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="eyebrow" Text="RUNNING THE DESK ON" />
+            <TextBlock FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Accent}" Text="{Binding RemoteDeskName}" />
+            <TextBlock Classes="small" Text="{Binding RemoteDeskText}" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+              <Button Classes="ghost small" Command="{Binding ConnectDeskCommand}" IsVisible="{Binding RemoteDeskProblem}" Content="Try again" />
+              <Button Classes="warn small" Command="{Binding DisconnectDeskCommand}" Content="Disconnect (back to this PC's own sound)"
+                      ToolTip.Tip="The sound PC carries on exactly as it is. Only this laptop leaves." />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <Grid ColumnDefinitions="140,8,*,8,Auto" RowDefinitions="Auto,8,Auto,8,Auto" IsVisible="{Binding !RemoteDeskLinked}">
+          <TextBlock Classes="flabel" Text="Sound PC" VerticalAlignment="Center" />
+          <TextBox Grid.Column="2" Text="{Binding DeskHost}" Watermark="Its address, for example 192.168.1.20" />
+          <Button Grid.Column="4" Classes="ghost" Command="{Binding FindDesksCommand}" IsEnabled="{Binding !FindingDesks}" Content="Find" />
+          <TextBlock Grid.Row="2" Classes="flabel" Text="Laptop PIN" VerticalAlignment="Center" />
+          <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding DeskPin}" PasswordChar="•" MaxLength="8" Watermark="The PIN set on the sound PC" />
+          <TextBlock Grid.Row="4" Classes="flabel" Text="Network port" VerticalAlignment="Center" />
+          <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding DeskPort}" MaxLength="5" />
+          <Button Grid.Row="2" Grid.Column="4" Grid.RowSpan="3" Classes="primary" Command="{Binding ConnectDeskCommand}" Content="Connect" VerticalAlignment="Center" />
+        </Grid>
+        <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="{Binding FindText}" TextWrapping="Wrap" IsVisible="{Binding !RemoteDeskLinked}" />
+        <ItemsControl ItemsSource="{Binding FoundDesks}" IsVisible="{Binding !RemoteDeskLinked}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="ra:FoundDesk">
+              <Button Classes="ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,0,4"
+                      Command="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).UseDeskCommand}" CommandParameter="{Binding}">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <c:Icon Kind="monitor" Width="14" Height="14" Foreground="{StaticResource Accent}" />
+                  <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                  <TextBlock Classes="faint mono small" Text="{Binding Address}" VerticalAlignment="Center" />
+                  <TextBlock Classes="faint small" Text="{Binding Version, StringFormat='NEX-Audio {0}'}" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="faint small" TextWrapping="Wrap" Text="This laptop signs in to NEX-Audio as usual, then links to the sound PC with the laptop PIN. It remembers the sound PC and links again next time it opens. The PIN never crosses the network: the laptop proves it knows it. Five wrong PINs and the laptop has to wait a minute." />
+      </StackPanel>
+    </Grid>
+  </Border>
+
   <Grid ColumnDefinitions="*,12,*,12,*">
 
     <!-- Surfaces: the X32 and a MIDI fader box -->
@@ -147,5 +258,6 @@
       </StackPanel>
     </Border>
   </Grid>
+  </StackPanel>
   </ScrollViewer>
 </UserControl>
