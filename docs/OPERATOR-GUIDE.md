@@ -23,11 +23,26 @@ A one-page guide for Sunday. Keep a printed copy at the media desk.
 
 | Section | Keys |
 |---|---|
-| Scripture | type a reference and **Enter**, **↓ / ↑** next and previous verse, **Esc** clear |
+| Scripture | type a reference and **Enter**, **↓ / ↑** next and previous verse, **Esc** clear (or stop a card about to go live) |
 | Lyrics | **→ / ←** next and back, **V**+number verse, **C** chorus, **B** bridge, **E** ending, **F1** blank, **F2** logo, **Esc** clear, **Ctrl+↓** next song |
 | Lower Thirds | **F1 to F8** today's people |
 | Camera Switcher | **1 to 8** preview, **Shift+number** straight to air, **Space** cut, **Enter** auto |
 | Minister Timer | **Space** start or pause, **+ / −** a minute, **R** restart, **Esc** stop and take off the screen |
+
+## Scripture listening (the pastor's voice to cards)
+
+1. Once per PC: Scripture > **Listening** > **Set up**, get a speech model (download it once on the
+   Live Output PC, then **Copy from Live Output** on the Scripture PC) and press
+   **Test this PC's speed**. On the sound PC choose the pastor's channel in
+   **NEX-Audio > Stream > Speech feed for Scripture**.
+2. When the sermon starts press **Start listening**. The pastor's words appear in the grey box and
+   every Bible reference heard becomes a card: **tap** it to preview, **Enter** to send, or the
+   small **→** to send at once. "Next verse", "verse 20" and "in the Amplified" become cards too.
+3. **Pause** during prayer or songs. **Stop** when the sermon ends.
+4. **Maybe** lists stories and verses the pastor quotes or talks about. They are only
+   suggestions; check before sending.
+5. With **Auto** on (Set up), full references go to the screen after a 1-second hold:
+   **Esc** stops it, **Enter** sends it now. Use cards only for the first few Sundays.
 
 ## Minister Timer (guest ministers)
 

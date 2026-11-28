@@ -57,6 +57,20 @@ public static unsafe class Ndi
         public long Timestamp;
     }
 
+    /// <summary>NDIlib_audio_frame_v2_t: floating point, one block per channel.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct AudioFrame
+    {
+        public int SampleRate;
+        public int Channels;
+        public int Samples;
+        public long Timecode;
+        public IntPtr Data;
+        public int ChannelStride;
+        public IntPtr Metadata;
+        public long Timestamp;
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     private struct SendCreate
     {
@@ -73,6 +87,8 @@ public static unsafe class Ndi
     private delegate void RecvDestroyFn(IntPtr recv);
     private delegate int RecvCaptureFn(IntPtr recv, out VideoFrame video, IntPtr audio, IntPtr meta, uint timeoutMs);
     private delegate void RecvFreeVideoFn(IntPtr recv, ref VideoFrame video);
+    private delegate int RecvCaptureAudioFn(IntPtr recv, IntPtr video, out AudioFrame audio, IntPtr meta, uint timeoutMs);
+    private delegate void RecvFreeAudioFn(IntPtr recv, ref AudioFrame audio);
     private delegate IntPtr SendCreateFn(ref SendCreate create);
     private delegate void SendDestroyFn(IntPtr send);
     private delegate void SendVideoFn(IntPtr send, ref VideoFrame video);
@@ -82,6 +98,8 @@ public static unsafe class Ndi
     private static RecvDestroyFn? _recvDestroy;
     private static RecvCaptureFn? _capture;
     private static RecvFreeVideoFn? _free;
+    private static RecvCaptureAudioFn? _captureAudio;
+    private static RecvFreeAudioFn? _freeAudio;
     private static SendCreateFn? _sendCreate;
     private static SendDestroyFn? _sendDestroy;
     private static SendVideoFn? _sendVideo;
@@ -125,6 +143,8 @@ public static unsafe class Ndi
         _recvDestroy = Fn<RecvDestroyFn>("NDIlib_recv_destroy");
         _capture = Fn<RecvCaptureFn>("NDIlib_recv_capture_v2");
         _free = Fn<RecvFreeVideoFn>("NDIlib_recv_free_video_v2");
+        _captureAudio = Fn<RecvCaptureAudioFn>("NDIlib_recv_capture_v2");
+        _freeAudio = Fn<RecvFreeAudioFn>("NDIlib_recv_free_audio_v2");
         _sendCreate = Fn<SendCreateFn>("NDIlib_send_create");
         _sendDestroy = Fn<SendDestroyFn>("NDIlib_send_destroy");
         _sendVideo = Fn<SendVideoFn>("NDIlib_send_send_video_v2");
@@ -154,14 +174,30 @@ public static unsafe class Ndi
         }
     }
 
-    internal static IntPtr Receiver(string sourceName)
+    /// <summary>A receiver for the sound only (no picture), for listening to the pastor's mic over NDI.</summary>
+    internal static IntPtr AudioReceiver(string sourceName) => Receiver(sourceName, -10);
+
+    /// <summary>2 = sound, 0 = nothing, -1 = error.</summary>
+    internal static int CaptureAudio(IntPtr recv, out AudioFrame frame, uint timeoutMs)
+    {
+        frame = default;
+        if (_captureAudio is null) return -1;
+        var kind = _captureAudio(recv, IntPtr.Zero, out frame, IntPtr.Zero, timeoutMs);
+        return kind switch { 2 => 2, 4 => -1, _ => 0 };
+    }
+
+    internal static void FreeAudio(IntPtr recv, ref AudioFrame frame) => _freeAudio?.Invoke(recv, ref frame);
+
+    internal static IntPtr Receiver(string sourceName) => Receiver(sourceName, 100);
+
+    private static IntPtr Receiver(string sourceName, int bandwidth)
     {
         if (!Available || _recvCreate is null) return IntPtr.Zero;
         var name = Marshal.StringToCoTaskMemUTF8(sourceName);
         var me = Marshal.StringToCoTaskMemUTF8("NEXORA");
         try
         {
-            var rc = new RecvCreate { Source = new Source { Name = name }, ColorFormat = 0, Bandwidth = 100, AllowFielded = false, Name = me };
+            var rc = new RecvCreate { Source = new Source { Name = name }, ColorFormat = 0, Bandwidth = bandwidth, AllowFielded = false, Name = me };
             return _recvCreate(ref rc);
         }
         finally

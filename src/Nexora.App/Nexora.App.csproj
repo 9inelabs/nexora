@@ -13,6 +13,7 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
     <Content Include="Bibles\*.json.gz" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Speech\Models\meaning-*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.23" />
@@ -23,6 +24,11 @@
     <PackageReference Include="LibVLCSharp" Version="3.10.2" />
     <PackageReference Include="Velopack" Version="1.2.161" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.24" />
+    <PackageReference Include="Whisper.net" Version="1.9.1" />
+    <PackageReference Include="Whisper.net.Runtime" Version="1.9.1" />
+    <PackageReference Include="Whisper.net.Runtime.Vulkan" Version="1.9.1" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Nexora.Core\Nexora.Core.csproj" />
@@ -30,4 +36,18 @@
     <ProjectReference Include="..\Nexora.Audio\Nexora.Audio.csproj" />
     <ProjectReference Include="..\Nexora.UI\Nexora.UI.csproj" />
   </ItemGroup>
+
+  <!-- Whisper.net brings its native files for every platform; a Windows build keeps only the Windows x64 ones (CPU and Vulkan). -->
+  <Target Name="TrimWhisperRuntimes" AfterTargets="Publish" Condition="'$(RuntimeIdentifier)' == 'win-x64'">
+    <ItemGroup>
+      <_OtherRuntimes Include="$(PublishDir)runtimes/**" Exclude="$(PublishDir)runtimes/win-x64/**;$(PublishDir)runtimes/vulkan/win-x64/**" />
+      <_OtherRuntimes Include="$(PublishDir)ggml-metal.metal" />
+    </ItemGroup>
+    <Delete Files="@(_OtherRuntimes)" />
+    <ItemGroup>
+      <_EmptyRuntimeDirs Include="$([System.IO.Directory]::GetDirectories('$(PublishDir)runtimes'))" Condition="Exists('$(PublishDir)runtimes')" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_EmptyRuntimeDirs)" Condition="'%(Filename)' != 'win-x64' AND '%(Filename)' != 'vulkan'" />
+    <RemoveDir Directories="$(PublishDir)runtimes/vulkan/linux-x64" />
+  </Target>
 </Project>

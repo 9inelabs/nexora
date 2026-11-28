@@ -33,6 +33,8 @@ public sealed class LiveServerOptions
     public string? BackupsDir { get; init; }
     /// <summary>NEXORA update packages the Live Output PC offers to every PC on the network.</summary>
     public string? UpdatesDir { get; init; }
+    /// <summary>Speech models (Whisper) the Live Output PC shares with the Scripture PCs, so only one PC downloads them.</summary>
+    public string? SpeechDir { get; init; }
     /// <summary>The Live Output PC's own settings file, included in backups so a terminal can take over.</summary>
     public string? ConfigFile { get; init; }
 }

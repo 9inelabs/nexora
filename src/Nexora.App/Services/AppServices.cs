@@ -75,6 +75,7 @@ public sealed class AppServices
                 MediaDir = AppPaths.LibraryMediaDir,
                 BackupsDir = AppPaths.BackupsDir,
                 UpdatesDir = AppPaths.UpdatesDir,
+                SpeechDir = AppPaths.SpeechDir,
                 ConfigFile = AppPaths.ConfigFile,
             });
             Server.RestoreRequested += path => Dispatcher.UIThread.Post(() => _ = RestoreAsync(path));

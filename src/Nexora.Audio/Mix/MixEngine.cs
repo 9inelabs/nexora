@@ -213,6 +213,9 @@ internal sealed class Topology
     public bool CueSoloFirst;
     public bool StreamFromMain = true;
     public int StreamDelay;
+    /// <summary>The channel sent as the speech feed (the pastor's mic), or null.</summary>
+    public StripRt? Speech;
+    public bool SpeechAfterFader = true;
     public StripRt? Analyse;
 }
 
@@ -256,6 +259,8 @@ public sealed class MixEngine
         Analyser = new Analyser(sampleRate);
         StreamTap = new StreamTap(StreamResampler.Target);
         _toStream = new StreamResampler(sampleRate, maxFrames);
+        SpeechTap = new SpeechTap();
+        _toSpeech = new SpeechResampler(sampleRate, maxFrames);
         MainPhase = new CorrelationMeter(sampleRate);
         StreamPhase = new CorrelationMeter(sampleRate);
     }
@@ -272,6 +277,11 @@ public sealed class MixEngine
     /// <summary>The stream mix for sending to the Live Output PC.</summary>
     public StreamTap StreamTap { get; }
     private readonly StreamResampler _toStream;
+    /// <summary>The speech feed (one channel at 16 kHz) for NEXORA's Scripture listening.</summary>
+    public SpeechTap SpeechTap { get; }
+    private readonly SpeechResampler _toSpeech;
+    /// <summary>True while a channel is chosen for the speech feed.</summary>
+    public bool SpeechOn => Volatile.Read(ref _topo).Speech is not null;
 
     /// <summary>How late the main mix is compared with the inputs, from plugins and look-ahead (samples).</summary>
     public int MixLatency { get; private set; }
@@ -377,6 +387,8 @@ public sealed class MixEngine
             }
             foreach (var dead in _feeds.Keys.Where(k => !feedsSeen.Contains(k)).ToList()) _feeds.Remove(dead);
             topo.StreamFromMain = s.StreamSettings.Source == StreamSource.Main;
+            topo.Speech = s.Speech.Channel.Length > 0 && _strips.TryGetValue(s.Speech.Channel, out var speech) && speech.Kind == StripKind.Channel ? speech : null;
+            topo.SpeechAfterFader = s.Speech.AfterFader;
 
             // Line everything up: each bus waits for the slowest path into it, and every faster path is delayed to match.
             var arrive = new Dictionary<string, int>();
@@ -775,6 +787,13 @@ public sealed class MixEngine
             if (src >= 0 && src < input.Length) Array.Copy(input[src], ch.L, frames);
             else Array.Clear(ch.L, 0, frames);
             RunStrip(ch, frames, isChannel: true);
+        }
+
+        // The speech feed: the pastor's channel, after or before its fader, at 16 kHz.
+        if (t.Speech is { } sp)
+        {
+            if (t.SpeechAfterFader) _toSpeech.Write(SpeechTap, sp.PostL, sp.Stereo ? sp.PostR : null, frames);
+            else _toSpeech.Write(SpeechTap, sp.PreL, sp.Stereo ? sp.PreR : null, frames);
         }
 
         // 2. Clear every bus input (mono / sub is filled from the main mix when its turn comes).

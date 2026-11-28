@@ -33,6 +33,7 @@ public sealed partial class ScriptureSectionViewModel : ViewModelBase, IKeyHandl
         LibrarySync.BiblesUpdated += OnBiblesUpdated;
         S.Bibles.Changed += OnBiblesUpdated;
         LoadDay();
+        HookListen();
         _ = InitAsync();
         UpdateAir();
     }
@@ -180,6 +181,7 @@ public sealed partial class ScriptureSectionViewModel : ViewModelBase, IKeyHandl
         OnPropertyChanged(nameof(HasSuggestions));
         RebuildSlides(keepIndex: false);
         LoadChapter(r.Book, r.First.StartChapter);
+        RefreshHeardTargets();
         var tr = Current;
         RefMessage = tr is null ? "No Bible translations on this PC yet." : $"✓ {r} · {tr.Abbrev}";
     }
@@ -632,6 +634,7 @@ public sealed partial class ScriptureSectionViewModel : ViewModelBase, IKeyHandl
 
     public bool HandleKey(Key key, KeyModifiers mods)
     {
+        if (mods == KeyModifiers.None && HandleListenKey(key)) return true;
         if (mods.HasFlag(KeyModifiers.Alt) && key is >= Key.D1 and <= Key.D9)
         {
             var i = key - Key.D1;
@@ -671,6 +674,7 @@ public sealed partial class ScriptureSectionViewModel : ViewModelBase, IKeyHandl
     public bool HandleReferenceBoxKey(Key key, KeyModifiers mods)
     {
         if (key is Key.Left or Key.Right) return false; // move the caret
+        if (mods == KeyModifiers.None && HandleListenKey(key)) return true;
         if (key == Key.Enter && SearchMode && Verses.Count > 0)
         {
             PickVerse(Verses[0]);
@@ -738,6 +742,7 @@ public sealed partial class ScriptureSectionViewModel : ViewModelBase, IKeyHandl
         LibrarySync.BiblesUpdated -= OnBiblesUpdated;
         S.Bibles.Changed -= OnBiblesUpdated;
         _themeDebounce.Stop();
+        UnhookListen();
         SaveDay();
     }
 }

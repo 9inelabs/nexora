@@ -106,6 +106,19 @@
       <Setter Property="Foreground" Value="{StaticResource Text3}" />
       <Setter Property="Margin" Value="0,10,0,0" />
     </Style>
+    <Style Selector="Border.heard">
+      <Setter Property="Background" Value="{StaticResource Surface2}" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.heard.pending">
+      <Setter Property="BorderBrush" Value="{StaticResource Live}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Border.heard.used">
+      <Setter Property="Opacity" Value="0.6" />
+    </Style>
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,*" Margin="20,16,20,18">
@@ -225,7 +238,8 @@
               </StackPanel>
               <TextBlock Grid.Column="2" Classes="faint small" Text="Enter send  ·  ↑ ↓ step  ·  Esc clear  ·  Alt+1…9 translation" />
             </Grid>
-            <Border CornerRadius="10" ClipToBounds="True" BorderBrush="{StaticResource PreviewBrush}" BorderThickness="1.5">
+            <Border CornerRadius="10" ClipToBounds="True" BorderBrush="{StaticResource PreviewBrush}" BorderThickness="1.5"
+                    MaxWidth="{Binding PreviewMaxWidth}" HorizontalAlignment="Center">
               <c:ScreenView Frame="{Binding PreviewFrame}" Branding="{Binding Branding}" Animate="False" ShowGuides="{Binding ShowGuides}" />
             </Border>
             <Grid ColumnDefinitions="Auto,*">
@@ -270,9 +284,163 @@
           </StackPanel>
         </Border>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,12,*">
+        <Grid Grid.Row="2" ColumnDefinitions="2*,12,*,12,*">
+        <!-- Listening: what the pastor says, and the verses heard -->
+        <Border Classes="card" Padding="14,12">
+          <Grid RowDefinitions="Auto,*">
+          <StackPanel Spacing="10">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+                <Panel Width="18" Height="18">
+                  <c:Icon Kind="mic" Width="18" Height="18" Foreground="{StaticResource Text2}" IsVisible="{Binding !Listening}" />
+                  <c:Icon Kind="mic" Width="18" Height="18" Foreground="{StaticResource Accent}" IsVisible="{Binding Listening}" />
+                </Panel>
+                <TextBlock Classes="h3" Text="Listening" VerticalAlignment="Center" />
+                <Ellipse Width="8" Height="8" Fill="{StaticResource Live}" VerticalAlignment="Center" IsVisible="{Binding ListenSpeaking}" ToolTip.Tip="The pastor is speaking" />
+                <TextBlock Classes="faint small" Text="{Binding ListenStatus}" VerticalAlignment="Center" />
+              </StackPanel>
+              <!-- Level meter -->
+
+              <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                <Button Classes="ghost small" Command="{Binding OpenListenSetupCommand}" ToolTip.Tip="Sound, speech model, auto-go-live">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="settings" Width="13" Height="13" />
+                    <TextBlock Text="Set up" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="ghost small" Command="{Binding ClearHeardCommand}" IsVisible="{Binding Listening}" Content="Clear" ToolTip.Tip="Clear the cards and the words" />
+                <Button Classes="small" Command="{Binding TogglePauseCommand}" IsVisible="{Binding Listening}" ToolTip.Tip="Stop acting on what is heard (prayer, a song), without stopping">
+                  <Panel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding !ListenPaused}">
+                      <c:Icon Kind="pause" Width="12" Height="12" />
+                      <TextBlock Text="Pause" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding ListenPaused}">
+                      <c:Icon Kind="play" Width="12" Height="12" />
+                      <TextBlock Text="Resume" />
+                    </StackPanel>
+                  </Panel>
+                </Button>
+                <Button Classes="small" Command="{Binding StopListeningCommand}" IsVisible="{Binding Listening}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="stop" Width="12" Height="12" />
+                    <TextBlock Text="Stop" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="primary small" Command="{Binding StartListeningCommand}" IsVisible="{Binding ListenOff}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="mic" Width="13" Height="13" />
+                    <TextBlock Text="Start listening" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </Grid>
+
+          </StackPanel>
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,10,0,0">
+          <StackPanel Spacing="10">
+            <Border Background="{StaticResource TintWarn}" CornerRadius="8" Padding="10,8" IsVisible="{Binding HasListenProblem}">
+              <TextBlock Classes="small" Foreground="{StaticResource Warn}" Text="{Binding ListenProblem}" TextWrapping="Wrap" />
+            </Border>
+            <TextBlock Classes="faint small" TextWrapping="Wrap" IsVisible="{Binding ListenOff}"
+                       Text="NEXORA can listen to the pastor and offer the verses they say as cards, on this PC with no internet. Start listening when the sermon begins." />
+
+            <StackPanel Spacing="10" IsVisible="{Binding Listening}">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+              <Border Grid.Column="0" Width="120" Height="6" CornerRadius="3" Background="{StaticResource Surface3}" Margin="0,0,10,0" HorizontalAlignment="Left"
+                      VerticalAlignment="Center" ToolTip.Tip="The pastor's level as NEXORA hears it">
+                <Border Width="{Binding ListenLevelWidth}" CornerRadius="3" Background="{StaticResource Accent}" HorizontalAlignment="Left" />
+              </Border>
+                <TextBlock Grid.Column="1" Classes="faint small" Text="{Binding ListenSource}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Classes="faint small mono" Text="{Binding ListenDelay}" Margin="10,0,0,0" VerticalAlignment="Center" />
+              </Grid>
+              <!-- The words, as they are written down -->
+              <Border Background="{StaticResource Surface2}" CornerRadius="10" Padding="12,9" MinHeight="44">
+                <TextBlock TextWrapping="Wrap" FontSize="14" LineHeight="20">
+                  <Run Text="{Binding TranscriptDone}" Foreground="{StaticResource Text2}" />
+                  <Run Text=" " />
+                  <Run Text="{Binding TranscriptNow}" Foreground="{StaticResource Text1}" FontStyle="Italic" />
+                </TextBlock>
+              </Border>
+
+              <!-- About to go live by itself -->
+              <Border Background="{StaticResource TintLive}" CornerRadius="10" Padding="12,8" IsVisible="{Binding HasPending}">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="small" FontWeight="SemiBold" Foreground="{StaticResource Live}" Text="{Binding PendingText}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                  <Button Grid.Column="1" Classes="small" Margin="10,0,0,0" Command="{Binding StopPendingCommand}" Content="Stop (Esc)" />
+                </Grid>
+              </Border>
+
+              <!-- References and commands heard -->
+              <ItemsControl ItemsSource="{Binding HeardCards}" IsVisible="{Binding HasHeard}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:HeardCard">
+                    <Border Classes="heard" Classes.pending="{Binding IsPending}" Classes.used="{Binding Used}" Margin="0,0,8,8">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <Button Classes="row" Padding="10,8" MinWidth="150" ToolTip.Tip="Load it in the preview"
+                                Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).UseHeardCommand}" CommandParameter="{Binding}">
+                          <StackPanel Spacing="2">
+                            <TextBlock Classes="eyebrow" Text="{Binding Kindly}" />
+                            <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="16" Classes="mono" />
+                            <TextBlock Classes="small" Foreground="{StaticResource PreviewBrush}" Text="{Binding TargetText, StringFormat='→ {0}'}" IsVisible="{Binding ShowTarget}" />
+                            <TextBlock Classes="faint small" Text="{Binding Said}" MaxWidth="220" TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
+                        </Button>
+                        <StackPanel Grid.Column="1" Spacing="4" Margin="0,6,6,6" VerticalAlignment="Center">
+                          <Button Classes="primary small" Padding="8,5" ToolTip.Tip="Send to the screen now"
+                                  Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).SendHeardCommand}" CommandParameter="{Binding}">
+                            <c:Icon Kind="send" Width="12" Height="12" />
+                          </Button>
+                          <Button Classes="ghost small" Padding="8,5" ToolTip.Tip="Dismiss"
+                                  Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).DismissHeardCommand}" CommandParameter="{Binding}">
+                            <c:Icon Kind="x" Width="11" Height="11" />
+                          </Button>
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <!-- Suggestions by meaning: never automatic -->
+              <StackPanel Spacing="6" IsVisible="{Binding HasMeaning}">
+                <TextBlock Classes="eyebrow" Text="MAYBE (WHAT THE PASTOR IS TALKING ABOUT)" />
+                <ItemsControl ItemsSource="{Binding MeaningCards}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:MeaningCard">
+                      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                        <Button Classes="row" ToolTip.Tip="Load it in the preview"
+                                Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).UseMeaningCommand}" CommandParameter="{Binding}">
+                          <Grid ColumnDefinitions="Auto,*,Auto">
+                            <TextBlock Text="{Binding Reference}" FontWeight="Bold" Classes="mono" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <StackPanel Grid.Column="1" Spacing="1">
+                              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" IsVisible="{Binding HasTitle}" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Text="{Binding Why}" Classes="faint small" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" Text="{Binding Sure}" Classes="faint small mono" VerticalAlignment="Center" Margin="8,0,0,0" />
+                          </Grid>
+                        </Button>
+                        <Button Grid.Column="1" Classes="ghost small" Padding="8,5" Margin="4,0,0,0" VerticalAlignment="Center" ToolTip.Tip="Send to the screen now"
+                                Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).SendMeaningCommand}" CommandParameter="{Binding}">
+                          <c:Icon Kind="send" Width="12" Height="12" />
+                        </Button>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+              <TextBlock Classes="faint small" Text="{Binding AutoLiveText}" />
+            </StackPanel>
+          </StackPanel>
+          </ScrollViewer>
+          </Grid>
+        </Border>
+
           <!-- Pastor's list for the day -->
-          <Border Classes="card" Padding="8,14,8,8">
+          <Border Grid.Column="2" Classes="card" Padding="8,14,8,8">
             <Grid RowDefinitions="Auto,Auto,*">
               <Grid ColumnDefinitions="*,Auto,Auto" Margin="8,0,8,8">
                 <StackPanel Spacing="1">
@@ -330,7 +498,7 @@
           </Border>
 
           <!-- History of today -->
-          <Border Grid.Column="2" Classes="card" Padding="8,14,8,8">
+          <Border Grid.Column="4" Classes="card" Padding="8,14,8,8">
             <Grid RowDefinitions="Auto,*">
               <StackPanel Spacing="1" Margin="8,0,8,8">
                 <TextBlock Classes="h3" Text="Shown today" />
@@ -405,5 +573,165 @@
         </Grid>
       </Border>
     </Grid>
+
+    <!-- ========== Listening setup ========== -->
+    <Border Grid.RowSpan="2" Background="#B3000000" Margin="-20,-16,-20,-18" IsVisible="{Binding ListenSetupOpen}">
+      <Border Classes="card" Width="680" Margin="0,30" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Stretch">
+        <Grid RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="*,Auto" Margin="20,16,14,10">
+            <StackPanel Spacing="2">
+              <TextBlock Classes="h3" Text="Set up listening" />
+              <TextBlock Classes="faint small" Text="For this PC. Everything runs here, with no internet and no cost." />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="ghost" Command="{Binding CloseListenSetupCommand}" VerticalAlignment="Top">
+              <c:Icon Kind="x" Width="14" Height="14" />
+            </Button>
+          </Grid>
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="10" Margin="20,0,24,20">
+              <!-- Sound -->
+              <TextBlock Classes="sect" Text="WHERE THE PASTOR'S VOICE COMES FROM" />
+              <UniformGrid Columns="3" ColumnSpacing="4">
+                <ToggleButton Classes="seg" IsChecked="{Binding SourceNexAudio}" Content="NEX-Audio feed" />
+                <ToggleButton Classes="seg" IsChecked="{Binding SourceDevice}" Content="Sound input on this PC" />
+                <ToggleButton Classes="seg" IsChecked="{Binding SourceNdi}" Content="NDI sound" />
+              </UniformGrid>
+              <StackPanel Spacing="6" IsVisible="{Binding SourceNexAudio}">
+                <TextBlock Classes="faint small" TextWrapping="Wrap"
+                           Text="On the sound PC open NEX-Audio > Stream > Speech feed for Scripture and pick the pastor's channel. The feed reaches every NEXORA PC over the church network." />
+                <Grid ColumnDefinitions="Auto,*">
+                  <TextBlock Classes="flabel" Text="Only from" Margin="0,0,10,0" />
+                  <TextBox Grid.Column="1" Text="{Binding NexAudioFrom}" Watermark="Any sound PC (leave empty)" />
+                </Grid>
+              </StackPanel>
+              <StackPanel Spacing="6" IsVisible="{Binding SourceDevice}">
+                <TextBlock Classes="faint small" TextWrapping="Wrap" Text="A USB sound card fed with the pastor's mic from the desk (an aux send, before the room effects)." />
+                <Grid ColumnDefinitions="*,8,Auto">
+                  <ComboBox ItemsSource="{Binding SoundInputs}" SelectedItem="{Binding SoundInput}" HorizontalAlignment="Stretch" PlaceholderText="Pick a sound input" />
+                  <Button Grid.Column="2" Classes="ghost" Command="{Binding RefreshInputsCommand}" ToolTip.Tip="Look again">
+                    <c:Icon Kind="refresh" Width="14" Height="14" />
+                  </Button>
+                </Grid>
+              </StackPanel>
+              <StackPanel Spacing="6" IsVisible="{Binding SourceNdi}">
+                <TextBlock Classes="faint small" TextWrapping="Wrap" Text="The sound of an NDI source, for example a vMix or OBS output that carries the pastor's mic." />
+                <Grid ColumnDefinitions="*,8,Auto">
+                  <ComboBox ItemsSource="{Binding NdiSources}" SelectedItem="{Binding NdiSource}" HorizontalAlignment="Stretch" PlaceholderText="Pick an NDI source" />
+                  <Button Grid.Column="2" Classes="ghost" Command="{Binding RefreshInputsCommand}" ToolTip.Tip="Look again">
+                    <c:Icon Kind="refresh" Width="14" Height="14" />
+                  </Button>
+                </Grid>
+              </StackPanel>
+              <CheckBox IsChecked="{Binding ReduceNoise}" Content="Reduce noise (for a sound input or a recording with room noise)" FontSize="13" />
+
+              <!-- Speech model -->
+              <TextBlock Classes="sect" Text="SPEECH MODEL (WHISPER)" />
+              <TextBlock Classes="faint small" TextWrapping="Wrap"
+                         Text="Download a model once. Do it on the Live Output PC first: the other PCs then copy it from there over the church network, with no internet." />
+              <ItemsControl ItemsSource="{Binding ModelRows}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:SpeechModelRow">
+                    <Border Classes="panel" Margin="0,0,0,6">
+                      <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                        <StackPanel Spacing="2">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{Binding Name}" FontWeight="Bold" />
+                            <TextBlock Classes="faint small mono" Text="{Binding Detail}" VerticalAlignment="Center" />
+                            <Border Background="{StaticResource TintAccent}" CornerRadius="6" Padding="6,1" IsVisible="{Binding Suggested}">
+                              <TextBlock Classes="small" Foreground="{StaticResource Accent}" Text="Suits this PC" />
+                            </Border>
+                          </StackPanel>
+                          <TextBlock Classes="faint small" Text="{Binding Best}" TextWrapping="Wrap" />
+                          <TextBlock Classes="small" Foreground="{StaticResource PreviewBrush}" Text="{Binding State}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                          <Button Classes="primary small" Content="Use" IsVisible="{Binding CanChoose}"
+                                  Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).ChooseModelCommand}" CommandParameter="{Binding}" />
+                          <Button Classes="small" IsVisible="{Binding CanGet}"
+                                  Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).DownloadModelCommand}" CommandParameter="{Binding}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                              <c:Icon Kind="download" Width="12" Height="12" />
+                              <TextBlock Text="{Binding GetText}" />
+                            </StackPanel>
+                          </Button>
+                          <Button Classes="ghost small" Content="Stop" IsVisible="{Binding Busy}"
+                                  Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).CancelDownloadCommand}" />
+                          <Button Classes="ghost small" ToolTip.Tip="Remove from this PC" IsVisible="{Binding Here}"
+                                  Command="{Binding $parent[UserControl].((vm:ScriptureSectionViewModel)DataContext).RemoveModelCommand}" CommandParameter="{Binding}">
+                            <c:Icon Kind="trash" Width="12" Height="12" />
+                          </Button>
+                        </StackPanel>
+                        <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Margin="0,8,0,0" Minimum="0" Maximum="100" Value="{Binding ProgressPercent}" IsVisible="{Binding Busy}" />
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="small" Foreground="{StaticResource PreviewBrush}" Text="{Binding ModelMessage}" TextWrapping="Wrap" IsVisible="{Binding ModelMessage.Length}" />
+              <Grid ColumnDefinitions="Auto,8,Auto,*">
+                <Button x:Name="ImportModel" Classes="ghost small">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="upload" Width="12" Height="12" />
+                    <TextBlock Text="Import a model file…" />
+                  </StackPanel>
+                </Button>
+                <Button Grid.Column="2" Classes="small" Command="{Binding SpeedTestCommand}" IsEnabled="{Binding !ModelBusy}" Content="Test this PC's speed" />
+              </Grid>
+              <TextBlock Classes="small" Text="{Binding SpeedResult}" TextWrapping="Wrap" IsVisible="{Binding SpeedResult.Length}" />
+              <CheckBox IsChecked="{Binding UseGraphicsCard}" Content="Use the graphics card when there is one (NVIDIA, AMD or Intel)" FontSize="13" />
+              <TextBlock Classes="faint small" Text="{Binding ListenEngine}" IsVisible="{Binding ListenEngine.Length}" />
+
+              <!-- Going live -->
+              <TextBlock Classes="sect" Text="GOING TO THE SCREEN" />
+              <ToggleSwitch IsChecked="{Binding AutoLive}" OnContent="Auto: exact references and 'next verse' go to the screen by themselves"
+                            OffContent="Cards: the operator taps each one (recommended to start with)" FontSize="13" />
+              <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding AutoLive}">
+                <TextBlock Classes="flabel" Text="Hold before it goes" Margin="0,0,12,0" />
+                <Slider Grid.Column="1" Minimum="0.3" Maximum="5" TickFrequency="0.1" IsSnapToTickEnabled="True" Value="{Binding HoldSeconds}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding HoldSeconds, StringFormat='{}{0:0.0} s'}" Margin="12,0,0,0" />
+              </Grid>
+              <TextBlock Classes="faint small" TextWrapping="Wrap" IsVisible="{Binding AutoLive}"
+                         Text="During the hold, Esc stops it and Enter sends it at once. A book and chapter alone, and suggestions by meaning, never go by themselves." />
+              <CheckBox IsChecked="{Binding FollowTranslation}" Content="Follow the translation the pastor names ('in the Amplified')" FontSize="13" />
+
+              <!-- Suggestions -->
+              <TextBlock Classes="sect" Text="SUGGESTIONS BY WHAT IS SAID" />
+              <CheckBox IsChecked="{Binding SuggestByMeaning}" Content="Suggest stories and verses the pastor quotes or talks about" FontSize="13" />
+              <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding SuggestByMeaning}">
+                <TextBlock Classes="flabel" Text="How sure" Margin="0,0,12,0" />
+                <Slider Grid.Column="1" Minimum="0.3" Maximum="0.95" TickFrequency="0.05" IsSnapToTickEnabled="True" Value="{Binding SuggestLevel}" />
+                <TextBlock Grid.Column="2" Classes="fval" Text="{Binding SuggestLevelText}" Margin="12,0,0,0" />
+              </Grid>
+              <TextBlock Classes="faint small" Text="{Binding MeaningStatus}" IsVisible="{Binding MeaningStatus.Length}" TextWrapping="Wrap" />
+
+              <!-- Words -->
+              <TextBlock Classes="sect" Text="WORDS TO EXPECT" />
+              <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Names, places and phrases this church uses, so they are written down right. Separate them with commas." />
+              <TextBox Text="{Binding CustomWords}" AcceptsReturn="False" TextWrapping="Wrap" Watermark="Pastor Adeyemi, Lagos, Holy Ghost fire" />
+
+              <!-- Recordings -->
+              <TextBlock Classes="sect" Text="TRY IT WITH A RECORDING" />
+              <TextBlock Classes="faint small" TextWrapping="Wrap"
+                         Text="Replay plays a recorded sermon into NEXORA as if live, so the cards appear in real time. Scan reads a whole recording as fast as this PC can and writes a report of everything heard, to check how well it works with this pastor and this room." />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="ReplayRecording" Classes="small">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="play" Width="12" Height="12" />
+                    <TextBlock Text="Replay a recording…" />
+                  </StackPanel>
+                </Button>
+                <Button x:Name="ScanRecording" Classes="small">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <c:Icon Kind="list" Width="12" Height="12" />
+                    <TextBlock Text="Scan a recording…" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="ghost small" Command="{Binding OpenReportCommand}" IsVisible="{Binding ReportPath.Length}" Content="Open the last report" />
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Border>
   </Grid>
 </UserControl>
