@@ -659,6 +659,7 @@ public sealed partial class NexAudioViewModel
             args["index"] = (i + move).ToString(CultureInfo.InvariantCulture);
         }
         _ = Command(cmd, args);
+        if (cmd == "plugin.editor" && IsRemoteDesk) Notice = $"The plugin's own window opens on {RemoteDeskName}'s screen. Its knobs on the Channel page work from here.";
     }
 
     private void UpdatePluginStatus()
@@ -824,6 +825,8 @@ public sealed partial class NexAudioViewModel
         ApplyRoutings(d);
         ApplyShow(d);
         ApplySurfaces(d);
+        ApplyLaptops(d);
+        LinkRemoteX32(d);
         ApplyTape(d.Tape);
         ApplyDrums(d);
         BuildDiagnostics();

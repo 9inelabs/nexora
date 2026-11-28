@@ -56,16 +56,24 @@ public sealed partial class NexAudioViewModel : ViewModelBase
 
     public NexAudioViewModel()
     {
-        S.Audio.Start();
-        _engine = new EngineClient(AudioEngineHost.PipeName);
+        // A laptop on the admin remote runs the sound PC's desk; any other PC runs its own engine.
+        _engine = new EngineClient(StartTarget());
+        if (!_engine.Target.IsRemote) S.Audio.Start();
         _engine.Status += s => Dispatcher.UIThread.Post(() => Apply(s));
         _engine.Meters += m => Dispatcher.UIThread.Post(() => ApplyMeters(m));
         _engine.Notice += n => Dispatcher.UIThread.Post(() => Notice = n.Text);
         _engine.ConnectionChanged += c => Dispatcher.UIThread.Post(() =>
         {
             EngineLinked = c;
+            RaiseRemoteDesk();
             if (!c)
             {
+                // On a laptop, nothing shown should look live while the link to the sound PC is down.
+                if (IsRemoteDesk)
+                {
+                    Status = EngineStatus.Empty;
+                    RaiseStatus();
+                }
                 InputMeters.Silence();
                 OutputMeters.Silence();
             }
@@ -73,6 +81,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
         _x32.Changed += () => Dispatcher.UIThread.Post(ApplyConsole);
         HookDesk();
         HookShow();
+        HookLaptops();
         WatchForUpdates();
         Live.PropertyChanged += OnAccountChanged;
         _clock = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Tick());
@@ -80,7 +89,8 @@ public sealed partial class NexAudioViewModel : ViewModelBase
 
         LoadPrefs();
         X32Address = LoadLocal().X32Address ?? "";
-        if (X32Address.Length > 0) _ = ConnectConsole();
+        // On a laptop the X32 address comes from the sound PC once it answers (see LinkRemoteX32).
+        if (X32Address.Length > 0 && !IsRemoteDesk) _ = ConnectConsole();
         _ = RunPcCheck();
     }
 
@@ -131,7 +141,7 @@ public sealed partial class NexAudioViewModel : ViewModelBase
     public bool IsStarting => Status.State == EngineState.Starting;
     public bool SoundOn => Status.State is EngineState.Running or EngineState.Starting or EngineState.Problem;
 
-    public string StateText => !EngineLinked ? "Starting the sound engine…" : Status.State switch
+    public string StateText => !EngineLinked ? (IsRemoteDesk ? "Not linked" : "Starting the sound engine…") : Status.State switch
     {
         EngineState.Running => "Running",
         EngineState.Starting => "Starting",
@@ -139,7 +149,9 @@ public sealed partial class NexAudioViewModel : ViewModelBase
         _ => "Stopped",
     };
 
-    public string MessageText => !EngineLinked ? "The sound engine runs on its own, so the sound carries on even if this screen closes." : Status.Message;
+    public string MessageText => !EngineLinked
+        ? IsRemoteDesk ? RemoteDeskText : "The sound engine runs on its own, so the sound carries on even if this screen closes."
+        : Status.Message;
     public string RateText => Status.SampleRate > 0 ? $"{Status.SampleRate / 1000:0.#} kHz" : "—";
     public string BufferText => Status.BufferSize > 0 ? $"{Status.BufferSize} samples · {Status.BufferMs:0.0} ms" : "—";
     public string ChannelsText => Status.Inputs > 0 ? $"{Status.Inputs} in · {Status.Outputs} out" : "—";
@@ -465,7 +477,11 @@ public sealed partial class NexAudioViewModel : ViewModelBase
     private Task StopSound() => CanControl ? _engine.SendAsync(new CloseDriverMsg()) : Task.CompletedTask;
 
     [RelayCommand]
-    private Task OpenDriverPanel() => _engine.SendAsync(new DriverPanelMsg());
+    private Task OpenDriverPanel()
+    {
+        if (IsRemoteDesk) Notice = $"The driver's own settings window opens on {RemoteDeskName}'s screen.";
+        return _engine.SendAsync(new DriverPanelMsg());
+    }
 
     [RelayCommand]
     private Task RefreshDrivers() => _engine.SendAsync(new RefreshDriversMsg());
@@ -474,12 +490,20 @@ public sealed partial class NexAudioViewModel : ViewModelBase
     private async Task ShutDownEngine()
     {
         if (!CanControl) return;
+        if (IsRemoteDesk)
+        {
+            Notice = "The sound engine can only be shut down at the sound PC itself.";
+            return;
+        }
         S.Audio.Forget();
         await _engine.SendAsync(new QuitMsg());
     }
 
     [RelayCommand]
-    private void StartEngine() => S.Audio.Start();
+    private void StartEngine()
+    {
+        if (!IsRemoteDesk) S.Audio.Start();
+    }
 
     // ---- The X32 over the network ----------------------------------------------------------------
 
@@ -530,7 +554,9 @@ public sealed partial class NexAudioViewModel : ViewModelBase
         if (info is not null)
         {
             X32Message = "Linked. Channel names come straight from the desk and update when they change there.";
-            if (CanMix) _ = Command("x32.connect", new() { ["host"] = X32Address.Trim() });
+            // Only tell the engine when the address is new to it, so opening a screen never blips its X32 link.
+            if (CanMix && !string.Equals(X32Address.Trim(), DeskStatus.Settings.X32Host, StringComparison.OrdinalIgnoreCase))
+                _ = Command("x32.connect", new() { ["host"] = X32Address.Trim() });
             SaveLocal(LoadLocal() with { X32Address = X32Address.Trim() });
         }
         else if (!X32Message.StartsWith("Could not"))
@@ -595,7 +621,8 @@ public sealed partial class NexAudioViewModel : ViewModelBase
     // ---- Settings only this PC needs ----------------------------------------------------------------
 
     /// <summary>The X32's address, and its channel names as last seen, so names still show offline.</summary>
-    private sealed record LocalSettings(string? X32Address, string[]? X32Names = null);
+    /// <summary>The X32's address and names, and (on a laptop) the sound PC it runs on the admin remote.</summary>
+    private sealed record LocalSettings(string? X32Address, string[]? X32Names = null, string? DeskHost = null, int? DeskPort = null, string? DeskPin = null);
 
     private string[] _cachedNames = LoadLocal().X32Names ?? [];
 

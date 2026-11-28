@@ -126,6 +126,9 @@ public sealed partial class NexAudioViewModel
             Port = int.TryParse(RemotePort, out var port) ? port : RemoteSettings.DefaultPort,
             Pin = RemotePin ?? "",
             Mixes = RemoteMixRows.Where(x => x.IsOn).Select(x => x.Id).ToList(),
+            Laptops = LaptopsOn,
+            LaptopPin = _editingLaptops ? DeskStatus.Settings.Remote.LaptopPin : LaptopPin ?? "",
+            LaptopPort = int.TryParse(LaptopPort, out var lp) ? lp : LaptopLink.DefaultPort,
         };
         var s = DeskStatus.Settings with
         {
@@ -246,7 +249,8 @@ public sealed partial class NexAudioViewModel
     /// <summary>Once a second: makes sure NEX-Audio is listening to the Live Output PC's screens.</summary>
     private void WatchNexora()
     {
-        var c = Live.Client;
+        // On a laptop, the sound PC follows the screens itself; the laptop passing them on too would fire triggers twice.
+        var c = IsRemoteDesk ? null : Live.Client;
         if (ReferenceEquals(c, _watched)) return;
         if (_watched is not null) _watched.SnapshotChanged -= OnNexoraSnapshot;
         _watched = c;

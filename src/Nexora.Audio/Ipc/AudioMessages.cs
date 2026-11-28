@@ -101,6 +101,10 @@ public sealed record EngineStatus(
 [JsonDerivedType(typeof(DeskCommandMsg), "cmd")]
 [JsonDerivedType(typeof(PreviewMsg), "preview")]
 [JsonDerivedType(typeof(ShowInspectMsg), "showinfo")]
+[JsonDerivedType(typeof(LaptopHelloMsg), "lhello")]
+[JsonDerivedType(typeof(LaptopLoginMsg), "llogin")]
+[JsonDerivedType(typeof(LaptopResultMsg), "lresult")]
+[JsonDerivedType(typeof(FileMsg), "file")]
 public abstract record AudioMessage
 {
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
@@ -171,3 +175,20 @@ public sealed record PreviewMsg(RecallPreview? Preview, string? Error = null) : 
 
 /// <summary>The answer to show.inspect: what a show file holds, before opening it.</summary>
 public sealed record ShowInspectMsg(string File, Show.ShowContents? Contents, string? Error = null) : AudioMessage;
+
+// ---- The admin remote: NEX-Audio on a laptop runs this desk over the church network ----
+
+/// <summary>Sound PC to laptop, first thing: a random challenge to sign with the laptop PIN.</summary>
+public sealed record LaptopHelloMsg(string Challenge, string PcName, string Version) : AudioMessage;
+
+/// <summary>Laptop to sound PC: the signed challenge, and who is asking.</summary>
+public sealed record LaptopLoginMsg(string Proof, string Laptop, string User, string Version) : AudioMessage;
+
+/// <summary>Sound PC to laptop: in, or why not. After an OK the laptop gets everything the sound PC's own screen gets.</summary>
+public sealed record LaptopResultMsg(bool Ok, string? Error = null) : AudioMessage;
+
+/// <summary>
+/// A file carried over the admin remote (a show, a drum sample): the answer to file.put (where the sound PC
+/// keeps it) and to file.get (its contents, base64).
+/// </summary>
+public sealed record FileMsg(string Id, string Path, string? Data = null, string? Error = null) : AudioMessage;

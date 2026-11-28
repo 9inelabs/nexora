@@ -175,10 +175,18 @@ public sealed partial class NexAudioViewModel
     // ---- Show files and backups -----------------------------------------------------------------------
 
     /// <summary>The show page's Save button picked a file.</summary>
-    public void SaveShowTo(string file) => _ = Command("show.save", new() { ["file"] = file, ["name"] = Path.GetFileNameWithoutExtension(file), ["by"] = Live.User?.Name ?? "" });
+    public void SaveShowTo(string file)
+    {
+        if (IsRemoteDesk) _ = SaveShowToLaptop(file);
+        else _ = Command("show.save", new() { ["file"] = file, ["name"] = Path.GetFileNameWithoutExtension(file), ["by"] = Live.User?.Name ?? "" });
+    }
 
     /// <summary>The show page's Open button picked a file: look inside it first.</summary>
-    public void InspectShow(string file) => _ = Command("show.inspect", new() { ["file"] = file });
+    public void InspectShow(string file)
+    {
+        if (IsRemoteDesk) _ = InspectShowFromLaptop(file);
+        else _ = Command("show.inspect", new() { ["file"] = file });
+    }
 
     private void OnShowInfo(ShowInspectMsg m)
     {

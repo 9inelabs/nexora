@@ -175,6 +175,11 @@ public partial class NexAudioViewModel
     [RelayCommand]
     private void OpenEventsFolder()
     {
+        if (IsRemoteDesk)
+        {
+            Notice = $"The log folder is on {RemoteDeskName}. The newest events show here on this page.";
+            return;
+        }
         var dir = Path.Combine(AppPaths.Root, "audio", "events");
         try
         {
