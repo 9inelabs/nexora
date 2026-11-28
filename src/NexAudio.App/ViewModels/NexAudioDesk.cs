@@ -250,6 +250,9 @@ public sealed partial class StripView : ObservableObject
     [ObservableProperty] private string _layerNote = "";
     /// <summary>The strip's filters and EQ, for the small curve at the top of the strip.</summary>
     [ObservableProperty] private FilterSettings? _filters;
+    /// <summary>The strip's drum trigger is on, and how bright its hit light is right now (0 to 1).</summary>
+    [ObservableProperty] private bool _triggerOn;
+    [ObservableProperty] private double _triggerFlash;
     [ObservableProperty] private double _gateGr;
     [ObservableProperty] private double _compGr;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(FaderText))] private double _fader;
@@ -284,6 +287,7 @@ public sealed partial class StripView : ObservableObject
         // Dark writing on light colours, white on dark ones, so the name always reads.
         ScribbleText = 0.299 * sc.R + 0.587 * sc.G + 0.114 * sc.B > 140 ? new SolidColorBrush(Color.Parse("#121316")) : Brushes.White;
         GateOn = s.Kind != StripKind.Stream && s.Gate.On;
+        TriggerOn = s.Kind == StripKind.Channel && s.Trigger.On;
         CompOn = s.Comp.On;
         HpfOn = s.Hpf.On;
         GainText = s.Preamp is { } pre ? $"{pre:+0;-0;0} dB" : Math.Abs(s.Trim) > 0.05 ? $"trim {s.Trim:+0.#;-0.#}" : s.Kind == StripKind.Channel ? "desk" : "";

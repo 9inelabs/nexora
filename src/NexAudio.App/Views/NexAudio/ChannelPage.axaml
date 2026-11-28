@@ -3,6 +3,7 @@
              xmlns:vm="using:NexAudio.App.ViewModels"
              xmlns:c="using:Nexora.App.Controls"
              xmlns:a="using:NexAudio.App.Controls"
+             xmlns:d="using:Nexora.Audio.Drums"
              x:Class="NexAudio.App.Views.NexAudio.ChannelPage"
              x:DataType="vm:NexAudioViewModel">
   <UserControl.Styles>
@@ -131,6 +132,7 @@
     </Style>
     <Style Selector="ToggleButton.mini.input:checked /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{StaticResource InputTone}" /></Style>
     <Style Selector="ToggleButton.mini.gate:checked /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{StaticResource GateTone}" /></Style>
+    <Style Selector="ToggleButton.mini.trig:checked /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{StaticResource TrigTone}" /></Style>
     <Style Selector="ToggleButton.mini.eq:checked /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{StaticResource EqTone}" /></Style>
     <Style Selector="ToggleButton.mini.dyn:checked /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{StaticResource DynTone}" /></Style>
     <Style Selector="ToggleButton.mini.red:checked /template/ ContentPresenter#PART_ContentPresenter">
@@ -331,6 +333,7 @@
                   <ToggleButton Classes="mini input" IsChecked="{Binding Ch.HpfOn.Value}" Content="LOW CUT" />
                   <ToggleButton Classes="mini input" IsChecked="{Binding Ch.LpfOn.Value}" Content="HI CUT" />
                   <ToggleButton Classes="mini input" IsChecked="{Binding Ch.DriveOn.Value}" Content="DRIVE" />
+                  <ToggleButton Classes="mini trig" IsChecked="{Binding Ch.TrigOn.Value}" Content="TRIG" IsVisible="{Binding Ch.IsChannel}" ToolTip.Tip="Drum trigger" />
                 </StackPanel>
               </Grid>
               <Grid Grid.Row="2" ColumnDefinitions="*,8,12">
@@ -592,6 +595,188 @@
                   <ListBox Classes="seg" ItemsSource="{Binding Ch.DriveStyle.Options}" SelectedItem="{Binding Ch.DriveStyle.Selected}" />
                 </StackPanel>
               </Grid>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- DRUM TRIGGER -->
+        <ScrollViewer IsVisible="{Binding OnChTrigger}" a:Paint.Tint="{StaticResource TrigTone}" VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="12">
+            <!-- Detection: the hit light, the hit history and the knobs that decide what counts as a hit -->
+            <Border Classes="card" Padding="18,14">
+              <Grid RowDefinitions="Auto,12,Auto,12,Auto">
+                <Grid ColumnDefinitions="Auto,14,*,Auto">
+                  <Border Width="44" Height="44" CornerRadius="22" Background="{StaticResource Surface3}" VerticalAlignment="Center">
+                    <Ellipse Width="34" Height="34" Fill="{StaticResource TrigTone}" Opacity="{Binding TriggerFlash}" />
+                  </Border>
+                  <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Classes="sectitle" Text="Drum trigger" />
+                    <TextBlock Classes="faint small" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left"
+                               Text="The mic listens, and every hit plays a sample as hard as the drummer hit. The light flashes on every hit that fires. Everything after this (EQ, gate, compressor, sends, stream) hears the result." />
+                  </StackPanel>
+                  <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <ToggleButton Classes="pill red" IsChecked="{Binding Ch.TrigCompare.Value}" Content="A/B: natural mic" ToolTip.Tip="Hear the natural mic for a moment, to compare in the room. The light keeps flashing." />
+                    <ToggleButton Classes="pill" IsChecked="{Binding Ch.TrigOn.Value}" Content="On" />
+                  </StackPanel>
+                </Grid>
+                <Border Grid.Row="2" Classes="card" Padding="12,8" Background="{StaticResource TintWarn}" IsVisible="{Binding TriggerProblem, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                  <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Warn}" Text="{Binding TriggerProblem}" />
+                </Border>
+                <Grid Grid.Row="4" ColumnDefinitions="*,16,Auto" MinHeight="250">
+                  <Grid RowDefinitions="Auto,6,*">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Classes="eyebrow" Text="HIT HISTORY (SOLID FIRED, HOLLOW TOO SOFT)" />
+                      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <TextBlock Classes="mono" FontSize="11" Foreground="{StaticResource TrigTone}" VerticalAlignment="Center" Text="{Binding TriggerStats}" />
+                        <Button Classes="ghost small" Content="Clear" Command="{Binding ClearTriggerStatsCommand}" />
+                      </StackPanel>
+                    </Grid>
+                    <a:HitHistory Grid.Row="2" Hits="{Binding TriggerHits}" Threshold="{Binding Ch.TrigThreshold.Value}" Layers="{Binding TriggerLayers.Count}" Rate="{Binding TriggerRate}" />
+                  </Grid>
+                  <StackPanel Grid.Column="2" Spacing="10" Width="300">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <a:Knob Classes="big" Source="{Binding Ch.TrigThreshold}" IsActive="{Binding Ch.TrigOn.Value}" />
+                      <a:Knob Classes="big" Source="{Binding Ch.TrigHold}" IsActive="{Binding Ch.TrigOn.Value}" />
+                    </StackPanel>
+                    <Button Classes="primary" HorizontalAlignment="Stretch" Command="{Binding LearnTriggerCommand}" Content="Learn from 8 hits" IsEnabled="{Binding !TriggerLearning}" />
+                    <TextBlock Classes="faint small" TextWrapping="Wrap" Text="{Binding TriggerLearnText}" IsVisible="{Binding TriggerLearnText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <TextBlock Classes="faint small" TextWrapping="Wrap"
+                               Text="Threshold: how hard a hit must be to fire. Hold: after a hit, new hits are ignored this long, so one hit never fires twice. Learn sets both from 8 hits." />
+                  </StackPanel>
+                </Grid>
+              </Grid>
+            </Border>
+
+            <!-- Spill: what the trigger listens to -->
+            <Border Classes="card" Padding="18,14">
+              <Grid ColumnDefinitions="Auto,24,Auto,24,*">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="eyebrow" Text="SPILL REJECT: THE TRIGGER LISTENS ONLY HERE" />
+                  <StackPanel Orientation="Horizontal" Spacing="12">
+                    <a:Knob Source="{Binding Ch.TrigLow}" IsActive="{Binding Ch.TrigOn.Value}" />
+                    <a:Knob Source="{Binding Ch.TrigHigh}" IsActive="{Binding Ch.TrigOn.Value}" />
+                  </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="8">
+                  <TextBlock Classes="eyebrow" Text="LISTENS TO" />
+                  <ComboBox ItemsSource="{Binding Ch.TrigKeySource.Options}" SelectedItem="{Binding Ch.TrigKeySource.Selected}" MinWidth="220" />
+                </StackPanel>
+                <TextBlock Grid.Column="4" Classes="faint small" TextWrapping="Wrap" VerticalAlignment="Center"
+                           Text="Raise Listen from so the kick's boom does not fire the snare; lower Listen to so the hi-hat's sizzle does not either. For a snare, 150 Hz to 4 kHz is a good start; for a kick, 40 Hz to 3 kHz. A snare-bottom mic or a trigger pad on another channel can do the listening instead." />
+              </Grid>
+            </Border>
+
+            <!-- The samples, layer by layer -->
+            <Border Classes="card" Padding="18,14">
+              <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="sectitle" Text="Samples" />
+                    <TextBlock Classes="faint small" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left"
+                               Text="Soft hits play the first layer and the hardest the last, so the drum does not sound the same every time. Give a layer two or more takes and they are used in turn (round robin)." />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Spacing="8" HorizontalAlignment="Right">
+                    <ListBox Classes="seg" ItemsSource="{Binding TriggerLayerCounts}" SelectedItem="{Binding TriggerLayerCount}" />
+                    <ToggleButton Classes="pill" HorizontalAlignment="Right" IsChecked="{Binding Ch.TrigRoundRobin.Value}" Content="Round robin" />
+                  </StackPanel>
+                </Grid>
+                <ItemsControl ItemsSource="{Binding TriggerLayers}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TriggerLayerRow">
+                      <Border Background="{StaticResource Surface2}" CornerRadius="10" Padding="12,10" Margin="0,0,0,6">
+                        <Grid ColumnDefinitions="150,12,*,12,240">
+                          <StackPanel Spacing="1" VerticalAlignment="Center">
+                            <TextBlock FontWeight="SemiBold" Foreground="{StaticResource TrigTone}" Text="{Binding Title}" />
+                            <TextBlock Classes="faint" FontSize="10.5" TextWrapping="Wrap" Text="{Binding Hint}" />
+                          </StackPanel>
+                          <Panel Grid.Column="2" VerticalAlignment="Center">
+                            <TextBlock Classes="faint small" Text="No sample: pick one on the right" IsVisible="{Binding IsEmpty}" VerticalAlignment="Center" />
+                            <ItemsControl ItemsSource="{Binding Takes}">
+                              <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TriggerTake">
+                                  <Border CornerRadius="7" Background="{StaticResource Surface3}" Padding="10,4,4,4" Margin="0,2,6,2" ToolTip.Tip="{Binding Path}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                      <Ellipse Width="7" Height="7" Fill="{StaticResource TrigTone}" VerticalAlignment="Center" IsVisible="{Binding !Missing}" />
+                                      <Ellipse Width="7" Height="7" Fill="{StaticResource Warn}" VerticalAlignment="Center" IsVisible="{Binding Missing}" />
+                                      <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" />
+                                      <TextBlock Classes="faint" Text="{Binding Kit}" VerticalAlignment="Center" FontSize="10.5" />
+                                      <Button Classes="ghost small" Padding="6,2" Content="✕" Command="{Binding RemoveCommand}" ToolTip.Tip="Take this sample off the layer" />
+                                    </StackPanel>
+                                  </Border>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </Panel>
+                          <ComboBox Grid.Column="4" HorizontalAlignment="Stretch" PlaceholderText="Add a sample…" ItemsSource="{Binding Choices}"
+                                    SelectedItem="{Binding Add}" IsEnabled="{Binding CanAdd}" MaxDropDownHeight="360" />
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Grid ColumnDefinitions="Auto,12,*,12,Auto">
+                  <TextBlock Classes="eyebrow" VerticalAlignment="Center" Text="STARTER KIT" />
+                  <ItemsControl Grid.Column="2" ItemsSource="{Binding StarterDrums}">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="x:String">
+                        <Button Classes="pill" Content="{Binding}" Command="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).LoadStarterCommand}" CommandParameter="{Binding}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
+                    <TextBox Text="{Binding ImportKit}" Width="150" Watermark="Kit name" ToolTip.Tip="The kit your WAV files go into" />
+                    <Button x:Name="ImportDrumsButton" Classes="primary" Content="Add WAV files…" />
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <!-- Blend and the sound of the sample -->
+            <Border Classes="card" Padding="18,14">
+              <Grid ColumnDefinitions="Auto,24,*">
+                <StackPanel Spacing="10">
+                  <TextBlock Classes="sectitle" Text="Blend and feel" />
+                  <StackPanel Orientation="Horizontal" Spacing="12">
+                    <a:Knob Classes="big" Source="{Binding Ch.TrigBlend}" IsActive="{Binding Ch.TrigOn.Value}" />
+                    <a:Knob Source="{Binding Ch.TrigDynamics}" IsActive="{Binding Ch.TrigOn.Value}" VerticalAlignment="Center" />
+                    <a:Knob Bipolar="True" Source="{Binding Ch.TrigLevel}" IsActive="{Binding Ch.TrigOn.Value}" VerticalAlignment="Center" />
+                    <a:Knob Bipolar="True" Source="{Binding Ch.TrigPitch}" IsActive="{Binding Ch.TrigOn.Value}" VerticalAlignment="Center" />
+                    <Border Classes="hairline" Width="1" Height="100" />
+                    <StackPanel Spacing="8" VerticalAlignment="Center">
+                      <a:Knob Source="{Binding Ch.TrigGateTime}" IsActive="{Binding Ch.TrigNaturalGate.Value}" />
+                      <ToggleButton Classes="pill" HorizontalAlignment="Center" IsChecked="{Binding Ch.TrigNaturalGate.Value}" Content="Natural gate" />
+                    </StackPanel>
+                  </StackPanel>
+                </StackPanel>
+                <TextBlock Grid.Column="2" Classes="faint small" TextWrapping="Wrap" VerticalAlignment="Center"
+                           Text="Blend: 0% is the natural mic only, 100% the sample only; 60 to 80% keeps some of the real drum's life. Dynamics: how much the hit strength changes the sample's level (0% every hit the same). Tune moves the sample in semitones to suit the song. Natural gate: with some natural mic in, it opens only for each hit, so the cymbal spill between hits stays out." />
+              </Grid>
+            </Border>
+
+            <!-- The drum library -->
+            <Border Classes="card" Padding="18,14" IsVisible="{Binding HasOwnSamples}">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="sectitle" Text="Your samples" />
+                <TextBlock Classes="faint small" TextWrapping="Wrap" Text="Kept on this PC and saved inside the show file, so the show sounds the same on another PC. The starter kit is on every PC already." />
+                <ItemsControl ItemsSource="{Binding DrumLibraryRows}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="d:DrumSampleInfo">
+                      <Border CornerRadius="7" Background="{StaticResource Surface2}" Padding="10,4,4,4" Margin="0,2,6,2">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" />
+                          <TextBlock Classes="faint" Text="{Binding Kit}" VerticalAlignment="Center" FontSize="10.5" />
+                          <TextBlock Classes="mono faint" Text="{Binding Seconds, StringFormat='{}{0:0.0} s'}" VerticalAlignment="Center" FontSize="10" />
+                          <Button Classes="ghost small" Padding="6,2" Content="✕" ToolTip.Tip="Remove from the library"
+                                  Command="{Binding $parent[UserControl].((vm:NexAudioViewModel)DataContext).DeleteDrumCommand}" CommandParameter="{Binding}" />
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
             </Border>
           </StackPanel>
         </ScrollViewer>

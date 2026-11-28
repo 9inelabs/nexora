@@ -52,6 +52,8 @@ public partial class NexAudioViewModel
         Pools.Add(new PoolRow("Effects", $"{N(Count(r => r.Type == "reverb"), "reverb", "reverbs")}, {N(Count(r => r.Type == "delay"), "delay", "delays")} and {N(Count(r => r.Type is "chorus" or "pitch" or "pitchshift" or "enhancer" or "eq31"), "other", "others")}. No fixed limit: only the PC's headroom.",
             used[EffectPool.Effect], 0, "#9BD66B"));
         Pools.Add(new PoolRow("Plugins", "VST3 plugins, each in its own safe space.", used[EffectPool.Plugin], 0, "#F2D06B"));
+        Pools.Add(new PoolRow("Drum triggers", "A sample played from each hit of a drum mic, up to 8 ringing at once per drum. Light work: no fixed limit.",
+            _mix.Channels.Count(c => c.Trigger.Active), 0, "#A3D95B"));
         RefreshHeadroom();
     }
 

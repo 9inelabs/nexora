@@ -13,7 +13,8 @@ public sealed record ShowManifest(string Format, int Version, string Name, DateT
 }
 
 /// <summary>What is inside a show file, once checked.</summary>
-public sealed record ShowContents(ShowManifest Manifest, bool HasMix, int Channels, int Buses, int Scenes, int Snapshots, int Presets, int Cues, int Macros);
+/// <param name="Samples">Drum trigger samples carried in the show (the starter kit is on every PC, so it is not).</param>
+public sealed record ShowContents(ShowManifest Manifest, bool HasMix, int Channels, int Buses, int Scenes, int Snapshots, int Presets, int Cues, int Macros, int Samples = 0);
 
 /// <summary>
 /// Show files (.nexshow): the whole desk in one file to keep, copy to a USB stick or send to another
@@ -24,7 +25,7 @@ public static partial class ShowFiles
 {
     public const string Extension = ".nexshow";
 
-    [GeneratedRegex(@"^(mix|show)\.json$|^(scenes|snapshots|presets)/[A-Za-z0-9_-]{1,40}\.json$")]
+    [GeneratedRegex(@"^(mix|show)\.json$|^(scenes|snapshots|presets)/[A-Za-z0-9_-]{1,40}\.json$|^drums/[A-Za-z0-9 _()'&+,-]{1,40}/[A-Za-z0-9 _()'&+,-]{1,40}\.wav$")]
     private static partial Regex AllowedEntry();
 
     private static readonly string[] Folders = ["scenes", "snapshots", "presets"];
@@ -67,6 +68,18 @@ public static partial class ShowFiles
                     if (AllowedEntry().IsMatch(entry)) AddShared(zip, f, entry);
                 }
             }
+            // The drum trigger samples, so the show sounds the same on another PC.
+            var drums = Path.Combine(dataDir, "drums");
+            if (Directory.Exists(drums))
+                foreach (var kit in Directory.EnumerateDirectories(drums))
+                {
+                    if (string.Equals(Path.GetFileName(kit), Drums.DrumLibrary.StarterKit, StringComparison.OrdinalIgnoreCase)) continue;
+                    foreach (var f in Directory.EnumerateFiles(kit, "*.wav"))
+                    {
+                        var entry = $"drums/{Path.GetFileName(kit)}/{Path.GetFileName(f)}";
+                        if (AllowedEntry().IsMatch(entry)) AddShared(zip, f, entry);
+                    }
+                }
         }
         File.Move(tmp, file, true);
     }
@@ -95,6 +108,15 @@ public static partial class ShowFiles
                 if (!Directory.Exists(src)) continue;
                 foreach (var f in Directory.EnumerateFiles(src, "*.json")) File.Copy(f, Path.Combine(dst, Path.GetFileName(f)), true);
             }
+            // Drum samples join the library (a sample of the same name is replaced by the show's).
+            var drums = Path.Combine(staging, "drums");
+            if (Directory.Exists(drums))
+                foreach (var kit in Directory.EnumerateDirectories(drums))
+                {
+                    var dst = Path.Combine(dataDir, "drums", Path.GetFileName(kit));
+                    Directory.CreateDirectory(dst);
+                    foreach (var f in Directory.EnumerateFiles(kit, "*.wav")) File.Copy(f, Path.Combine(dst, Path.GetFileName(f)), true);
+                }
             var show = Path.Combine(staging, "show.json");
             if (File.Exists(show)) File.Copy(show, Path.Combine(dataDir, "show.json"), true);
             else File.WriteAllText(Path.Combine(dataDir, "show.json"), JsonSerializer.Serialize(new ShowState { Name = contents.Manifest.Name }, Json));
@@ -123,7 +145,7 @@ public static partial class ShowFiles
                 throw new InvalidOperationException("That show file was saved by a newer NEX-Audio. Update NEX-Audio on this PC first.");
 
             bool hasMix = false;
-            int channels = 0, buses = 0, scenes = 0, snaps = 0, presets = 0, cues = 0, macros = 0;
+            int channels = 0, buses = 0, scenes = 0, snaps = 0, presets = 0, cues = 0, macros = 0, samples = 0;
             long total = 0;
             foreach (var e in zip.Entries)
             {
@@ -167,10 +189,13 @@ public static partial class ShowFiles
                         Parse<ChannelPreset>(e, "a preset");
                         presets++;
                         break;
+                    case "drums":
+                        samples++;
+                        break;
                 }
                 Copy(e, extractTo);
             }
-            return new ShowContents(manifest, hasMix, channels, buses, scenes, snaps, presets, cues, macros);
+            return new ShowContents(manifest, hasMix, channels, buses, scenes, snaps, presets, cues, macros, samples);
         }
     }
 

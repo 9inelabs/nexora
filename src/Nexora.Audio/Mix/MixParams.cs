@@ -537,6 +537,25 @@ public static class MixParams
             b.Attack = Math.Clamp(b.Attack, 0.1, 200);
             b.Release = Math.Clamp(b.Release, 10, 2000);
         }
+        var t = s.Trigger;
+        t.Threshold = Math.Clamp(t.Threshold, -60, 0);
+        t.Hold = Math.Clamp(t.Hold, 5, 500);
+        t.FocusLow = Math.Clamp(t.FocusLow, 20, 2000);
+        t.FocusHigh = Math.Clamp(t.FocusHigh, 500, 16000);
+        if (t.FocusHigh < t.FocusLow * 1.5) t.FocusHigh = Math.Min(16000, t.FocusLow * 1.5);
+        t.Dynamics = Math.Clamp(t.Dynamics, 0, 100);
+        t.Blend = Math.Clamp(t.Blend, 0, 100);
+        t.Level = Math.Clamp(t.Level, -24, 12);
+        t.Pitch = Math.Clamp(t.Pitch, -12, 12);
+        t.GateTime = Math.Clamp(t.GateTime, 20, 1000);
+        t.Layers ??= [];
+        t.Layers.RemoveAll(l => l is null);
+        if (t.Layers.Count == 0) t.Layers.Add(new TriggerLayer());
+        if (t.Layers.Count > TriggerSettings.MaxLayers) t.Layers.RemoveRange(TriggerSettings.MaxLayers, t.Layers.Count - TriggerSettings.MaxLayers);
+        foreach (var l in t.Layers) l.Samples = (l.Samples ?? []).Where(x => !string.IsNullOrWhiteSpace(x)).Take(TriggerSettings.MaxTakes).ToList();
+        t.Key ??= "";
+        if (t.Key == s.Id) t.Key = "";
+        if (s.Kind != StripKind.Channel) t.On = false;
         s.Gate.Key ??= "";
         s.Comp.Key ??= "";
         if (s.Gate.Key == s.Id) s.Gate.Key = "";
@@ -661,7 +680,7 @@ public static class MixParams
     }
 
     /// <summary>
-    /// Puts copied settings onto a strip. <paramref name="parts"/> is any of "input", "eq", "dyn", "fx" (comma-separated), or "all".
+    /// Puts copied settings onto a strip. <paramref name="parts"/> is any of "input", "eq", "dyn", "trigger", "fx" (comma-separated), or "all".
     /// Faders, mutes, sends and routing are never pasted.
     /// </summary>
     public static bool Paste(MixState s, string toId, Strip from, string parts)
@@ -692,6 +711,11 @@ public static class MixParams
             b.Comp = from.Comp.Clone();
             if (b.Comp.Key == b.Id) b.Comp.Key = "";
             b.Order = from.Order;
+        }
+        if (Has("trigger") && b.Kind == StripKind.Channel)
+        {
+            b.Trigger = from.Trigger.Clone();
+            if (b.Trigger.Key == b.Id) b.Trigger.Key = "";
         }
         if (Has("fx"))
             b.Rack = from.Rack.Where(r => r.Type != "plugin" || r.Plugin is not null).Select(r =>

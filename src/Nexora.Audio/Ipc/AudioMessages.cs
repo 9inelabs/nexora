@@ -155,7 +155,7 @@ public sealed record DeskStatusMsg(DeskStatus Desk) : AudioMessage;
 public sealed record MixMetersMsg(
     float[] In, float[] L, float[] R, float[] Gate, float[] Comp, float[] Rack, bool[] GateClosed,
     float MonitorL, float MonitorR, LoudnessReading? Loudness, float[]? Spectrum, float[]? DynEq = null, float[]? Cost = null,
-    float[]? Phase = null) : AudioMessage;
+    float[]? Phase = null, float[]? Trigger = null, Engine.TriggerLive? TriggerLive = null) : AudioMessage;
 
 /// <summary>Change one mix setting by its path, for example "ch3.fader" or "ch3.send.mix1.level".</summary>
 public sealed record SetMixMsg(string Path, JsonElement Value) : AudioMessage;

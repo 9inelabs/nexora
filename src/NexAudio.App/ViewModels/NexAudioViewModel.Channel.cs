@@ -18,11 +18,12 @@ public sealed partial class NexAudioViewModel : IEqEditor, IGraphicEqEditor
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OnChHome), nameof(OnChInput), nameof(OnChGate), nameof(OnChEq), nameof(OnChDynamics),
-        nameof(OnChGeq), nameof(OnChEffects), nameof(OnChSends))]
+        nameof(OnChGeq), nameof(OnChEffects), nameof(OnChSends), nameof(OnChTrigger))]
     private ChannelSection _channelPage = ChannelSection.Home;
 
     public bool OnChHome => ChannelPage == ChannelSection.Home;
     public bool OnChInput => ChannelPage == ChannelSection.Input;
+    public bool OnChTrigger => ChannelPage == ChannelSection.Trigger;
     public bool OnChGate => ChannelPage == ChannelSection.Gate;
     public bool OnChEq => ChannelPage == ChannelSection.Eq;
     public bool OnChDynamics => ChannelPage == ChannelSection.Dynamics;
@@ -36,6 +37,7 @@ public sealed partial class NexAudioViewModel : IEqEditor, IGraphicEqEditor
     {
         foreach (var r in Rail) r.IsCurrent = r.Section == value;
         if (value == ChannelSection.Gate && !(Ch?.HasGate ?? false)) ChannelPage = ChannelSection.Home;
+        if (value == ChannelSection.Trigger && !(Ch?.IsChannel ?? false)) ChannelPage = ChannelSection.Home;
     }
 
     internal void OpenStripSection(string id, string section)
@@ -79,6 +81,7 @@ public sealed partial class NexAudioViewModel : IEqEditor, IGraphicEqEditor
         Rail.Clear();
         Rail.Add(new ChannelRailItem(ChannelSection.Home, "Home", this));
         Rail.Add(new ChannelRailItem(ChannelSection.Input, "Input", this));
+        if (Ch.IsChannel) Rail.Add(new ChannelRailItem(ChannelSection.Trigger, "Trigger", this));
         if (Ch.HasGate) Rail.Add(new ChannelRailItem(ChannelSection.Gate, Ch.IsChannel ? "Gate" : "Gate / ducker", this));
         Rail.Add(new ChannelRailItem(ChannelSection.Eq, "EQ", this));
         Rail.Add(new ChannelRailItem(ChannelSection.Dynamics, "Compressor", this));
@@ -86,6 +89,8 @@ public sealed partial class NexAudioViewModel : IEqEditor, IGraphicEqEditor
         Rail.Add(new ChannelRailItem(ChannelSection.Effects, "Effects", this));
         Rail.Add(new ChannelRailItem(ChannelSection.Sends, "Sends", this));
         if (!Ch.HasGate && ChannelPage == ChannelSection.Gate) ChannelPage = ChannelSection.Home;
+        if (!Ch.IsChannel && ChannelPage == ChannelSection.Trigger) ChannelPage = ChannelSection.Home;
+        BuildTrigger(s);
         foreach (var r in Rail) r.IsCurrent = r.Section == ChannelPage;
 
         if (SelectedBand >= s.Eq.Bands.Count) SelectedBand = -1;
@@ -106,6 +111,7 @@ public sealed partial class NexAudioViewModel : IEqEditor, IGraphicEqEditor
             {
                 ChannelSection.Home => ("Everything at a glance", false),
                 ChannelSection.Input => (InputSummary(s), s.Hpf.On || s.Phantom || s.Invert),
+                ChannelSection.Trigger => TriggerSummary(s),
                 ChannelSection.Gate => !s.Gate.On ? ("Off", false)
                     : s.Gate.Mode == GateMode.Ducker ? ($"Ducks under {(_mix.Find(s.Gate.Key) is { } k ? NameOf(k) : "itself")}", true)
                     : ($"Opens at {s.Gate.Threshold:0} dB", true),
@@ -121,6 +127,7 @@ public sealed partial class NexAudioViewModel : IEqEditor, IGraphicEqEditor
 
         UpdateGeq(s);
         UpdateSlots(s);
+        UpdateTrigger(s);
         OnPropertyChanged(nameof(HomeInputText));
         OnPropertyChanged(nameof(HomeRoutingText));
     }

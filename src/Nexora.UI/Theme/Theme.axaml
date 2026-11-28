@@ -54,12 +54,14 @@
       <SolidColorBrush x:Key="DynTone" Color="#F59E5B" />
       <SolidColorBrush x:Key="FxTone" Color="#F472B6" />
       <SolidColorBrush x:Key="SendTone" Color="#E2BE76" />
+      <SolidColorBrush x:Key="TrigTone" Color="#A3D95B" />
       <SolidColorBrush x:Key="InputTint" Color="#1A6CB4F5" />
       <SolidColorBrush x:Key="GateTint" Color="#1A4FD1C5" />
       <SolidColorBrush x:Key="EqTint" Color="#1AA78BFA" />
       <SolidColorBrush x:Key="DynTint" Color="#1AF59E5B" />
       <SolidColorBrush x:Key="FxTint" Color="#1AF472B6" />
       <SolidColorBrush x:Key="SendTint" Color="#1AE2BE76" />
+      <SolidColorBrush x:Key="TrigTint" Color="#1AA3D95B" />
 
       <FontFamily x:Key="FontUi">avares://Nexora.UI/Assets/Fonts#Manrope</FontFamily>
       <FontFamily x:Key="FontDisplay">avares://Nexora.UI/Assets/Fonts#Sora</FontFamily>

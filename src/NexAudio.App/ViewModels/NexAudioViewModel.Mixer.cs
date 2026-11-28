@@ -375,6 +375,8 @@ public sealed partial class NexAudioViewModel
             if (v is null || v.MeterIndex < 0 || v.MeterIndex >= n) continue;
             v.GateGr = m.Gate[v.MeterIndex];
             v.CompGr = m.Comp[v.MeterIndex];
+            var hit = m.Trigger is { } tr && v.MeterIndex < tr.Length ? tr[v.MeterIndex] : 0;
+            v.TriggerFlash = hit > 0 ? hit : v.TriggerFlash < 0.05 ? 0 : v.TriggerFlash * 0.6;
         }
         if (SelectedId is { } id)
         {
@@ -387,6 +389,7 @@ public sealed partial class NexAudioViewModel
                 SelectedDynEq = m.DynEq is { } dq && i < dq.Length ? dq[i] : 0;
                 SelectedIn = m.In[i] <= 0 ? -60 : Math.Max(-60, 20 * Math.Log10(m.In[i]));
                 PushHistory(m.In[i] <= 0 ? -90 : 20 * Math.Log10(m.In[i]), m.Gate[i], m.Comp[i]);
+                ApplyTriggerLive(m, i);
             }
         }
         MonitorLevel = Math.Max(m.MonitorL, m.MonitorR);
@@ -822,6 +825,7 @@ public sealed partial class NexAudioViewModel
         ApplyShow(d);
         ApplySurfaces(d);
         ApplyTape(d.Tape);
+        ApplyDrums(d);
         BuildDiagnostics();
         var key = string.Join("|", d.Scenes.Concat(d.Snapshots).Select(s => s.Id + s.Name + s.SavedUtc.Ticks)) + d.Settings.CurrentSceneId + _currentSnapshot;
         if (key != _scenesKey)
