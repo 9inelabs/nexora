@@ -70,6 +70,7 @@ internal sealed class StripRt
         Comp = new Compressor(sampleRate, maxFrames);
         Drive = new Saturator(sampleRate, maxFrames);
         DynEq = new DynamicEq(sampleRate, maxFrames);
+        if (kind == StripKind.Channel) Trigger = new DrumTrigger(sampleRate, maxFrames);
         Raw = new float[maxFrames];
         var maxDelay = (int)(0.1 * sampleRate);
         InDelayL = new DelayLine(maxDelay);
@@ -88,6 +89,10 @@ internal sealed class StripRt
     public readonly Compressor Comp;
     public readonly Saturator Drive;
     public readonly DynamicEq DynEq;
+    /// <summary>Channels only: the drum trigger.</summary>
+    public readonly DrumTrigger? Trigger;
+    public volatile StripRt? TriggerKey;
+    public int TriggerHits;
     /// <summary>Channels: this buffer's input after the trim, for other strips' gates and compressors to listen to.</summary>
     public readonly float[] Raw;
     public volatile RackSlot[] Rack = [];
@@ -95,7 +100,9 @@ internal sealed class StripRt
     public volatile bool DynamicsFirst;
     /// <summary>Replaced (on the control thread) by a longer one when the delay needs more room.</summary>
     public volatile DelayLine InDelayL, InDelayR;
-    public string? LastFilters, LastGate, LastComp, LastDrive, LastDynEq;
+    public string? LastFilters, LastGate, LastComp, LastDrive, LastDynEq, LastTrigger;
+    /// <summary>Trigger samples that could not be found, the last time its settings came in.</summary>
+    public int TriggerMissing;
 
     // Targets, written by the control thread (single floats and ints, so always whole).
     public volatile int Input = -1;            // channels: which driver input feeds this strip
@@ -112,7 +119,7 @@ internal sealed class StripRt
     public long CostTicks;
 
     // Meters (written by the audio thread, taken by the control thread).
-    public float MeterIn, MeterL, MeterR, MeterGate, MeterComp, MeterRack, MeterDynEq;
+    public float MeterIn, MeterL, MeterR, MeterGate, MeterComp, MeterRack, MeterDynEq, MeterTrigger;
     /// <summary>The same level after the fader, for remotes and fader boxes (taken separately, so the screen's meters are not disturbed).</summary>
     public float RemotePeak;
 }
@@ -570,6 +577,19 @@ public sealed class MixEngine
             rt.LastDynEq = key;
             rt.DynEq.Configure(s.DynEq.Clone());
         }
+        if (rt.Trigger is { } trig)
+        {
+            // The samples are read here (on the control thread), and only when the trigger's settings or files change.
+            var tk = System.Text.Json.JsonSerializer.Serialize(s.Trigger, MixState.Json) + Drums?.Stamp(s.Trigger);
+            if (tk != rt.LastTrigger)
+            {
+                rt.LastTrigger = tk;
+                var (cfg, missing) = TriggerConfigFor(s.Trigger);
+                rt.TriggerMissing = missing;
+                trig.Configure(cfg);
+            }
+            rt.TriggerKey = s.Trigger.Key is { Length: > 0 } tkk && tkk != s.Id && _strips.TryGetValue(tkk, out var tks) && tks.Kind == StripKind.Channel ? tks : null;
+        }
         rt.DynamicsFirst = s.Order == ProcessOrder.DynamicsFirst;
         // A sidechain: the gate or compressor listens to another channel.
         rt.GateKey = s.Gate.Key is { Length: > 0 } gk && gk != s.Id && _strips.TryGetValue(gk, out var gks) && gks.Kind == StripKind.Channel ? gks : null;
@@ -602,6 +622,41 @@ public sealed class MixEngine
             if (i >= rt.Rack.Length || rt.Rack[i] != slot) changed = true;
         }
         if (changed) rt.Rack = [.. slots];
+    }
+
+    /// <summary>Where trigger samples come from (the desk's drum library). Without one, triggers pass the natural mic.</summary>
+    public Drums.DrumLibrary? Drums { get; set; }
+
+    /// <summary>The trigger's settings with its samples loaded, and how many samples could not be found.</summary>
+    private (TriggerConfig, int Missing) TriggerConfigFor(TriggerSettings t)
+    {
+        var layers = new List<DrumSample[]>();
+        var missing = 0;
+        foreach (var l in t.Layers)
+        {
+            var takes = new List<DrumSample>();
+            foreach (var p in l.Samples)
+            {
+                if (Drums?.Load(p, _sr) is { } smp && smp.Data.Length > 1) takes.Add(smp);
+                else missing++;
+            }
+            if (takes.Count > 0) layers.Add([.. takes]);
+        }
+        // A sample gone missing: the natural mic plays instead of a half-working trigger.
+        if (missing > 0) layers.Clear();
+        return (new TriggerConfig { Settings = t.Clone(), Layers = [.. layers] }, missing);
+    }
+
+    /// <summary>The open channel's drum trigger (for the hit history and Learn), or null.</summary>
+    public DrumTrigger? TriggerOf(string id)
+    {
+        lock (_gate) return _strips.TryGetValue(id, out var rt) ? rt.Trigger : null;
+    }
+
+    /// <summary>Channels whose trigger is missing samples, with how many.</summary>
+    public IReadOnlyList<(string Id, int Missing)> TriggerProblems()
+    {
+        lock (_gate) return _strips.Values.Where(r => r.Trigger is not null && r.TriggerMissing > 0).Select(r => (r.Id, r.TriggerMissing)).ToList();
     }
 
     /// <summary>Forgets processors no longer in any rack (after a scene recall or removing an effect).</summary>
@@ -1053,6 +1108,19 @@ public sealed class MixEngine
             if (r is not null) s.InDelayR.Process(r, frames, s.InDelay);
         }
         if (s.NeedTapIn) Tap(s.L, r, s.TapInL, s.TapInR, frames);
+        // The drum trigger: right after the input, so everything after it hears the sample.
+        if (s.Trigger is { } trig)
+        {
+            trig.KeyInput = s.TriggerKey?.Raw;
+            trig.Run(s.L, r, frames);
+            var hits = trig.Hits;
+            if (hits != s.TriggerHits)
+            {
+                s.TriggerHits = hits;
+                var m = 0.1f + 0.9f * trig.LastStrength;
+                if (m > s.MeterTrigger) s.MeterTrigger = m;
+            }
+        }
         // Low and high cut, then the drive, then any inserts placed before the EQ and dynamics.
         s.Filters.RunCuts(s.L, r, frames);
         s.Drive.Run(s.L, r, frames);
@@ -1151,8 +1219,8 @@ public sealed class MixEngine
         for (var i = 0; i < t.All.Length; i++)
         {
             var s = t.All[i];
-            result[i] = new StripMeters(s.MeterIn, s.MeterL, s.MeterR, s.MeterGate, s.MeterComp, s.MeterRack, s.Gate.On && !s.Gate.IsOpen, s.MeterDynEq);
-            s.MeterIn = s.MeterL = s.MeterR = s.MeterGate = s.MeterComp = s.MeterRack = s.MeterDynEq = 0;
+            result[i] = new StripMeters(s.MeterIn, s.MeterL, s.MeterR, s.MeterGate, s.MeterComp, s.MeterRack, s.Gate.On && !s.Gate.IsOpen, s.MeterDynEq, s.MeterTrigger);
+            s.MeterIn = s.MeterL = s.MeterR = s.MeterGate = s.MeterComp = s.MeterRack = s.MeterDynEq = s.MeterTrigger = 0;
         }
         return result;
     }
@@ -1210,4 +1278,5 @@ public sealed class MixEngine
 /// </summary>
 public readonly record struct PathLatency(string Id, int Own, int Arrives, int Leaves);
 
-public readonly record struct StripMeters(float In, float L, float R, float Gate, float Comp, float Rack, bool GateClosed, float DynEq = 0);
+/// <param name="Trigger">A drum trigger fired since the last reading: 0 none, else 0.1 (softest) to 1 (hardest).</param>
+public readonly record struct StripMeters(float In, float L, float R, float Gate, float Comp, float Rack, bool GateClosed, float DynEq = 0, float Trigger = 0);

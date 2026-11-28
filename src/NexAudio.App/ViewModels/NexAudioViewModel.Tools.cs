@@ -49,7 +49,7 @@ public sealed partial class NexAudioViewModel
     public static IReadOnlyList<Choice> PasteParts { get; } =
     [
         new("all", "Everything"), new("input", "Cuts and drive"), new("eq", "EQ and dynamic EQ"),
-        new("dyn", "Gate and compressor"), new("fx", "Effects"),
+        new("dyn", "Gate and compressor"), new("trigger", "Drum trigger"), new("fx", "Effects"),
     ];
 
     [ObservableProperty] private Choice _pastePart = PasteParts[0];

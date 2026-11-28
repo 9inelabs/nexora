@@ -30,11 +30,13 @@ public enum RecallScope
     Outputs = 1 << 9,
     /// <summary>Who is in each control group (VCA, linked and mute groups).</summary>
     Groups = 1 << 10,
+    /// <summary>Drum triggers: their samples and settings.</summary>
+    Trigger = 1 << 11,
 
     /// <summary>Faders, mutes, pans and send levels.</summary>
     Levels = Fader | Mute | Sends,
     /// <summary>Everything on the strips that shapes the sound.</summary>
-    Processing = Input | Eq | Dynamics | Inserts,
+    Processing = Input | Eq | Dynamics | Trigger | Inserts,
     /// <summary>The shape of the desk: buses, assignments, the output patch and control groups.</summary>
     Routing = Patch | Outputs | Groups,
     All = Levels | Processing | Effects | Routing,
@@ -45,7 +47,7 @@ public static class RecallScopes
     /// <summary>Each section on its own, in the order the screen lists them.</summary>
     public static readonly RecallScope[] Sections =
     [
-        RecallScope.Input, RecallScope.Eq, RecallScope.Dynamics, RecallScope.Inserts, RecallScope.Fader, RecallScope.Mute,
+        RecallScope.Input, RecallScope.Eq, RecallScope.Dynamics, RecallScope.Trigger, RecallScope.Inserts, RecallScope.Fader, RecallScope.Mute,
         RecallScope.Sends, RecallScope.Effects, RecallScope.Patch, RecallScope.Outputs, RecallScope.Groups,
     ];
 
@@ -54,6 +56,7 @@ public static class RecallScopes
         RecallScope.Input => "input",
         RecallScope.Eq => "EQ",
         RecallScope.Dynamics => "dynamics",
+        RecallScope.Trigger => "triggers",
         RecallScope.Inserts => "inserts",
         RecallScope.Fader => "faders",
         RecallScope.Mute => "mutes",
@@ -356,6 +359,7 @@ public static class SceneRecall
                 dst.DynEq = src.DynEq.Clone();
                 dst.Order = src.Order;
             }
+            if (dst.Kind == StripKind.Channel && On(RecallScope.Trigger)) dst.Trigger = src.Trigger.Clone();
             if (ins) dst.Rack = src.Rack.Select(r => r.Clone()).ToList();
         }
         result.Repair();

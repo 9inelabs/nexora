@@ -107,6 +107,7 @@
     <Style Selector="Border.lamp.p48.on"><Setter Property="Background" Value="{StaticResource Live}" /></Style>
     <Style Selector="Border.lamp.inv.on"><Setter Property="Background" Value="{StaticResource InputTone}" /></Style>
     <Style Selector="Border.lamp.fx.on"><Setter Property="Background" Value="{StaticResource FxTone}" /></Style>
+    <Style Selector="Border.lamp.trig.on"><Setter Property="Background" Value="{StaticResource TrigTone}" /></Style>
     <!-- A strip to tick in the bank editor -->
     <Style Selector="ToggleButton.pickchip">
       <Setter Property="Background" Value="{StaticResource Surface2}" />
@@ -625,7 +626,7 @@
             <a:EqCurve Height="30" Compact="True" Settings="{Binding Filters}" IsHitTestVisible="False" />
           </Button>
           <!-- Section lights -->
-          <Grid Grid.Row="6" ColumnDefinitions="*,2,*,2,*,2,*">
+          <Grid Grid.Row="6" ColumnDefinitions="*,2,*,2,*,2,*,2,Auto">
             <Button Classes="ghost" Padding="0" HorizontalAlignment="Stretch" Command="{Binding OpenSectionCommand}" CommandParameter="Gate" IsVisible="{Binding HasGate}">
               <Border Classes="lamp gate" Classes.on="{Binding GateOn}" HorizontalAlignment="Stretch"><TextBlock Text="G" /></Border>
             </Button>
@@ -637,6 +638,13 @@
             </Button>
             <Button Grid.Column="6" Classes="ghost" Padding="0" HorizontalAlignment="Stretch" Command="{Binding OpenSectionCommand}" CommandParameter="Effects">
               <Border Classes="lamp fx" Classes.on="{Binding RackOn}" HorizontalAlignment="Stretch"><TextBlock Text="{Binding FxText}" /></Border>
+            </Button>
+            <!-- The drum trigger: lit while on, with a light that flashes on each hit -->
+            <Button Grid.Column="8" Classes="ghost" Padding="0" Command="{Binding OpenSectionCommand}" CommandParameter="Trigger" IsVisible="{Binding TriggerOn}" ToolTip.Tip="Drum trigger: flashes on every hit">
+              <Panel>
+                <Border Classes="lamp trig on" Width="15"><TextBlock Text="T" /></Border>
+                <Border CornerRadius="3" Width="15" Height="15" Background="White" Opacity="{Binding TriggerFlash}" IsHitTestVisible="False" />
+              </Panel>
             </Button>
           </Grid>
           <!-- How hard the gate and compressor are working -->

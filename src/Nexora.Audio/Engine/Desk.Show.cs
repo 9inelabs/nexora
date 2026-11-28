@@ -341,6 +341,7 @@ public sealed partial class Desk
         BackupNow("before opening", by);
         ShowFiles.Import(_dir, file, takeMix);
         lock (_showGate) _show = LoadShow();
+        if (contents.Samples > 0) RefreshDrums();
         if (takeMix && contents.HasMix && MixState.FromJson(File.ReadAllText(_mixFile)) is { } mix)
         {
             Change(s =>

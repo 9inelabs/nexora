@@ -530,6 +530,15 @@ public sealed class EngineServer : IDisposable
             case "tape.delete":
                 desk.Tape.Delete(m.Arg("id") ?? "");
                 return true;
+            case "drums.import":
+                desk.ImportDrums((m.Arg("files") ?? "").Split('|', StringSplitOptions.RemoveEmptyEntries), m.Arg("kit") ?? "");
+                return true;
+            case "drums.delete":
+                desk.DeleteDrum(m.Arg("path") ?? "");
+                return true;
+            case "drums.learn":
+                desk.LearnTrigger(m.Arg("strip") ?? "");
+                return true;
             case "tape.import":
                 desk.Tape.Import(m.Arg("folder") ?? "", m.Arg("name"));
                 return true;
@@ -562,7 +571,8 @@ public sealed class EngineServer : IDisposable
             m.Select(x => x.Gate).ToArray(), m.Select(x => x.Comp).ToArray(), m.Select(x => x.Rack).ToArray(), m.Select(x => x.GateClosed).ToArray(),
             ml, mr, tick % 3 == 0 ? _engine.Desk.Loudness() : null, tick % 2 == 0 ? mix.Analyser.Bands() : null, m.Select(x => x.DynEq).ToArray(),
             tick % 10 == 0 ? mix.TakeCosts() : null,
-            [mix.MainPhase.Value, mix.StreamPhase.Value]);
+            [mix.MainPhase.Value, mix.StreamPhase.Value],
+            m.Select(x => x.Trigger).ToArray(), _engine.Desk.TriggerLive(mix.AnalyseId));
         foreach (var c in conns) _ = c.SendAsync(mm);
     }
 

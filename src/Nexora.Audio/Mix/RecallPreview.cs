@@ -78,6 +78,7 @@ public static class RecallDiff
             if (Differs(n.Drive, a.Drive)) parts.Add("drive");
             if (Differs(n.Eq, a.Eq)) parts.Add("EQ");
             if (Differs(n.DynEq, a.DynEq)) parts.Add("dynamic EQ");
+            if (Differs(n.Trigger, a.Trigger)) parts.Add("drum trigger");
             if (Differs(n.Gate, a.Gate)) parts.Add("gate");
             if (Differs(n.Comp, a.Comp)) parts.Add("compressor");
             if (n.Order != a.Order) parts.Add("order");

@@ -142,6 +142,68 @@ public sealed class DriveSettings
     public DriveSettings Clone() => (DriveSettings)MemberwiseClone();
 }
 
+/// <summary>One hit-strength layer of a drum trigger: the samples it plays (several takes, used in turn).</summary>
+public sealed class TriggerLayer
+{
+    /// <summary>Samples from the drum library ("Starter/Snare hard 1.wav"). More than one: round robin takes turns.</summary>
+    public List<string> Samples { get; set; } = [];
+
+    public TriggerLayer Clone() => new() { Samples = [.. Samples] };
+}
+
+/// <summary>
+/// A drum trigger: the mic listens, and every hit plays a sample from the drum library, as hard as the drummer hit.
+/// It sits right after the input (trim, polarity, delay), so the EQ, gate, compressor and sends all hear the result.
+/// </summary>
+public sealed class TriggerSettings
+{
+    public const int MaxLayers = 4;
+    public const int MaxTakes = 4;
+
+    public bool On { get; set; }
+    /// <summary>Soft hits play the first layer, the hardest the last. Up to four.</summary>
+    public List<TriggerLayer> Layers { get; set; } = [new()];
+    /// <summary>How loud a hit must be to fire, in dB (after the spill filter).</summary>
+    public double Threshold { get; set; } = -24;
+    /// <summary>After a hit, new hits are ignored for this long, in ms (so one hit never fires twice).</summary>
+    public double Hold { get; set; } = 40;
+    /// <summary>The spill filter: the trigger only listens between these two frequencies.</summary>
+    public double FocusLow { get; set; } = 150;
+    public double FocusHigh { get; set; } = 4000;
+    /// <summary>How much the hit strength changes the sample's level, 0 (every hit the same) to 100 (fully follows the drummer).</summary>
+    public double Dynamics { get; set; } = 60;
+    /// <summary>Natural mic (0) to sample only (100).</summary>
+    public double Blend { get; set; } = 70;
+    /// <summary>The sample's level, in dB.</summary>
+    public double Level { get; set; }
+    /// <summary>Tunes the sample, in semitones.</summary>
+    public double Pitch { get; set; }
+    /// <summary>Takes turns between a layer's samples, so a fast roll does not sound like a machine gun.</summary>
+    public bool RoundRobin { get; set; } = true;
+    /// <summary>With some natural mic blended in: closes the mic between hits, so only the hit itself comes through.</summary>
+    public bool NaturalGate { get; set; } = true;
+    /// <summary>How long the natural mic stays open after each hit, in ms.</summary>
+    public double GateTime { get; set; } = 150;
+    /// <summary>Another channel the trigger listens to (for example a snare-bottom mic), or empty for itself.</summary>
+    public string Key { get; set; } = "";
+    /// <summary>Compare: hear the natural mic only for a moment, with the trigger still detecting.</summary>
+    public bool Compare { get; set; }
+
+    /// <summary>Doing something: on, with at least one sample.</summary>
+    [JsonIgnore]
+    public bool Active => On && Layers.Any(l => l.Samples.Count > 0);
+
+    /// <summary>Every sample the trigger plays.</summary>
+    public IEnumerable<string> AllSamples() => Layers.SelectMany(l => l.Samples);
+
+    public TriggerSettings Clone()
+    {
+        var c = (TriggerSettings)MemberwiseClone();
+        c.Layers = Layers.Select(l => l.Clone()).ToList();
+        return c;
+    }
+}
+
 /// <summary>
 /// One dynamic EQ band: a bell that only moves when its own frequency range gets loud,
 /// so harshness or boom is tamed only at the moments it happens.
@@ -363,6 +425,8 @@ public sealed class Strip
     public DriveSettings Drive { get; set; } = new();
     public EqSettings Eq { get; set; } = new();
     public DynEqSettings DynEq { get; set; } = new();
+    /// <summary>Channels: a drum trigger playing samples from this mic's hits.</summary>
+    public TriggerSettings Trigger { get; set; } = new();
     public GateSettings Gate { get; set; } = new();
     public CompSettings Comp { get; set; } = new();
     public ProcessOrder Order { get; set; } = ProcessOrder.EqFirst;
@@ -435,6 +499,7 @@ public sealed class Strip
         Drive = src.Drive.Clone();
         Eq = src.Eq.Clone();
         DynEq = src.DynEq.Clone();
+        Trigger = src.Trigger.Clone();
         Gate = src.Gate.Clone();
         Comp = src.Comp.Clone();
         Order = src.Order;
@@ -450,7 +515,7 @@ public sealed class Strip
     {
         Id = Id, Kind = Kind, Name = Name, Colour = Colour, Stereo = Stereo, Trim = Trim, Invert = Invert, DelayMs = DelayMs,
         Input = Input, AltInput = AltInput, UseAlt = UseAlt, DirectTap = DirectTap,
-        Hpf = Hpf.Clone(), Lpf = Lpf.Clone(), Drive = Drive.Clone(), Eq = Eq.Clone(), DynEq = DynEq.Clone(), Gate = Gate.Clone(), Comp = Comp.Clone(),
+        Hpf = Hpf.Clone(), Lpf = Lpf.Clone(), Drive = Drive.Clone(), Eq = Eq.Clone(), DynEq = DynEq.Clone(), Trigger = Trigger.Clone(), Gate = Gate.Clone(), Comp = Comp.Clone(),
         Order = Order, Rack = Rack.Select(r => r.Clone()).ToList(), Pan = Pan, Fader = Fader, Mute = Mute, HardMute = HardMute, Solo = Solo, SoloSafe = SoloSafe, Linked = Linked, ToMain = ToMain, ToCentre = ToCentre, SendsFrom = SendsFrom,
         Groups = [.. Groups], Sends = Sends.Select(s => s.Clone()).ToList(), StreamLevel = StreamLevel, StreamOn = StreamOn,
         Preamp = Preamp, Phantom = Phantom, RecallSafe = RecallSafe, Safe = Safe,
@@ -920,6 +985,15 @@ public sealed class MixState
             if (s.DynEq.Bands.Count > 4) s.DynEq.Bands.RemoveRange(4, s.DynEq.Bands.Count - 4);
             s.Gate ??= new GateSettings();
             s.Comp ??= new CompSettings();
+            s.Trigger ??= new TriggerSettings();
+            s.Trigger.Layers ??= [];
+            s.Trigger.Layers.RemoveAll(l => l is null);
+            foreach (var l in s.Trigger.Layers) l.Samples = (l.Samples ?? []).Where(x => !string.IsNullOrWhiteSpace(x)).Take(TriggerSettings.MaxTakes).ToList();
+            if (s.Trigger.Layers.Count == 0) s.Trigger.Layers.Add(new TriggerLayer());
+            if (s.Trigger.Layers.Count > TriggerSettings.MaxLayers) s.Trigger.Layers.RemoveRange(TriggerSettings.MaxLayers, s.Trigger.Layers.Count - TriggerSettings.MaxLayers);
+            s.Trigger.Key = ValidKey(s, s.Trigger.Key);
+            // Only a channel has a mic to trigger from.
+            if (s.Kind != StripKind.Channel) s.Trigger.On = false;
             // A sidechain listens to another channel; anything else (itself, a bus, a channel that is gone) means "itself".
             s.Gate.Key = ValidKey(s, s.Gate.Key);
             s.Comp.Key = ValidKey(s, s.Comp.Key);

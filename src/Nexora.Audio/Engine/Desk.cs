@@ -103,6 +103,8 @@ public sealed record DeskStatus(
     /// <summary>How many times the X32 link was lost since the desk started, and when the X32 last answered.</summary>
     public int X32Drops { get; init; }
     public DateTime? X32LastHeardUtc { get; init; }
+    /// <summary>The drum library: every trigger sample, kit by kit.</summary>
+    public IReadOnlyList<Drums.DrumSampleInfo> DrumSamples { get; init; } = [];
 
     public static DeskStatus Empty { get; } = new(0, new DeskSettings(), false, null, [], null, 0, 0, null, [], [], [], 0, false, null, [], 0, 0);
 }
@@ -256,7 +258,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
         DisposePlugins();
         _rate = sampleRate;
         _frames = frames;
-        var engine = new MixEngine(inputs, outputs, frames, sampleRate, MakePlugin);
+        var engine = new MixEngine(inputs, outputs, frames, sampleRate, MakePlugin) { Drums = Drums };
         lock (_gate) engine.Load(_mix);
         _engine = engine;
         lock (_gate) _tape.Prepare(Math.Min(inputs, _mix.Channels.Count), sampleRate, frames);
@@ -757,6 +759,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
         {
             _tick++;
             FadeStep();
+            DrumTick();
 
             if (_reloadPdc)
             {
@@ -850,7 +853,7 @@ public sealed partial class Desk : IDisposable, Remote.IRemoteDesk
                 MidiInputs = _midiInputs, MidiOutputs = _midiOutputs, MidiText = MidiText(), MidiConnected = _midiInPort is not null,
                 RemoteRunning = _remote?.Running ?? false, RemoteError = _remoteError, RemoteClients = _remote?.Clients ?? [],
                 Addresses = LanAddresses(), TriggerNote = _triggerNote,
-                Events = Events.Latest(80), X32Drops = _x32.Drops,
+                Events = Events.Latest(80), X32Drops = _x32.Drops, DrumSamples = DrumSamples,
                 X32LastHeardUtc = _x32.LastHeard == DateTime.MinValue ? null : _x32.LastHeard,
             };
         }

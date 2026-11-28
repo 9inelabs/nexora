@@ -12,6 +12,7 @@ public enum ChannelSection
 {
     Home,
     Input,
+    Trigger,
     Gate,
     Eq,
     Dynamics,
@@ -26,10 +27,11 @@ public sealed partial class ChannelRailItem(ChannelSection section, string title
     public ChannelSection Section { get; } = section;
     public string Title { get; } = title;
 
-    /// <summary>The section's own colour (input blue, gate teal, EQ violet, compressor orange, effects pink, sends gold).</summary>
+    /// <summary>The section's own colour (input blue, trigger lime, gate teal, EQ violet, compressor orange, effects pink, sends gold).</summary>
     public Avalonia.Media.IBrush Tone { get; } = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(section switch
     {
         ChannelSection.Input => "#6CB4F5",
+        ChannelSection.Trigger => "#A3D95B",
         ChannelSection.Gate => "#4FD1C5",
         ChannelSection.Eq or ChannelSection.Geq => "#A78BFA",
         ChannelSection.Dynamics => "#F59E5B",
@@ -233,11 +235,25 @@ public sealed class ChannelControls
         DynEqOn = new ToggleParam($"{id}.dynEq.on", "On", m => S(m)?.DynEq.On ?? false, q);
         for (var b = 0; b < s.DynEq.Bands.Count; b++) DynBands.Add(new DynEqBandView(id, b, q));
 
+        TrigOn = new ToggleParam($"{id}.trigger.on", "On", m => S(m)?.Trigger.On ?? false, q);
+        TrigThreshold = new SliderParam($"{id}.trigger.threshold", "Threshold", -60, 0, "dB", m => S(m)?.Trigger.Threshold, q, step: 0.5, def: -24);
+        TrigHold = new SliderParam($"{id}.trigger.hold", "Hold", 5, 200, "ms", m => S(m)?.Trigger.Hold, q, step: 1, def: 40);
+        TrigLow = new SliderParam($"{id}.trigger.focusLow", "Listen from", 20, 2000, "Hz", m => S(m)?.Trigger.FocusLow, q, log: true, def: 150);
+        TrigHigh = new SliderParam($"{id}.trigger.focusHigh", "Listen to", 500, 16000, "Hz", m => S(m)?.Trigger.FocusHigh, q, log: true, def: 4000);
+        TrigDynamics = new SliderParam($"{id}.trigger.dynamics", "Dynamics", 0, 100, "%", m => S(m)?.Trigger.Dynamics, q, step: 1, def: 60);
+        TrigBlend = new SliderParam($"{id}.trigger.blend", "Blend", 0, 100, "% sample", m => S(m)?.Trigger.Blend, q, step: 1, def: 70);
+        TrigLevel = new SliderParam($"{id}.trigger.level", "Sample level", -24, 12, "dB", m => S(m)?.Trigger.Level, q, step: 0.5, def: 0);
+        TrigPitch = new SliderParam($"{id}.trigger.pitch", "Tune", -12, 12, "st", m => S(m)?.Trigger.Pitch, q, step: 0.5, def: 0);
+        TrigGateTime = new SliderParam($"{id}.trigger.gateTime", "Mic open", 20, 1000, "ms", m => S(m)?.Trigger.GateTime, q, log: true, def: 150);
+        TrigRoundRobin = new ToggleParam($"{id}.trigger.roundRobin", "Round robin", m => S(m)?.Trigger.RoundRobin ?? false, q);
+        TrigNaturalGate = new ToggleParam($"{id}.trigger.naturalGate", "Natural gate", m => S(m)?.Trigger.NaturalGate ?? false, q);
+        TrigCompare = new ToggleParam($"{id}.trigger.compare", "Natural (A/B)", m => S(m)?.Trigger.Compare ?? false, q);
         GateMode = new ChoiceParam($"{id}.gate.mode", "Mode", [new("Gate", "Gate"), new("Ducker", "Ducker")], m => S(m)?.Gate.Mode.ToString(), q);
         var keys = new List<Choice> { new("", "Itself") };
         keys.AddRange(mix.Channels.Where(c => c.Id != id).Select(c => new Choice(c.Id, $"{c.Number} · {owner.NameOf(c)}")));
         GateKeySource = new ChoiceParam($"{id}.gate.key", "Listens to", keys, m => S(m)?.Gate.Key ?? "", q);
         CompKeySource = new ChoiceParam($"{id}.comp.key", "Listens to", keys, m => S(m)?.Comp.Key ?? "", q);
+        TrigKeySource = new ChoiceParam($"{id}.trigger.key", "Listens to", keys, m => S(m)?.Trigger.Key ?? "", q);
         Order = new ChoiceParam($"{id}.order", "Order", [new("EqFirst", "EQ → Dynamics"), new("DynamicsFirst", "Dynamics → EQ")], m => S(m)?.Order.ToString(), q);
         for (var b = 0; b < s.Eq.Bands.Count; b++) Bands.Add(new EqBandView(owner, id, b, q));
 
@@ -292,6 +308,21 @@ public sealed class ChannelControls
     public ToggleParam DynEqOn { get; }
     public ObservableCollection<DynEqBandView> DynBands { get; } = [];
 
+    public ToggleParam TrigOn { get; }
+    public SliderParam TrigThreshold { get; }
+    public SliderParam TrigHold { get; }
+    public SliderParam TrigLow { get; }
+    public SliderParam TrigHigh { get; }
+    public SliderParam TrigDynamics { get; }
+    public SliderParam TrigBlend { get; }
+    public SliderParam TrigLevel { get; }
+    public SliderParam TrigPitch { get; }
+    public SliderParam TrigGateTime { get; }
+    public ToggleParam TrigRoundRobin { get; }
+    public ToggleParam TrigNaturalGate { get; }
+    public ToggleParam TrigCompare { get; }
+    public ChoiceParam TrigKeySource { get; }
+
     public ChoiceParam GateMode { get; }
     public ChoiceParam GateKeySource { get; }
     public ChoiceParam CompKeySource { get; }
@@ -317,6 +348,9 @@ public sealed class ChannelControls
         yield return EqOn;
         yield return DriveOn; yield return DriveStyle; yield return DriveAmount; yield return DriveMix; yield return DriveOutput;
         yield return DynEqOn; yield return GateMode; yield return GateKeySource; yield return CompKeySource; yield return CompDetect; yield return Order;
+        yield return TrigOn; yield return TrigThreshold; yield return TrigHold; yield return TrigLow; yield return TrigHigh; yield return TrigDynamics;
+        yield return TrigBlend; yield return TrigLevel; yield return TrigPitch; yield return TrigGateTime; yield return TrigRoundRobin;
+        yield return TrigNaturalGate; yield return TrigCompare; yield return TrigKeySource;
     }
 
     public void Refresh(MixState m)

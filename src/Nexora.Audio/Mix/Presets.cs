@@ -138,6 +138,7 @@ public sealed class PresetStore
         x.TakeProcessing(s, newIds: true);
         x.Gate.Key = "";
         x.Comp.Key = "";
+        x.Trigger.Key = "";
         return x;
     }
 
@@ -188,6 +189,28 @@ public sealed class PresetStore
             s.Gate = new GateSettings { On = true, Threshold = -30, Range = 20, Attack = 0.3, Hold = 40, Release = 150, KeyFilter = 150 };
             s.Comp = new CompSettings { On = true, Style = CompStyle.Fet, Threshold = -18, Ratio = 3, Attack = 8, Release = 100, Knee = 4 };
         }),
+        Make("trig-kick", "Drums", "Kick drum, triggered (starter kit)", s =>
+        {
+            s.Hpf = new PassFilter { On = true, Freq = 35, Slope = 12 };
+            s.Trigger = Triggered("Kick", -26, 60, 40, 3000, 85);
+            s.Comp = new CompSettings { On = true, Style = CompStyle.Fet, Threshold = -14, Ratio = 3, Attack = 15, Release = 80, Knee = 4 };
+        }),
+        Make("trig-snare", "Drums", "Snare drum, triggered (starter kit)", s =>
+        {
+            s.Hpf = new PassFilter { On = true, Freq = 90, Slope = 12 };
+            s.Trigger = Triggered("Snare", -24, 40, 150, 4000, 70);
+            s.Comp = new CompSettings { On = true, Style = CompStyle.Fet, Threshold = -16, Ratio = 3, Attack = 8, Release = 100, Knee = 4 };
+        }),
+        Make("trig-racktom", "Drums", "Rack tom, triggered (starter kit)", s =>
+        {
+            s.Hpf = new PassFilter { On = true, Freq = 70, Slope = 12 };
+            s.Trigger = Triggered("Rack tom", -22, 60, 80, 2500, 90);
+        }),
+        Make("trig-floortom", "Drums", "Floor tom, triggered (starter kit)", s =>
+        {
+            s.Hpf = new PassFilter { On = true, Freq = 50, Slope = 12 };
+            s.Trigger = Triggered("Floor tom", -22, 70, 60, 2000, 90);
+        }),
         Make("acoustic", "Instruments", "Acoustic guitar", s =>
         {
             s.Hpf = new PassFilter { On = true, Freq = 100, Slope = 24 };
@@ -213,6 +236,13 @@ public sealed class PresetStore
             s.Gate = new GateSettings { On = true, Mode = GateMode.Ducker, Threshold = -40, Range = 10, Attack = 20, Hold = 400, Release = 800 };
         }),
     ];
+
+    /// <summary>A trigger on one drum of the starter kit, all four layers with two takes each.</summary>
+    private static TriggerSettings Triggered(string drum, double threshold, double hold, double low, double high, double blend) => new()
+    {
+        On = true, Threshold = threshold, Hold = hold, FocusLow = low, FocusHigh = high, Blend = blend,
+        Layers = Drums.StarterKit.Layers(drum).Select(l => new TriggerLayer { Samples = l }).ToList(),
+    };
 
     private static ChannelPreset Make(string id, string folder, string name, Action<Strip> set)
     {
